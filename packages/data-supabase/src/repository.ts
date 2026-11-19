@@ -16,6 +16,29 @@ import type { Database, Json, Tables } from './database.types.ts';
 
 export type ElKartaClient = SupabaseClient<Database>;
 export type MemberRole = 'editor' | 'viewer';
+export type AttachmentKind = 'floorplan' | 'photo' | 'panel_photo' | 'breaker_list';
+type FileBody = Parameters<ReturnType<ElKartaClient['storage']['from']>['upload']>[1];
+
+/** The storage bucket for every project file; objects live under `<projectId>/` (ADR 0004). */
+export const PROJECT_FILES_BUCKET = 'project-files';
+
+export interface NewAttachment {
+  /** Chosen by the caller, like floor ids, so the model can refer to it before the upload ends. */
+  id: Id;
+  projectId: Id;
+  floorId?: Id;
+  kind: AttachmentKind;
+  /** File extension without the dot, such as `png`; part of the storage path. */
+  extension: string;
+  contentType: string;
+  body: FileBody;
+}
+
+export interface SignedUrl {
+  url: string;
+  /** Milliseconds since the epoch, as `Date.now()`. */
+  expiresAt: number;
+}
 
 export class RepositoryError extends Error {
   override name = 'RepositoryError';
@@ -29,6 +52,11 @@ export class RepositoryError extends Error {
 
 const fail = (error: { message: string; code?: string }): never => {
   throw new RepositoryError(error.message, error.code);
+};
+
+export const attachmentPath = (projectId: Id, attachmentId: Id, extension: string) => {
+  if (!/^[a-z0-9]{1,8}$/.test(extension)) throw new RepositoryError(`Bad extension "${extension}"`);
+  return `${projectId}/${attachmentId}.${extension}`;
 };
 
 // Documents are validated by Zod on the way in and out; the database only sees JSON.
@@ -183,6 +211,49 @@ export class SupabaseRepository implements Repository {
       .select('id');
     if (error) fail(error);
     if (!data?.length) throw new NotFoundError(`Floor ${floorId} not found`);
+  }
+
+  /**
+   * Stores a file in the project's storage folder and records it as an attachment, both as the
+   * signed-in user: only owners and editors can. If the row cannot be added, the file is removed.
+   */
+  async uploadAttachment(attachment: NewAttachment): Promise<{ storagePath: string }> {
+    const storagePath = attachmentPath(attachment.projectId, attachment.id, attachment.extension);
+    const files = this.client.storage.from(PROJECT_FILES_BUCKET);
+    const uploaded = await files.upload(storagePath, attachment.body, {
+      contentType: attachment.contentType,
+      upsert: false,
+    });
+    if (uploaded.error) throw new RepositoryError(uploaded.error.message);
+    const { error } = await this.client.from('attachments').insert({
+      id: attachment.id,
+      project_id: attachment.projectId,
+      floor_id: attachment.floorId ?? null,
+      kind: attachment.kind,
+      storage_path: storagePath,
+    });
+    if (error) {
+      await files.remove([storagePath]);
+      fail(error);
+    }
+    return { storagePath };
+  }
+
+  /** A time-limited URL for reading an attachment's file. Any project member can get one. */
+  async attachmentUrl(attachmentId: Id, expiresInSeconds = 3600): Promise<SignedUrl> {
+    const { data, error } = await this.client
+      .from('attachments')
+      .select('storage_path')
+      .eq('id', attachmentId)
+      .maybeSingle();
+    if (error) fail(error);
+    if (!data) throw new NotFoundError(`Attachment ${attachmentId} not found`);
+    const requestedAt = Date.now();
+    const signed = await this.client.storage
+      .from(PROJECT_FILES_BUCKET)
+      .createSignedUrl(data.storage_path, expiresInSeconds);
+    if (signed.error) throw new RepositoryError(signed.error.message);
+    return { url: signed.data.signedUrl, expiresAt: requestedAt + expiresInSeconds * 1000 };
   }
 
   /** Adds an existing user (by the email they signed in with) to the project. Owners only. */

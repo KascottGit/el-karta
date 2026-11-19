@@ -1,4 +1,5 @@
 import type { Draft } from 'immer';
+import type { FloorBackground, FloorScale } from '../geometry/background.ts';
 import { indexModel } from '../model.ts';
 import type {
   Building,
@@ -191,6 +192,27 @@ export const removeFloor =
       else delete connection.route;
     }
     delete draft.floors[floorId];
+  };
+
+/**
+ * Sets or (with null) removes the floor's background image placement. Walls and everything else
+ * stay where they are; only the image moves.
+ */
+export const setBackground =
+  (floorId: Id, background: FloorBackground | null): Edit =>
+  (draft) => {
+    const { data } = floorOf(draft, floorId);
+    if (background) data.background = background;
+    else delete data.background;
+  };
+
+/** Sets or (with null) removes the floor's plan scale. Like `setBackground`, it moves only the image. */
+export const setScale =
+  (floorId: Id, scale: FloorScale | null): Edit =>
+  (draft) => {
+    const { data } = floorOf(draft, floorId);
+    if (scale) data.scale = scale;
+    else delete data.scale;
   };
 
 export const addBuilding =

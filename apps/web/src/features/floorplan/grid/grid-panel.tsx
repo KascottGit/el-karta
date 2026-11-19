@@ -23,11 +23,11 @@ import { Label } from '@/ui/label';
 import { useEditorStore } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
 import type { Rect } from '../canvas/rect';
-import { CommitInput } from './commit-input';
+import { CommitInput } from '../fields/commit-input';
+import { formatDecimal, parseDecimal } from '../fields/numbers';
 import { coveringLines, DEFAULT_SPACING, nextLinePos } from './defaults';
 import { editGrid, gridUiStore } from './interaction';
 import { selectionCells } from './item-anchor';
-import { formatNumber, parseNumber } from './number-text';
 import { useContentBounds } from './use-grid-geometry';
 
 const AXES: readonly GridAxis[] = ['x', 'y'];
@@ -37,7 +37,9 @@ const MAX_CELLS_SHOWN = 6;
 const rangeOf = (content: Rect | null, axis: GridAxis): [number, number] | null =>
   content && (axis === 'x' ? [content.minX, content.maxX] : [content.minY, content.maxY]);
 
-const isNumber = (text: string) => parseNumber(text) !== null;
+/** Positions to the millimetre. */
+const formatMetres = (n: number) => formatDecimal(n, 3);
+const isNumber = (text: string) => parseDecimal(text) !== null;
 const isLabel = (text: string) => text.trim() !== '';
 
 /** The grid tool's side panel: the location under the pointer, the lines, and an evenly spaced grid. */
@@ -122,10 +124,10 @@ function AxisLines({
                 className="flex-1"
                 inputMode="decimal"
                 aria-label={t('grid.linePosition', { label: line.label })}
-                value={formatNumber(line.pos)}
+                value={formatMetres(line.pos)}
                 valid={isNumber}
                 onCommit={(text) => {
-                  const pos = parseNumber(text);
+                  const pos = parseDecimal(text);
                   if (pos !== null) edit((g) => moveGridLine(g, axis, index, pos));
                 }}
               />
@@ -177,24 +179,24 @@ interface AxisForm {
 }
 
 function coveringForm(range: [number, number] | null, spacingText: string): AxisForm {
-  const spacing = parseNumber(spacingText);
+  const spacing = parseDecimal(spacingText);
   const covering = coveringLines(range, spacing && spacing > 0 ? spacing : DEFAULT_SPACING);
   return {
     count: String(covering.count),
     spacing: spacingText,
-    start: formatNumber(covering.start),
+    start: formatMetres(covering.start),
   };
 }
 
 const parseCount = (text: string) => {
-  const n = parseNumber(text);
+  const n = parseDecimal(text);
   return n !== null && Number.isInteger(n) && n >= 0 && n <= MAX_LINES ? n : null;
 };
 
 function parseAxis(form: AxisForm) {
   const count = parseCount(form.count);
-  const spacing = parseNumber(form.spacing);
-  const start = parseNumber(form.start);
+  const spacing = parseDecimal(form.spacing);
+  const start = parseDecimal(form.start);
   return count !== null && spacing !== null && spacing > 0 && start !== null
     ? { count, spacing, start }
     : null;
@@ -211,7 +213,7 @@ function EvenGridForm({
   content: Rect | null;
 }) {
   const { t } = useTranslation();
-  const defaultSpacing = formatNumber(DEFAULT_SPACING);
+  const defaultSpacing = formatMetres(DEFAULT_SPACING);
   const [form, setForm] = useState<Record<GridAxis, AxisForm>>(() => ({
     x: coveringForm(rangeOf(content, 'x'), defaultSpacing),
     y: coveringForm(rangeOf(content, 'y'), defaultSpacing),
@@ -223,7 +225,7 @@ function EvenGridForm({
 
   const field = (axis: GridAxis, key: keyof AxisForm, label: string) => {
     const id = `${idPrefix}-${axis}-${key}`;
-    const invalid = (key === 'count' ? parseCount : parseNumber)(form[axis][key]) === null;
+    const invalid = (key === 'count' ? parseCount : parseDecimal)(form[axis][key]) === null;
     return (
       <div className="flex flex-col gap-1">
         <Label htmlFor={id} className="text-xs font-normal text-muted-foreground">

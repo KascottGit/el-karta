@@ -1,5 +1,6 @@
 import { useState, type ComponentProps } from 'react';
 import { Input } from '@/ui/input';
+import { textToCommit } from './commit';
 
 /**
  * A text field that edits a model value and commits it on Enter or blur, so typing makes one
@@ -17,7 +18,8 @@ export function CommitInput({
 } & Omit<ComponentProps<'input'>, 'value' | 'onChange' | 'onBlur' | 'onKeyDown'>) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
-    if (draft !== null && draft !== value && valid(draft)) onCommit(draft);
+    const text = textToCommit(draft, value, valid);
+    if (text !== null) onCommit(text);
     setDraft(null);
   };
   return (

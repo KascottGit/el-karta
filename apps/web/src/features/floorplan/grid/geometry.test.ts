@@ -9,7 +9,6 @@ import { describe, expect, it } from 'vitest';
 import { coveringLines, DEFAULT_SPACING, nextLinePos } from './defaults';
 import { contentBounds, gridExtent, gridFitBounds } from './extent';
 import { itemAnchor, selectionCells } from './item-anchor';
-import { formatNumber, parseNumber } from './number-text';
 
 const manual: Provenance = { status: 'manual' };
 
@@ -165,15 +164,5 @@ describe('grid panel defaults', () => {
     expect(nextLinePos(grid.xLines, 0)).toBe(15);
     expect(nextLinePos([{ label: 'A', pos: 2 }], 0)).toBe(2 + DEFAULT_SPACING);
     expect(nextLinePos([], -3)).toBe(-3);
-  });
-
-  it('reads and writes numbers with a decimal comma', () => {
-    expect(formatNumber(6.5)).toBe('6,5');
-    expect(formatNumber(1.23456)).toBe('1,235');
-    expect(parseNumber(formatNumber(-2.5))).toBe(-2.5);
-    expect(parseNumber(' 3,25 ')).toBe(3.25);
-    expect(parseNumber('3.25')).toBe(3.25);
-    expect(parseNumber('')).toBeNull();
-    expect(parseNumber('tre')).toBeNull();
   });
 });
