@@ -1,4 +1,13 @@
-import { moveGridLine, setGrid, type Grid, type GridAxis, type Id, type Pt } from '@el-karta/core';
+import {
+  gridLines,
+  moveGridLine,
+  setGrid,
+  sortLines,
+  type Grid,
+  type GridAxis,
+  type Id,
+  type Pt,
+} from '@el-karta/core';
 import { Grid3x3 } from 'lucide-react';
 import { createStore } from 'zustand/vanilla';
 import { modelStore } from '@/model/store';
@@ -67,7 +76,12 @@ export const gridLineHandle: Handle<LineRef & { from: number }> = {
     if (!drag) return;
     const pos = dragPos(drag, p);
     if (pos !== drag.from) {
-      editGrid(ctx.floorId, (grid) => moveGridLine(grid, drag.axis, drag.index, pos));
+      editGrid(ctx.floorId, (grid) =>
+        // The grid may have changed during the drag (undo, a merged remote save); never move another line.
+        sortLines(gridLines(grid, drag.axis))[drag.index]?.pos === drag.from
+          ? moveGridLine(grid, drag.axis, drag.index, pos)
+          : grid,
+      );
     }
   },
   onDragCancel: () => {

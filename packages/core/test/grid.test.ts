@@ -177,6 +177,18 @@ describe('gridCell', () => {
     expect(nearestGridLine(custom.xLines, 4)).toEqual({ label: 'J', pos: 0 });
     expect(nearestGridLine([], 4)).toBeNull();
   });
+
+  it('measures the outer reach to the nearest line at a different position', () => {
+    const lines = [
+      { label: 'A', pos: 0 },
+      { label: 'B', pos: 0 },
+      { label: 'C', pos: 6 },
+    ];
+    expect(nearestGridLine(lines, -1)?.pos).toBe(0);
+    expect(nearestGridLine(lines, -3.5)).toBeNull();
+    expect(nearestGridLine(lines, 8)?.label).toBe('C');
+    expect(nearestGridLine([lines[0]!, lines[1]!], 100)?.label).toBe('A');
+  });
 });
 
 describe('setGrid', () => {

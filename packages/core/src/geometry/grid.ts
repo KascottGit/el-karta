@@ -126,9 +126,12 @@ export function nearestGridLine(lines: readonly GridLine[], v: number): GridLine
   const first = sorted[0];
   const last = sorted.at(-1);
   if (!first || !last) return null;
-  if (sorted.length === 1) return first;
-  const firstReach = (sorted[1]!.pos - first.pos) / 2;
-  const lastReach = (last.pos - sorted.at(-2)!.pos) / 2;
+  // Lines sharing a position must not shrink the outer reach to zero.
+  const nextDistinct = sorted.find((line) => line.pos > first.pos + EPSILON);
+  const previousDistinct = sorted.findLast((line) => line.pos < last.pos - EPSILON);
+  if (!nextDistinct || !previousDistinct) return first;
+  const firstReach = (nextDistinct.pos - first.pos) / 2;
+  const lastReach = (last.pos - previousDistinct.pos) / 2;
   if (v < first.pos - firstReach - EPSILON || v > last.pos + lastReach + EPSILON) return null;
   for (let i = 0; i < sorted.length - 1; i++) {
     if (v <= (sorted[i]!.pos + sorted[i + 1]!.pos) / 2 + EPSILON) return sorted[i]!;
