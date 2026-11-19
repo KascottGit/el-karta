@@ -31,6 +31,16 @@ interface HistoryEntry {
   inversePatches: Patch[];
 }
 
+export const hasUnsavedChanges = (state: Pick<ModelState, 'pending'>) =>
+  Object.values(state.pending).some((changes) => changes.length > 0);
+
+export class UnsavedChangesError extends Error {
+  override name = 'UnsavedChangesError';
+  constructor(readonly projectName: string) {
+    super(`Project "${projectName}" has unsaved changes`);
+  }
+}
+
 export interface ModelState {
   model: Model | null;
   /** Updated in place on every change; subscribe to `graphVersion` to react to it. */
@@ -45,7 +55,13 @@ export interface ModelState {
   saving: boolean;
   /** Changes that could not be applied on top of someone else's newer version, for the user to resolve. */
   conflicts: RejectedChange[];
-  load: (model: Model) => void;
+  /**
+   * Opens a project. Throws `UnsavedChangesError` instead of replacing another project that still has
+   * unsaved or in-flight changes, unless `discardUnsaved` is set.
+   */
+  load: (model: Model, options?: { discardUnsaved?: boolean }) => void;
+  /** Forgets the open project, e.g. on sign-out. */
+  clear: () => void;
   apply: (edit: Edit) => void;
   undo: () => void;
   redo: () => void;
@@ -159,6 +175,10 @@ export function createModelStore() {
     ) {
       if (doc !== 'project' && !(doc in get().saved)) return;
       const { model, graph } = requireLoaded();
+      const projectId =
+        'projectId' in outcome.record ? outcome.record.projectId : outcome.record.id;
+      // A save of a project that has since been closed must not touch the one now open.
+      if (projectId !== model.project.id) return;
       const sentIds = new Set(sent.map((c) => c.id));
       const remaining = (get().pending[doc] ?? []).filter((c) => !sentIds.has(c.id));
       const local = documentOf(model, doc);
@@ -202,7 +222,16 @@ export function createModelStore() {
       saving: false,
       conflicts: [],
 
-      load: (model) => {
+      load: (model, options = {}) => {
+        const current = get();
+        if (
+          current.model &&
+          current.model.project.id !== model.project.id &&
+          !options.discardUnsaved &&
+          (current.saving || hasUnsavedChanges(current))
+        ) {
+          throw new UnsavedChangesError(current.model.project.name);
+        }
         // Freezing up front moves Immer's one-time deep freeze out of the first edit.
         freeze(model, true);
         set((s) => ({
@@ -213,6 +242,19 @@ export function createModelStore() {
           future: [],
           pending: {},
           saved: savedDocuments(model),
+          conflicts: [],
+        }));
+      },
+
+      clear: () => {
+        set((s) => ({
+          model: null,
+          graph: null,
+          graphVersion: s.graphVersion + 1,
+          past: [],
+          future: [],
+          pending: {},
+          saved: {},
           conflicts: [],
         }));
       },

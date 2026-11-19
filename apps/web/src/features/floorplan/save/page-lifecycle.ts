@@ -1,6 +1,7 @@
 import type { StoreApi } from 'zustand';
 import type { ModelState } from '@/model/store';
-import { hasUnsavedChanges, type Autosave } from './autosave';
+import { hasUnsavedChanges } from '@/model/store';
+import type { Autosave } from './autosave';
 
 type VisibilityTarget = EventTarget & { readonly visibilityState: DocumentVisibilityState };
 

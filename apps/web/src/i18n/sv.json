@@ -20,7 +20,8 @@
     "submit": "Skicka inloggningslänk",
     "sent": "Klart! Öppna länken som skickades till {{email}} i den här webbläsaren.",
     "failed": "Det gick inte att skicka länken. Försök igen om en stund.",
-    "signOut": "Logga ut"
+    "signOut": "Logga ut",
+    "signOutUnsaved": "Några ändringar kunde inte sparas och försvinner om du loggar ut. Logga ut ändå?"
   },
   "projectKind": {
     "home": "Bostad",
@@ -124,5 +125,10 @@
       "more_one": "{{count}} sak till",
       "more_other": "{{count}} saker till"
     }
+  },
+  "unsavedProject": {
+    "message": "Ändringar i projektet ”{{name}}” har inte kunnat sparas än. Spara dem innan du öppnar ett annat projekt, eller släng dem.",
+    "retry": "Försök spara igen",
+    "discard": "Släng ändringarna"
   }
 }

@@ -14,7 +14,7 @@ import {
   type SaveResult,
 } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
-import { createModelStore, type ModelState } from './store';
+import { createModelStore, hasUnsavedChanges, UnsavedChangesError, type ModelState } from './store';
 
 function setup() {
   const model = generateProject('small');
@@ -339,5 +339,86 @@ describe('model store floors', () => {
     );
     expect((await repository.loadProject(model.project.id)).floors[ground.id]).toBeDefined();
     expect(store.getState().saving).toBe(false);
+  });
+});
+
+describe('model store switching projects', () => {
+  const firstOutlet = (model: Model) =>
+    Object.values(model.floors)
+      .flatMap((f) => Object.values(f.data.devices))
+      .find((d) => d.type === 'outlet')!;
+
+  it('refuses to replace a project with unsaved changes unless told to discard them', () => {
+    const a = generateProject('small', 1);
+    const b = generateProject('small', 2);
+    const store = createModelStore();
+    store.getState().load(a);
+    store.getState().apply(updateDevice(firstOutlet(a).id, { label: 'Osparad' }));
+
+    expect(() => {
+      store.getState().load(b);
+    }).toThrow(UnsavedChangesError);
+    expect(store.getState().model!.project.id).toBe(a.project.id);
+    expect(() => {
+      store.getState().load(a);
+    }).not.toThrow();
+
+    store.getState().load(b, { discardUnsaved: true });
+    expect(store.getState().model!.project.id).toBe(b.project.id);
+    expect(hasUnsavedChanges(store.getState())).toBe(false);
+  });
+
+  it('refuses while a save is in flight, and ignores that save once another project is open', async () => {
+    let release = () => {};
+    class GatedRepository extends InMemoryRepository {
+      override async saveFloor(
+        record: FloorRecord,
+        expectedVersion: number,
+      ): Promise<SaveResult<FloorRecord>> {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return super.saveFloor(record, expectedVersion);
+      }
+    }
+    const repository = new GatedRepository();
+    const a = await repository.createProject(generateProject('small', 1));
+    const b = generateProject('small', 2);
+    const store = createModelStore();
+    store.getState().load(a);
+    store.getState().apply(updateDevice(firstOutlet(a).id, { label: 'Sparas sent' }));
+    const saving = store.getState().save(repository);
+    await Promise.resolve();
+
+    expect(store.getState().saving).toBe(true);
+    expect(() => {
+      store.getState().load(b);
+    }).toThrow(UnsavedChangesError);
+
+    store.getState().load(b, { discardUnsaved: true });
+    const opened = store.getState().model;
+    release();
+    await saving;
+
+    expect(store.getState().model).toBe(opened);
+    expect(Object.keys(store.getState().saved).sort()).toEqual(
+      ['project', ...Object.keys(b.floors)].sort(),
+    );
+    const stored = await repository.loadProject(a.project.id);
+    expect(Object.values(stored.floors).some((f) => f.version === 2)).toBe(true);
+  });
+
+  it('forgets everything on clear', () => {
+    const { store, outlet } = setup();
+    store.getState().apply(updateDevice(outlet.id, { label: 'x' }));
+    store.getState().clear();
+    const state = store.getState();
+    expect([state.model, state.graph, state.past, state.pending, state.saved]).toEqual([
+      null,
+      null,
+      [],
+      {},
+      {},
+    ]);
   });
 });

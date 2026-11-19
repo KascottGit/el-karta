@@ -12,13 +12,16 @@ import { Label } from '@/ui/label';
 import { FloorManager } from './floor-manager';
 import { useShareProject } from './queries';
 import { useLoadedProject } from './use-loaded-project';
+import { UnsavedProjectNotice } from './unsaved-project-notice';
 
 export function ProjectPage() {
   const { t } = useTranslation();
   const { projectId = '' } = useParams();
-  const { model, failed } = useLoadedProject(projectId);
+  const project = useLoadedProject(projectId);
+  const { model, failed } = project;
 
   if (failed) return <p className="text-destructive">{t('project.notFound')}</p>;
+  if (project.blockedBy) return <UnsavedProjectNotice project={project} />;
   if (!model) return <p className="text-muted-foreground">{t('common.loading')}</p>;
 
   return (

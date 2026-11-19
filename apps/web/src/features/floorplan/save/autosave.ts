@@ -1,7 +1,7 @@
 import type { DocumentKey, Repository } from '@el-karta/core';
 import type { StoreApi } from 'zustand';
 import { createStore } from 'zustand/vanilla';
-import type { ModelState } from '@/model/store';
+import { hasUnsavedChanges, type ModelState } from '@/model/store';
 import { describeConflict, type ConflictDescription } from './conflicts';
 
 export interface AutosaveOptions {
@@ -43,11 +43,8 @@ export interface Autosave {
 
 type ModelStore = StoreApi<ModelState>;
 
-export const hasUnsavedChanges = (state: Pick<ModelState, 'pending'>) =>
-  Object.values(state.pending).some((changes) => changes.length > 0);
-
 /** Resolves once no save is running, so a save started elsewhere is never skipped silently. */
-function whenIdle(store: ModelStore): Promise<void> {
+export function whenIdle(store: ModelStore): Promise<void> {
   if (!store.getState().saving) return Promise.resolve();
   return new Promise((resolve) => {
     const unsubscribe = store.subscribe((state) => {

@@ -8,7 +8,8 @@ import {
 } from '@el-karta/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createModelStore } from '@/model/store';
-import { createAutosave, hasUnsavedChanges, type AutosaveOptions } from './autosave';
+import { hasUnsavedChanges } from '@/model/store';
+import { createAutosave, type AutosaveOptions } from './autosave';
 import { bindPageLifecycle } from './page-lifecycle';
 
 const OPTIONS: AutosaveOptions = {
