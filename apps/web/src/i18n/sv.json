@@ -1,0 +1,20 @@
+{
+  "app": {
+    "name": "El-karta",
+    "safetyNote": "El-karta är ett verktyg för dokumentation och planering. Arbete på den fasta elinstallationen ska utföras av en behörig elinstallatör."
+  },
+  "nav": {
+    "projects": "Projekt"
+  },
+  "projects": {
+    "title": "Projekt",
+    "empty": "Inga projekt ännu."
+  },
+  "project": {
+    "title": "Projekt {{projectId}}"
+  },
+  "notFound": {
+    "title": "Sidan finns inte",
+    "back": "Till startsidan"
+  }
+}
