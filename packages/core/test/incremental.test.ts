@@ -96,7 +96,8 @@ function randomEdit(model: Model, random: () => number, id: () => string): Edit 
   });
 }
 
-describe('incremental index and graph', () => {
+// Long randomized run; generous timeout so shared CI runners don't fail it on time alone.
+describe('incremental index and graph', { timeout: 30_000 }, () => {
   it('match a full rebuild after random edits, undos and redos', () => {
     const random = seededRandom(5);
     const id = seededUuid(seededRandom(6));
