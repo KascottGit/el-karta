@@ -77,6 +77,21 @@ describe('editor store', () => {
     expect(center().x).toBeCloseTo(230);
   });
 
+  it('does not refit when a selection or tool change resizes the canvas for a side panel', () => {
+    const store = setup();
+    store.getState().fit({ minX: 0, minY: 0, maxX: 10, maxY: 10 });
+    const fitted = store.getState().viewport;
+    store.getState().select([{ collection: 'walls', id: crypto.randomUUID() }]);
+    store.getState().setSize({ width: 512, height: 600 });
+    expect(store.getState().viewport).toEqual(fitted);
+
+    store.getState().fit({ minX: 0, minY: 0, maxX: 10, maxY: 10 });
+    const refitted = store.getState().viewport;
+    store.getState().setTool('wall');
+    store.getState().setSize({ width: 800, height: 600 });
+    expect(store.getState().viewport).toEqual(refitted);
+  });
+
   it('fits bounds into the measured canvas', () => {
     const store = setup();
     store.getState().fit({ minX: 10, minY: 10, maxX: 20, maxY: 15 });

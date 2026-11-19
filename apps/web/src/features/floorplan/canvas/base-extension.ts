@@ -5,19 +5,20 @@ import { deleteSelected } from './commands';
 import type { EditorExtension, Tool } from './extension';
 import { toggleItem } from './selection';
 
-const selectTool: Tool = {
+export const selectTool: Tool = {
   id: DEFAULT_TOOL,
   label: 'canvas.tools.select',
   icon: MousePointer2,
   order: 0,
   shortcut: 'v',
   onTap: (p, ctx) => {
-    if (p.onHandle) return;
     const hit = ctx.itemAt(p.screen, p.kind);
     const { selection, select } = editorStore.getState();
-    if (p.shiftKey || p.modKey) {
-      if (hit) select(toggleItem(selection, hit));
-    } else select(hit ? [hit] : []);
+    if (!hit) {
+      // A tap on a bare handle (say a wall end) keeps the selection it belongs to.
+      if (!p.onHandle && !p.shiftKey && !p.modKey) select([]);
+    } else if (p.shiftKey || p.modKey) select(toggleItem(selection, hit));
+    else select([hit]);
   },
 };
 

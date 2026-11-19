@@ -20,6 +20,29 @@ export const handle = <P>(spec: Handle<P>, payload: P) => ({
   [HANDLE_PAYLOAD]: payload,
 });
 
+/**
+ * Merges `selectable(...)` and `handle(...)` props for one node. Plain spreading would keep only the
+ * last `name`; Konva names are space-separated, so this joins them.
+ */
+export function nodeProps<A extends { name: string }, B extends { name: string }>(a: A, b: B) {
+  return { ...a, ...b, name: `${a.name} ${b.name}` };
+}
+
+const nameWith = (names: string, prefix: string) =>
+  names
+    .split(' ')
+    .find((n) => n.startsWith(prefix))
+    ?.slice(prefix.length);
+
+/** The collection a node's Konva name marks it selectable in, if any. */
+export const selectableCollection = (names: string): FloorCollection | undefined => {
+  const collection = nameWith(names, SELECTABLE);
+  return FLOOR_COLLECTIONS.find((c) => c === collection);
+};
+
+/** The handle name in a node's Konva name, if any. */
+export const handleName = (names: string): string | undefined => nameWith(names, HANDLE);
+
 /** Finger-sized search radius in pixels, so thin walls and small handles can be tapped. */
 export const TOUCH_RADIUS = 12;
 
@@ -56,9 +79,7 @@ function findAt<T>(
 
 export function itemAt(stage: Konva.Stage, screen: Pt, kind: PointerKind): SelectionItem | null {
   return findAt(stage, screen, kind, (node) => {
-    const name = node.name();
-    if (!name.startsWith(SELECTABLE)) return undefined;
-    const collection = FLOOR_COLLECTIONS.find((c) => c === name.slice(SELECTABLE.length));
+    const collection = selectableCollection(node.name());
     return collection && { collection, id: node.id() };
   });
 }
@@ -75,8 +96,8 @@ export function handleAt(
   registry: ResolvedExtensions,
 ): HandleHit | null {
   return findAt(stage, screen, kind, (node) => {
-    const name = node.name();
-    const spec = name.startsWith(HANDLE) ? registry.handles.get(name.slice(HANDLE.length)) : null;
+    const name = handleName(node.name());
+    const spec = name === undefined ? undefined : registry.handles.get(name);
     return spec ? { handle: spec, payload: node.getAttr(HANDLE_PAYLOAD) as unknown } : undefined;
   });
 }

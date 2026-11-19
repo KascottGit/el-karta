@@ -34,7 +34,11 @@ export interface EditorState {
   size: Size;
   /** Updated only when the view leaves it, so renderers that cull by it re-render rarely. */
   renderWindow: RenderWindow;
-  /** The bounds of the last zoom to fit, kept until the view is moved so a resize can refit them. */
+  /**
+   * The bounds of the last zoom to fit, so a resize while the page settles can refit them. Cleared
+   * once the person moves the view, selects or picks a tool, so a side panel opening then does not
+   * refit the view under them.
+   */
   fitted: { bounds: Rect | null } | null;
   drawing: Drawing | null;
   /** Clears selection and drawing for another floor. The viewport stays, since floors are stacked. */
@@ -71,10 +75,10 @@ export function createEditorStore() {
         if (get().floorId !== floorId) set({ floorId, selection: [], drawing: null });
       },
       setTool: (tool) => {
-        set({ tool, drawing: null });
+        set({ tool, drawing: null, fitted: null });
       },
       select: (selection) => {
-        set({ selection });
+        set({ selection, fitted: null });
       },
       setViewport: (viewport) => {
         set({ ...view(viewport), fitted: null });

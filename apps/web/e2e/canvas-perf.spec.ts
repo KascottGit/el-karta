@@ -165,4 +165,9 @@ test('panning the busiest floor of the large synthetic project across render win
   expect(crossings).toBeGreaterThanOrEqual(SWEEPS);
   expect(report.pan.work.frames).toBeGreaterThan(SWEEPS * 50);
   expect(report.pan.work.p95).toBeLessThan(BUDGET_MS);
+  if (process.env['PERF_BUDGET']) {
+    // The deferred render runs outside the work probe; a slow one shows up as dropped frames.
+    expect(report.pan.interval.p95).toBeLessThan(17);
+    expect(report.pan.interval.over).toBeLessThanOrEqual(3);
+  }
 });

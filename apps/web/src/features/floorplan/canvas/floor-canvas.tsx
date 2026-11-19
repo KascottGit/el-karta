@@ -140,7 +140,7 @@ export function FloorCanvas({
             ? el.clientHeight
             : 1;
       const { viewport, setViewport } = editorStore.getState();
-      if (wheelIntent(e) === 'pan') {
+      if (wheelIntent(e, window.devicePixelRatio) === 'pan') {
         setViewport(panBy(viewport, -e.deltaX * unit, -e.deltaY * unit));
         return;
       }

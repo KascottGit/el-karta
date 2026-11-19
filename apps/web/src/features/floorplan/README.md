@@ -65,8 +65,18 @@ const wallEnd: Handle<{ wallId: Id; end: 'a' | 'b' }> = {
     /* drop the preview */
   },
 };
+// In the layer component; see "Sizes in pixels" below for `scale`.
+const scale = useEditorStore((s) => s.viewport.scale);
 <Circle {...handle(wallEnd, { wallId, end: 'a' })} x={a.x} y={a.y} radius={6 / scale} />;
 ```
+
+A node can be both selectable and a handle, e.g. an opening you select by tapping and slide by dragging. Plain spreading would keep only the last `name`, so merge the two with `nodeProps`:
+
+```tsx
+<Line {...nodeProps(selectable('openings', o.id), handle(openingSlide, { id: o.id }))} … />
+```
+
+The select tool selects such a node on tap. A tap on a bare handle, such as a wall end, keeps the current selection.
 
 A drag that starts on a handle goes to that handle, whichever tool is active. It gets the same threshold, pointer capture and cancellation (Escape, a second finger, unmount) as any drag. A tap on a handle still reaches the tool with `p.onHandle` set; the select tool ignores it. Touch presses find handles within a fingertip's radius. `dev/` has a test handle (open `/dev/synthetic/small?test-handle`) that the e2e tests drag.
 
@@ -75,7 +85,9 @@ A drag that starts on a handle goes to that handle, whichever tool is active. It
 `CANVAS_LAYERS` sets the drawing order: `background`, `grid`, `areas`, `walls`, `openings`, `overlays`. A `LayerContent` component renders Konva nodes in world coordinates (metres, y down) and gets `ctx` (floor id, `itemAt`, `pxToWorld`, `zoomToFit`). The optional `bounds(floor)` adds to zoom to fit.
 
 - **Culling:** read `useRenderWindow()` and filter with `createCuller(boundsFn)` (`canvas/culling.ts`). The window is larger than the view and changes rarely, and it is deferred, so panning neither re-renders React nor stalls when new shapes come into view. Memoize per-item shape components (`memo`) so a window change only mounts the new ones.
-- **Constant-pixel sizes:** strokes use `strokeScaleEnabled={false}`. Text goes through `ScreenLabel` (`canvas/screen-label.tsx`), with `useRenderWindow().scale`.
+- **Sizes in pixels:** strokes use `strokeScaleEnabled={false}`. For anything else, divide a pixel size by a scale (pixels per metre) from the editor store:
+  - `useEditorStore((s) => s.viewport.scale)` is exact, but re-renders the component on every zoom step. Use it for the few nodes whose size matters, such as handles.
+  - `useRenderWindow().scale` changes only with the render window, so it is cheap for many nodes, but can be off from the current zoom by up to 1.5×. Labels (`ScreenLabel`, `canvas/screen-label.tsx`) use it. Handles sized with it can differ by up to 1.5× in size and hit area.
 - **Selection:** spread `selectable(collection, id)` on a node, and the select tool picks it through Konva's hit graph. Set `listening={false}` on decoration such as labels. A shape that lies over others (zones over rooms) should hit only on its outline with a `hitFunc`, as `areas/areas-layer.tsx` does. Read `selection` from the editor store to highlight.
 - **Colours:** shared ones (selection, labels, font) are in `canvas/theme.ts`; feature colours live in the feature folder.
 
@@ -85,16 +97,22 @@ A `Panel` shows in the side panel while `visible(editor, model)` holds. On phone
 
 ## Input
 
-| Input                                                                  | Effect                                                            |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Mouse wheel (line/page deltas, or whole-number steps of 50 px or more) | Zoom at the pointer                                               |
-| Trackpad pinch, Ctrl/Cmd + wheel                                       | Zoom at the pointer                                               |
-| Trackpad two-finger scroll (other pixel deltas), Shift + wheel         | Pan                                                               |
-| Middle-button drag, Space + drag, a drag no handle or tool takes       | Pan                                                               |
-| Two fingers                                                            | Pinch-zoom and pan                                                |
-| Escape                                                                 | Cancel a drag, else see Tools above                               |
-| Delete, Backspace                                                      | Delete the selection                                              |
-| Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z, Ctrl + Y                           | Undo, redo                                                        |
-| Single key                                                             | The tool or action with that `shortcut` (V select, F zoom to fit) |
+| Input                                                            | Effect                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Mouse wheel on Windows and Linux (notches)                       | Zoom at the pointer                                               |
+| Trackpad pinch, Ctrl/Cmd + wheel                                 | Zoom at the pointer                                               |
+| Trackpad two-finger scroll, mouse wheel on macOS, Shift + wheel  | Pan                                                               |
+| Middle-button drag, Space + drag, a drag no handle or tool takes | Pan                                                               |
+| Two fingers                                                      | Pinch-zoom and pan                                                |
+| Escape                                                           | Cancel a drag, else see Tools above                               |
+| Delete, Backspace                                                | Delete the selection                                              |
+| Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z, Ctrl + Y                     | Undo, redo                                                        |
+| Single key                                                       | The tool or action with that `shortcut` (V select, F zoom to fit) |
 
-Browsers do not say whether a wheel event comes from a mouse or a trackpad, so the wheel rows are a heuristic (`canvas/wheel.ts`). A trackpad that sends large whole-number steps zooms, and a mouse with smooth scrolling pans. Ctrl/Cmd + wheel always zooms.
+Browsers do not say whether a wheel event comes from a mouse or a trackpad, so the wheel rows follow a fixed rule (`canvas/wheel.ts`):
+
+- Line or page deltas zoom.
+- A vertical pixel delta that is a whole number of at least 50 device pixels (`deltaY × devicePixelRatio`) zooms. This makes a notch zoom at any browser zoom or display scaling.
+- Everything else pans.
+
+A mouse on macOS sends notches of about 4 px, which look like trackpad scrolling, so it pans there. Pinch or Cmd + wheel zooms on every platform.

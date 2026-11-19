@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { samplePoints, TOUCH_RADIUS } from './hit';
+import type { Handle } from './extension';
+import {
+  handle,
+  handleName,
+  nodeProps,
+  samplePoints,
+  selectable,
+  selectableCollection,
+  TOUCH_RADIUS,
+} from './hit';
 
 describe('hit sampling', () => {
   it('tries only the point itself for a mouse', () => {
@@ -14,5 +23,34 @@ describe('hit sampling', () => {
     expect(distances.slice(0, 8).every((d) => Math.abs(d - TOUCH_RADIUS / 2) < 1e-9)).toBe(true);
     expect(distances.slice(8).every((d) => Math.abs(d - TOUCH_RADIUS) < 1e-9)).toBe(true);
     expect(points).toHaveLength(17);
+  });
+});
+
+describe('node names', () => {
+  const opening: Handle<{ id: string }> = { name: 'opening-slide', onDrag: () => {} };
+
+  it('marks a node selectable or as a handle, and reads both back', () => {
+    const sel = selectable('walls', 'w1');
+    expect(sel).toEqual({ id: 'w1', name: 'selectable:walls' });
+    expect(selectableCollection(sel.name)).toBe('walls');
+    expect(handleName(sel.name)).toBeUndefined();
+    const h = handle(opening, { id: 'o1' });
+    expect(handleName(h.name)).toBe('opening-slide');
+    expect(selectableCollection(h.name)).toBeUndefined();
+  });
+
+  it('combines both on one node, keeping the id, both names and the payload', () => {
+    const props = nodeProps(selectable('openings', 'o1'), handle(opening, { id: 'o1' }));
+    expect(props).toEqual({
+      id: 'o1',
+      name: 'selectable:openings handle:opening-slide',
+      handlePayload: { id: 'o1' },
+    });
+    expect(selectableCollection(props.name)).toBe('openings');
+    expect(handleName(props.name)).toBe('opening-slide');
+  });
+
+  it('ignores names that are not a known collection', () => {
+    expect(selectableCollection('selectable:nonsense layer-walls')).toBeUndefined();
   });
 });
