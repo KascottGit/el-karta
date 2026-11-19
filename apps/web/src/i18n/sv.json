@@ -85,6 +85,37 @@
     "delete": "Ta bort markerade",
     "zoomToFit": "Visa hela planen"
   },
+  "areas": {
+    "tools": {
+      "room": "Rita rum",
+      "fillRoom": "Fyll rum mellan väggar",
+      "zone": "Rita zon"
+    },
+    "newRoom": "Rum {{number}}",
+    "newZone": "Zon {{number}}",
+    "room": "Rum",
+    "zone": "Zon",
+    "name": "Namn",
+    "type": "Typ av rum",
+    "ceilingHeight": "Takhöjd (m)",
+    "ceilingHeightHint": "Lämna tomt för våningens takhöjd, {{height}} m.",
+    "invalidLength": "Ange en längd i meter, större än noll.",
+    "area": "Yta: {{area}} m²",
+    "editHint": "Dra i ett hörn för att flytta det, dra i en mittpunkt för att lägga till ett hörn, och släpp ett hörn på ett grannhörn för att ta bort det.",
+    "notEnclosed": "Väggarna omsluter inte den här punkten. Stäng glipan eller rita rummet.",
+    "roomType": {
+      "kitchen": "Kök",
+      "bathroom": "Badrum",
+      "hallway": "Hall",
+      "bedroom": "Sovrum",
+      "living_room": "Vardagsrum",
+      "laundry": "Tvättstuga",
+      "office": "Kontor",
+      "warehouse": "Lager",
+      "technical_room": "Teknikrum",
+      "other": "Övrigt"
+    }
+  },
   "notFound": {
     "title": "Sidan finns inte",
     "back": "Till startsidan"
@@ -141,5 +172,23 @@
     "message": "Ändringar i projektet ”{{name}}” har inte kunnat sparas än. Spara dem innan du öppnar ett annat projekt, eller släng dem.",
     "retry": "Försök spara igen",
     "discard": "Släng ändringarna"
+  },
+  "issues": {
+    "room": {
+      "polygon-too-few-points": "Rummet behöver minst tre hörn.",
+      "polygon-repeated-point": "Rummet har två hörn på samma ställe.",
+      "polygon-zero-area": "Rummet har ingen yta.",
+      "polygon-self-intersecting": "Rummets kontur korsar sig själv."
+    },
+    "zone": {
+      "polygon-too-few-points": "Zonen behöver minst tre hörn.",
+      "polygon-repeated-point": "Zonen har två hörn på samma ställe.",
+      "polygon-zero-area": "Zonen har ingen yta.",
+      "polygon-self-intersecting": "Zonens kontur korsar sig själv."
+    },
+    "placement": {
+      "outside-room_one": "{{count}} takmonterad enhet ligger utanför rummet.",
+      "outside-room_other": "{{count}} takmonterade enheter ligger utanför rummet."
+    }
   }
 }

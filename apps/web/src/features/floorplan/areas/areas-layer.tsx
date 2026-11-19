@@ -1,4 +1,4 @@
-import { centroid, type Pt, type Room, type Zone } from '@el-karta/core';
+import { centroid, type IssueSeverity, type Pt, type Room, type Zone } from '@el-karta/core';
 import type Konva from 'konva';
 import { memo, useMemo } from 'react';
 import { Line } from 'react-konva';
@@ -12,28 +12,29 @@ import { ScreenLabel } from '../canvas/screen-label';
 import { selectedIds } from '../canvas/selection';
 import { canvasColors } from '../canvas/theme';
 import { useRenderWindow } from '../canvas/use-render-window';
-import { areaBounds } from './bounds';
-
-const areaColors = {
-  room: '#f8fafc',
-  roomStroke: '#cbd5e1',
-  zone: 'rgba(16, 185, 129, 0.10)',
-  zoneStroke: '#10b981',
-} as const;
+import { areaIssues, worstSeverity } from './area-issues';
+import { useAreasUi } from './areas-ui-store';
+import { areaBounds, flat } from './bounds';
+import { areaColors, issueColors } from './colors';
 
 const cullAreas = createCuller(areaBounds);
+const NO_ISSUES: ReturnType<typeof areaIssues> = new Map();
+const ZONE_LABEL_OFFSET_PX = 16;
 
-/** Read-only rooms with name labels, and translucent zones over them. */
+/** Rooms with name labels and translucent zones over them, outlined in the colour of their worst issue. */
 export function AreasLayer({ ctx }: { ctx: CanvasContext }) {
-  const data = useModelStore((s) => s.model?.floors[ctx.floorId]?.data);
-  const rooms = data?.rooms;
-  const zones = data?.zones;
+  const floor = useModelStore((s) => s.model?.floors[ctx.floorId]);
+  const rooms = floor?.data.rooms;
+  const zones = floor?.data.zones;
   const { rect: view, scale } = useRenderWindow();
   const selection = useEditorStore((s) => s.selection);
+  const drag = useAreasUi((s) => s.drag);
+  const issues = useMemo(() => (floor ? areaIssues(floor) : NO_ISSUES), [floor]);
   const visibleRooms = useMemo(() => (rooms ? cullAreas(rooms, view) : []), [rooms, view]);
   const visibleZones = useMemo(() => (zones ? cullAreas(zones, view) : []), [zones, view]);
   const selectedRooms = useMemo(() => selectedIds(selection, 'rooms'), [selection]);
   const selectedZones = useMemo(() => selectedIds(selection, 'zones'), [selection]);
+  const shape = (area: Room | Zone) => (drag?.id === area.id ? drag.polygon : area.polygon);
 
   return (
     <>
@@ -41,42 +42,62 @@ export function AreasLayer({ ctx }: { ctx: CanvasContext }) {
         <RoomShape
           key={room.id}
           room={room}
+          polygon={shape(room)}
           selected={selectedRooms.has(room.id)}
+          severity={worstSeverity(issues.get(room.id))}
           labelScale={scale}
         />
       ))}
       {visibleZones.map((zone) => (
-        <ZoneShape key={zone.id} zone={zone} selected={selectedZones.has(zone.id)} />
+        <ZoneShape
+          key={zone.id}
+          zone={zone}
+          polygon={shape(zone)}
+          selected={selectedZones.has(zone.id)}
+          severity={worstSeverity(issues.get(zone.id))}
+          labelScale={scale}
+        />
       ))}
     </>
   );
 }
 
-const flat = (polygon: readonly Pt[]) => polygon.flatMap((p) => [p.x, p.y]);
+function labelPlacement(polygon: readonly Pt[], dy = 0) {
+  const bounds = boundsOf(polygon);
+  const at = centroid(polygon);
+  return { at: { x: at.x, y: at.y + dy }, width: bounds ? 0.9 * width(bounds) : 0 };
+}
 
 const RoomShape = memo(function RoomShape({
   room,
+  polygon,
   selected,
+  severity,
   labelScale,
 }: {
   room: Room;
+  polygon: readonly Pt[];
   selected: boolean;
+  severity: IssueSeverity | null;
   labelScale: number;
 }) {
-  const points = useMemo(() => flat(room.polygon), [room.polygon]);
-  const label = useMemo(() => {
-    const bounds = boundsOf(room.polygon);
-    return { at: centroid(room.polygon), width: bounds ? 0.9 * width(bounds) : 0 };
-  }, [room.polygon]);
+  const points = useMemo(() => flat(polygon), [polygon]);
+  const label = useMemo(() => labelPlacement(polygon), [polygon]);
   return (
     <>
       <Line
         {...selectable('rooms', room.id)}
         points={points}
         closed
-        fill={selected ? canvasColors.selectedFill : areaColors.room}
-        stroke={selected ? canvasColors.selected : areaColors.roomStroke}
-        strokeWidth={1}
+        fill={selected ? areaColors.roomSelected : areaColors.room}
+        stroke={
+          severity
+            ? issueColors[severity]
+            : selected
+              ? canvasColors.selected
+              : areaColors.roomStroke
+        }
+        strokeWidth={severity ? 2 : 1}
         strokeScaleEnabled={false}
         perfectDrawEnabled={false}
       />
@@ -94,22 +115,54 @@ const outlineHit = (points: number[]) => (context: Konva.Context, shape: Konva.S
   context.strokeShape(shape);
 };
 
-const ZoneShape = memo(function ZoneShape({ zone, selected }: { zone: Zone; selected: boolean }) {
-  const points = useMemo(() => flat(zone.polygon), [zone.polygon]);
+const ZoneShape = memo(function ZoneShape({
+  zone,
+  polygon,
+  selected,
+  severity,
+  labelScale,
+}: {
+  zone: Zone;
+  polygon: readonly Pt[];
+  selected: boolean;
+  severity: IssueSeverity | null;
+  labelScale: number;
+}) {
+  const points = useMemo(() => flat(polygon), [polygon]);
   const hitFunc = useMemo(() => outlineHit(points), [points]);
+  // Below the centre, so it does not cover the name of a room with the same outline.
+  const label = useMemo(
+    () => labelPlacement(polygon, ZONE_LABEL_OFFSET_PX / labelScale),
+    [polygon, labelScale],
+  );
   return (
-    <Line
-      {...selectable('zones', zone.id)}
-      points={points}
-      closed
-      fill={areaColors.zone}
-      stroke={selected ? canvasColors.selected : areaColors.zoneStroke}
-      strokeWidth={selected ? 2 : 1}
-      dash={[6, 4]}
-      strokeScaleEnabled={false}
-      hitStrokeWidth={8}
-      hitFunc={hitFunc}
-      perfectDrawEnabled={false}
-    />
+    <>
+      <Line
+        {...selectable('zones', zone.id)}
+        points={points}
+        closed
+        fill={areaColors.zone}
+        stroke={
+          severity
+            ? issueColors[severity]
+            : selected
+              ? canvasColors.selected
+              : areaColors.zoneStroke
+        }
+        strokeWidth={selected || severity ? 2 : 1}
+        dash={[6, 4]}
+        strokeScaleEnabled={false}
+        hitStrokeWidth={8}
+        hitFunc={hitFunc}
+        perfectDrawEnabled={false}
+      />
+      <ScreenLabel
+        text={zone.name}
+        at={label.at}
+        maxWidth={label.width}
+        scale={labelScale}
+        fill={areaColors.zoneStroke}
+      />
+    </>
   );
 });
