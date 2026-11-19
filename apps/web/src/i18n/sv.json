@@ -74,6 +74,17 @@
     "notOwner": "Bara projektets ägare kan dela det.",
     "failed": "Det gick inte att dela projektet."
   },
+  "canvas": {
+    "toolbar": "Verktyg",
+    "sidePanel": "Egenskaper",
+    "tools": {
+      "select": "Markera"
+    },
+    "undo": "Ångra",
+    "redo": "Gör om",
+    "delete": "Ta bort markerade",
+    "zoomToFit": "Visa hela planen"
+  },
   "notFound": {
     "title": "Sidan finns inte",
     "back": "Till startsidan"

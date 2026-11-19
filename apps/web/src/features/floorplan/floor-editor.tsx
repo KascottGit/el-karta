@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { FloorSwitcher } from '@/features/projects/floor-switcher';
 import { useModelStore } from '@/model/store';
+import { EditorWorkspace } from './canvas/editor-workspace';
+import { extensions } from './extensions';
 import { SaveStatus } from './save/save-status';
 
-/** The editor for one floor of the project in the model store. Canvas, tools and panels arrive in M3 T1+. */
+/** The editor for one floor of the project in the model store. */
 export function FloorEditor({ floorId, backTo }: { floorId: Id; backTo: string }) {
   const { t } = useTranslation();
   const floor = useModelStore((s) => s.model?.floors[floorId]);
@@ -13,8 +15,8 @@ export function FloorEditor({ floorId, backTo }: { floorId: Id; backTo: string }
   if (!floor) return <p className="text-destructive">{t('editor.floorNotFound')}</p>;
 
   return (
-    <div className="flex h-full min-h-[60dvh] flex-col gap-2">
-      <header className="flex items-center gap-4">
+    <div className="flex h-[calc(100dvh-10rem)] min-h-96 flex-col gap-2">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Link to={backTo} className="text-sm text-muted-foreground hover:underline">
           {t('editor.back')}
         </Link>
@@ -24,7 +26,7 @@ export function FloorEditor({ floorId, backTo }: { floorId: Id; backTo: string }
           <SaveStatus />
         </div>
       </header>
-      <div data-testid="floor-editor-canvas" className="flex-1 rounded-lg border" />
+      <EditorWorkspace floorId={floorId} extensions={extensions} />
     </div>
   );
 }
