@@ -1,9 +1,11 @@
 import type { Id } from '@el-karta/core';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { FloorSwitcher } from '@/features/projects/floor-switcher';
 import { useModelStore } from '@/model/store';
 import { EditorWorkspace } from './canvas/editor-workspace';
 import { extensions } from './extensions';
+import { SaveStatus } from './save/save-status';
 
 /** The editor for one floor of the project in the model store. */
 export function FloorEditor({ floorId, backTo }: { floorId: Id; backTo: string }) {
@@ -19,6 +21,10 @@ export function FloorEditor({ floorId, backTo }: { floorId: Id; backTo: string }
           {t('editor.back')}
         </Link>
         <h1 className="font-semibold">{floor.name}</h1>
+        <FloorSwitcher floorId={floorId} />
+        <div className="ml-auto">
+          <SaveStatus />
+        </div>
       </header>
       <EditorWorkspace floorId={floorId} extensions={extensions} />
     </div>

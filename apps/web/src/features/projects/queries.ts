@@ -1,7 +1,8 @@
-import { createEmptyProject, type Id, type ProjectKind } from '@el-karta/core';
+import { createEmptyProject, type FloorRecord, type Id, type ProjectKind } from '@el-karta/core';
 import { SupabaseRepository, type MemberRole } from '@el-karta/data-supabase';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/app/supabase';
+import { modelStore } from '@/model/store';
 
 export const repository = new SupabaseRepository(supabase);
 
@@ -39,4 +40,14 @@ export const useShareProject = (projectId: Id) =>
   useMutation({
     mutationFn: ({ email, role }: { email: string; role: MemberRole }) =>
       repository.shareProject(projectId, email, role),
+  });
+
+export const useCreateFloor = () =>
+  useMutation({
+    mutationFn: (floor: FloorRecord) => modelStore.getState().createFloor(repository, floor),
+  });
+
+export const useDeleteFloor = () =>
+  useMutation({
+    mutationFn: (floorId: Id) => modelStore.getState().deleteFloor(repository, floorId),
   });
