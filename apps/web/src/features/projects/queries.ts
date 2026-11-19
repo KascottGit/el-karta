@@ -1,7 +1,14 @@
-import { createEmptyProject, type Id, type ProjectKind } from '@el-karta/core';
+import {
+  createEmptyProject,
+  type Edit,
+  type FloorRecord,
+  type Id,
+  type ProjectKind,
+} from '@el-karta/core';
 import { SupabaseRepository, type MemberRole } from '@el-karta/data-supabase';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/app/supabase';
+import { modelStore } from '@/model/store';
 
 export const repository = new SupabaseRepository(supabase);
 
@@ -39,4 +46,21 @@ export const useShareProject = (projectId: Id) =>
   useMutation({
     mutationFn: ({ email, role }: { email: string; role: MemberRole }) =>
       repository.shareProject(projectId, email, role),
+  });
+
+/** Edits made on the project page are single actions, so they are saved right away; a failed save stays queued. */
+export function applyAndSave(edit: Edit) {
+  const { apply, save } = modelStore.getState();
+  apply(edit);
+  void save(repository).catch(() => undefined);
+}
+
+export const useCreateFloor = () =>
+  useMutation({
+    mutationFn: (floor: FloorRecord) => modelStore.getState().createFloor(repository, floor),
+  });
+
+export const useDeleteFloor = () =>
+  useMutation({
+    mutationFn: (floorId: Id) => modelStore.getState().deleteFloor(repository, floorId),
   });

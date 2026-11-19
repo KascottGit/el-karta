@@ -1,6 +1,7 @@
 import type { Id } from '@el-karta/core';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { FloorSwitcher } from '@/features/projects/floor-switcher';
 import { useModelStore } from '@/model/store';
 
 /** The editor for one floor of the project in the model store. Canvas, tools and panels arrive in M3 T1+. */
@@ -17,6 +18,7 @@ export function FloorEditor({ floorId, backTo }: { floorId: Id; backTo: string }
           {t('editor.back')}
         </Link>
         <h1 className="font-semibold">{floor.name}</h1>
+        <FloorSwitcher floorId={floorId} />
       </header>
       <div data-testid="floor-editor-canvas" className="flex-1 rounded-lg border" />
     </div>

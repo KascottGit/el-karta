@@ -1,7 +1,9 @@
 import {
+  addFloor,
   applyEdit,
   applyModelPatches,
   LiveGraph,
+  removeFloor,
   replayChanges,
   saveWithReplay,
   splitByDocument,
@@ -9,6 +11,7 @@ import {
   type DocumentKey,
   type Edit,
   type FloorRecord,
+  type Id,
   type Model,
   type ProjectRecord,
   type RejectedChange,
@@ -48,6 +51,13 @@ export interface ModelState {
   redo: () => void;
   /** Saves every document with queued changes. Safe to call repeatedly; overlapping calls are skipped. */
   save: (repository: Repository) => Promise<void>;
+  /** Stores a new floor row through the repository, then adds it to the model. */
+  createFloor: (repository: Repository, floor: FloorRecord) => Promise<FloorRecord>;
+  /**
+   * Deletes a floor row through the repository, then removes the floor, its queued changes and the
+   * cross-floor connections to it, and saves the project document. Clears undo history, which may refer to the floor.
+   */
+  deleteFloor: (repository: Repository, floorId: Id) => Promise<void>;
 }
 
 const documentPath = (doc: DocumentKey) => (doc === 'project' ? ['project'] : ['floors', doc]);
@@ -71,6 +81,9 @@ function saveDocument(
     : saveWithReplay(base as FloorRecord, changes, (r, v) => repository.saveFloor(r, v));
 }
 
+const without = <T>(record: Readonly<Record<string, T>>, key: string): Record<string, T> =>
+  Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
+
 function enqueue(pending: ModelState['pending'], patches: readonly Patch[]): ModelState['pending'] {
   const next = { ...pending };
   for (const [doc, docPatches] of splitByDocument(patches)) {
@@ -86,6 +99,36 @@ export function createModelStore() {
       if (!model || !graph) throw new Error('No project loaded');
       return { model, graph };
     };
+
+    let running: Promise<unknown> = Promise.resolve();
+
+    /** Runs one repository write at a time, waiting for the one in flight; `saving` is true meanwhile. */
+    async function exclusive<T>(work: () => Promise<T>): Promise<T> {
+      while (get().saving) await running.catch(() => undefined);
+      set({ saving: true });
+      const run = work();
+      running = run;
+      try {
+        return await run;
+      } finally {
+        set({ saving: false });
+      }
+    }
+
+    async function saveBatches(
+      repository: Repository,
+      batches: readonly (readonly [DocumentKey, Change[]])[],
+    ) {
+      const { saved } = get();
+      await Promise.all(
+        batches.map(async ([doc, changes]) => {
+          const base = saved[doc];
+          if (!base) throw new Error(`No saved version of document ${doc}`);
+          const outcome = await saveDocument(repository, doc, base, changes);
+          settle(doc, base, changes, outcome);
+        }),
+      );
+    }
 
     const change = (patches: Patch[], history: Pick<ModelState, 'past' | 'future'>) => {
       const { model, graph } = requireLoaded();
@@ -196,24 +239,49 @@ export function createModelStore() {
       },
 
       save: async (repository) => {
-        const { saving, pending, saved } = get();
+        const { saving, pending } = get();
         if (saving) return;
         const batches = Object.entries(pending).filter(([, changes]) => changes.length > 0);
         if (batches.length === 0) return;
-        set({ saving: true });
-        try {
-          await Promise.all(
-            batches.map(async ([doc, changes]) => {
-              const base = saved[doc];
-              if (!base) throw new Error(`No saved version of document ${doc}`);
-              const outcome = await saveDocument(repository, doc, base, changes);
-              settle(doc, base, changes, outcome);
-            }),
-          );
-        } finally {
-          set({ saving: false });
-        }
+        await exclusive(() => saveBatches(repository, batches));
       },
+
+      createFloor: async (repository, floor) => {
+        applyEdit(requireLoaded().model, addFloor(floor));
+        const stored = await repository.createFloor(floor);
+        const { model, graph } = requireLoaded();
+        const result = applyEdit(model, addFloor(stored));
+        graph.update(result.model, result.patches);
+        set((s) => ({
+          model: result.model,
+          graphVersion: s.graphVersion + 1,
+          saved: { ...s.saved, [stored.id]: stored },
+        }));
+        return stored;
+      },
+
+      deleteFloor: (repository, floorId) =>
+        exclusive(async () => {
+          const { model: before } = requireLoaded();
+          applyEdit(before, removeFloor(floorId));
+          await repository.deleteFloor(before.project.id, floorId);
+          const { model, graph } = requireLoaded();
+          const result = applyEdit(model, removeFloor(floorId));
+          graph.update(result.model, result.patches);
+          const projectPatches = result.patches.filter((patch) => patch.path[0] === 'project');
+          set((s) => ({
+            model: result.model,
+            graphVersion: s.graphVersion + 1,
+            past: [],
+            future: [],
+            pending: enqueue(without(s.pending, floorId), projectPatches),
+            saved: without(s.saved, floorId),
+          }));
+          const changes = get().pending.project ?? [];
+          // The floor is already gone; if this save fails the changes stay queued for the next save.
+          if (changes.length > 0)
+            await saveBatches(repository, [['project', changes]]).catch(() => undefined);
+        }),
     };
   });
 }
