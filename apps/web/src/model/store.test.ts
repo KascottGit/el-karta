@@ -1,5 +1,6 @@
 import {
   addDevice,
+  buildGraph,
   generateProject,
   removeDevice,
   replayChanges,
@@ -79,6 +80,23 @@ describe('model store', () => {
     const replayed = replayChanges(model.floors[floor.id]!, pending[floor.id]!);
     expect(replayed.rejected).toEqual([]);
     expect(replayed.doc).toEqual(store.getState().model!.floors[floor.id]);
+  });
+
+  it('keeps the live graph equal to a rebuilt one through edits, undo and redo', () => {
+    const { store, model } = setup();
+    const { apply, undo, redo } = store.getState();
+    const breaker = Object.values(model.floors)
+      .flatMap((f) => Object.values(f.data.devices))
+      .find((d) => d.type === 'breaker')!;
+    const before = store.getState().graphVersion;
+    apply(removeDevice(breaker.id));
+    undo();
+    redo();
+    const { graph, graphVersion, model: current } = store.getState();
+    expect(graphVersion).toBe(before + 3);
+    const rebuilt = buildGraph(JSON.parse(JSON.stringify(current)) as Model);
+    expect(graph!.graph.order).toBe(rebuilt.order);
+    expect(graph!.graph.edges().sort()).toEqual(rebuilt.edges().sort());
   });
 
   it('ignores edits that change nothing and undo with no history', () => {

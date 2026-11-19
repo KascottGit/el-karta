@@ -9,6 +9,7 @@ describe('performance budget (data layer only; rendering comes on top)', () => {
       expect(report.openMs.total).toBeLessThan(BUDGET_MS[size].open);
       expect(report.selectMs.max).toBeLessThan(BUDGET_MS[size].select);
       expect(report.panelDownstreamMs).toBeLessThan(BUDGET_MS[size].select);
+      expect(report.editMs.p95).toBeLessThan(BUDGET_MS[size].edit);
     },
   );
 });

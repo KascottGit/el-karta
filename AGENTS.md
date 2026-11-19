@@ -43,6 +43,7 @@ Boundaries are enforced by ESLint (`tooling/eslint/boundaries.js`) and tested in
 - Plan coordinates are metres, x right, y down (same as plan images); z is up. Wall `side: 'left'` is left of the a→b direction in those coordinates.
 - Every collection in a floor or project document is a record keyed by item id (ADR 0002). Replace array fields (polygons, ports) whole in edits.
 - All model changes go through edit operations (`packages/core/src/edits`) applied with `applyEdit`, so they produce Immer patches for undo/redo and sync.
+- Patches from anywhere else (undo, redo, remote changes) are applied with `applyModelPatches`, and the graph follows with `LiveGraph.update(next, patches)`. Never rebuild the index or graph per edit; see ADR 0003.
 - A connection is stored on its floor when both ports are on that floor, otherwise in `project.data.crossFloorConnections`. Use `addConnection`, which decides.
 - Every document has `schemaVersion`. Changing a schema shape means bumping `CURRENT_SCHEMA_VERSION` and adding a migration step with a test.
 - AI output is never written to the model directly; it becomes a suggestion a person accepts.

@@ -1,5 +1,5 @@
-import { enablePatches, produceWithPatches, type Draft, type Patch } from 'immer';
-import type { DocumentKey } from '../model.ts';
+import { applyPatches, enablePatches, produceWithPatches, type Draft, type Patch } from 'immer';
+import { advanceIndex, deltaFromPatches, type DocumentKey } from '../model.ts';
 import type { Model } from '../schemas/index.ts';
 
 enablePatches();
@@ -21,7 +21,15 @@ export function applyEdit(model: Model, edit: Edit): EditResult {
   const [next, patches, inversePatches] = produceWithPatches(model, (draft) => {
     edit(draft, model);
   });
+  advanceIndex(model, next, deltaFromPatches(patches));
   return { model: next, patches, inversePatches };
+}
+
+/** Applies model-level patches (undo, redo, remote changes), keeping the model index incremental. */
+export function applyModelPatches(model: Model, patches: readonly Patch[]): Model {
+  const next = applyPatches(model, patches);
+  advanceIndex(model, next, deltaFromPatches(patches));
+  return next;
 }
 
 /**

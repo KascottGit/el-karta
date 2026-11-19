@@ -1,12 +1,14 @@
 import {
   applyEdit,
+  applyModelPatches,
+  LiveGraph,
   splitByDocument,
   type Change,
   type DocumentKey,
   type Edit,
   type Model,
 } from '@el-karta/core';
-import { applyPatches, type Patch } from 'immer';
+import { freeze, type Patch } from 'immer';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 
@@ -19,6 +21,9 @@ interface HistoryEntry {
 
 export interface ModelState {
   model: Model | null;
+  /** Updated in place on every change; subscribe to `graphVersion` to react to it. */
+  graph: LiveGraph | null;
+  graphVersion: number;
   past: HistoryEntry[];
   future: HistoryEntry[];
   /** Unsaved changes per stored document, oldest first. Undo and redo are queued as changes too. */
@@ -39,53 +44,73 @@ function enqueue(pending: ModelState['pending'], patches: readonly Patch[]): Mod
 
 export function createModelStore() {
   return createStore<ModelState>()((set, get) => {
-    const requireModel = () => {
-      const { model } = get();
-      if (!model) throw new Error('No project loaded');
-      return model;
+    const requireLoaded = () => {
+      const { model, graph } = get();
+      if (!model || !graph) throw new Error('No project loaded');
+      return { model, graph };
+    };
+
+    const change = (patches: Patch[], history: Pick<ModelState, 'past' | 'future'>) => {
+      const { model, graph } = requireLoaded();
+      const next = applyModelPatches(model, patches);
+      graph.update(next, patches);
+      set((s) => ({
+        ...history,
+        model: next,
+        graphVersion: s.graphVersion + 1,
+        pending: enqueue(s.pending, patches),
+      }));
     };
 
     return {
       model: null,
+      graph: null,
+      graphVersion: 0,
       past: [],
       future: [],
       pending: {},
 
       load: (model) => {
-        set({ model, past: [], future: [], pending: {} });
+        // Freezing up front moves Immer's one-time deep freeze out of the first edit.
+        freeze(model, true);
+        set((s) => ({
+          model,
+          graph: new LiveGraph(model),
+          graphVersion: s.graphVersion + 1,
+          past: [],
+          future: [],
+          pending: {},
+        }));
       },
 
       apply: (edit) => {
-        const { model, patches, inversePatches } = applyEdit(requireModel(), edit);
-        if (patches.length === 0) return;
+        const { model, graph } = requireLoaded();
+        const result = applyEdit(model, edit);
+        if (result.patches.length === 0) return;
+        graph.update(result.model, result.patches);
         set((s) => ({
-          model,
-          past: [...s.past, { patches, inversePatches }].slice(-HISTORY_LIMIT),
+          model: result.model,
+          graphVersion: s.graphVersion + 1,
+          past: [
+            ...s.past,
+            { patches: result.patches, inversePatches: result.inversePatches },
+          ].slice(-HISTORY_LIMIT),
           future: [],
-          pending: enqueue(s.pending, patches),
+          pending: enqueue(s.pending, result.patches),
         }));
       },
 
       undo: () => {
-        const entry = get().past.at(-1);
-        if (!entry) return;
-        set((s) => ({
-          model: applyPatches(requireModel(), entry.inversePatches),
-          past: s.past.slice(0, -1),
-          future: [...s.future, entry],
-          pending: enqueue(s.pending, entry.inversePatches),
-        }));
+        const { past, future } = get();
+        const entry = past.at(-1);
+        if (entry)
+          change(entry.inversePatches, { past: past.slice(0, -1), future: [...future, entry] });
       },
 
       redo: () => {
-        const entry = get().future.at(-1);
-        if (!entry) return;
-        set((s) => ({
-          model: applyPatches(requireModel(), entry.patches),
-          past: [...s.past, entry],
-          future: s.future.slice(0, -1),
-          pending: enqueue(s.pending, entry.patches),
-        }));
+        const { past, future } = get();
+        const entry = future.at(-1);
+        if (entry) change(entry.patches, { past: [...past, entry], future: future.slice(0, -1) });
       },
     };
   });
