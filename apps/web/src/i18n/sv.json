@@ -62,5 +62,47 @@
     "back": "← Till projektet",
     "floorNotFound": "Våningen finns inte i projektet.",
     "unknownSize": "Okänd storlek. Välj en av: {{sizes}}"
+  },
+  "save": {
+    "saved": "Sparat",
+    "unsaved": "Osparade ändringar",
+    "saving": "Sparar …",
+    "failed": "Inte sparat",
+    "failedHint": "Ändringarna finns kvar medan sidan är öppen och sparas automatiskt så snart det går.",
+    "retry": "Försök igen",
+    "conflicts": {
+      "button_one": "{{count}} ändring kunde inte sparas",
+      "button_other": "{{count}} ändringar kunde inte sparas",
+      "title": "Ändringar som inte kunde sparas",
+      "explanation": "Någon annan sparade i projektet samtidigt som du. Deras version gäller nu, och ändringarna nedan gick inte att lägga ovanpå den. Gör om dem om de fortfarande behövs.",
+      "change": "Din ändring av {{subjects}} kunde inte sparas eftersom någon annan tog bort det du ändrade.",
+      "remove": "Din borttagning av {{subjects}} kunde inte sparas eftersom någon annan redan hade tagit bort något av det.",
+      "onFloor": "På {{floor}}",
+      "dismiss": "Okej",
+      "dismissAll": "Rensa listan"
+    },
+    "subject": {
+      "wall": "väggen",
+      "opening": "öppningen",
+      "door": "dörren",
+      "window": "fönstret",
+      "passage": "passagen",
+      "room": "rummet",
+      "roomNamed": "rummet ”{{name}}”",
+      "zone": "zonen",
+      "zoneNamed": "zonen ”{{name}}”",
+      "device": "enheten",
+      "deviceNamed": "enheten ”{{name}}”",
+      "connection": "kopplingen",
+      "building": "byggnaden",
+      "buildingNamed": "byggnaden ”{{name}}”",
+      "floor": "våningen",
+      "grid": "rutnätet",
+      "background": "bakgrundsbilden",
+      "scale": "skalan",
+      "project": "projektet",
+      "more_one": "{{count}} sak till",
+      "more_other": "{{count}} saker till"
+    }
   }
 }

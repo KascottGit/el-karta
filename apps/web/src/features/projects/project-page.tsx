@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { z } from 'zod';
+import { SaveStatus } from '@/features/floorplan/save/save-status';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { Input } from '@/ui/input';
@@ -25,6 +26,7 @@ export function ProjectPage() {
       <header>
         <h1 className="text-xl font-semibold">{model.project.name}</h1>
         <p className="text-sm text-muted-foreground">{t(`projectKind.${model.project.kind}`)}</p>
+        <SaveStatus />
       </header>
       <section className="space-y-2">
         <h2 className="font-semibold">{t('project.floors')}</h2>
