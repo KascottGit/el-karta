@@ -12,7 +12,13 @@ import {
   type Model,
 } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
-import { RepositoryError, SupabaseRepository } from '../src/index.ts';
+import {
+  attachmentPath,
+  PROJECT_FILES_BUCKET,
+  RepositoryError,
+  SupabaseRepository,
+  type NewAttachment,
+} from '../src/index.ts';
 import { signedInUser } from './local-supabase.ts';
 
 /** A random seed gives fresh ids, so every run creates new rows. */
@@ -150,6 +156,50 @@ describe('SupabaseRepository (local Supabase)', () => {
     await expect(ownerRepo.deleteFloor(created.project.id, floor.id)).rejects.toThrow(
       NotFoundError,
     );
+  });
+
+  it('lets an editor upload a plan and members read it, but not a viewer upload or an outsider either', async () => {
+    const { ownerRepo, editorRepo, outsiderRepo, outsider, created } = await sharedProject();
+    const viewer = await signedInUser('viewer');
+    const viewerRepo = new SupabaseRepository(viewer.client);
+    await ownerRepo.shareProject(created.project.id, viewer.email, 'viewer');
+    const floorId = Object.keys(created.floors)[0]!;
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3, 4]);
+    const plan = (): NewAttachment => ({
+      id: crypto.randomUUID(),
+      projectId: created.project.id,
+      floorId,
+      kind: 'floorplan',
+      extension: 'png',
+      contentType: 'image/png',
+      body: bytes,
+    });
+    const readAll = async (url: string) => new Uint8Array(await (await fetch(url)).arrayBuffer());
+
+    const uploaded = plan();
+    expect(await editorRepo.uploadAttachment(uploaded)).toEqual({
+      storagePath: `${created.project.id}/${uploaded.id}.png`,
+    });
+    for (const repo of [editorRepo, viewerRepo, ownerRepo]) {
+      const signed = await repo.attachmentUrl(uploaded.id, 60);
+      expect(signed.expiresAt).toBeGreaterThan(Date.now() + 50_000);
+      expect(await readAll(signed.url)).toEqual(bytes);
+    }
+
+    const byViewer = plan();
+    await expect(viewerRepo.uploadAttachment(byViewer)).rejects.toThrow(RepositoryError);
+    await expect(outsiderRepo.uploadAttachment(plan())).rejects.toThrow(RepositoryError);
+    await expect(editorRepo.attachmentUrl(byViewer.id)).rejects.toThrow(NotFoundError);
+
+    await expect(outsiderRepo.attachmentUrl(uploaded.id)).rejects.toThrow(NotFoundError);
+    // Even knowing the path, an outsider cannot sign or list the file.
+    const files = outsider.client.storage.from(PROJECT_FILES_BUCKET);
+    const direct = await files.createSignedUrl(
+      attachmentPath(created.project.id, uploaded.id, 'png'),
+      60,
+    );
+    expect(direct.error).not.toBeNull();
+    expect((await files.list(created.project.id)).data ?? []).toEqual([]);
   });
 
   it('keeps outsiders out of saving and sharing', async () => {

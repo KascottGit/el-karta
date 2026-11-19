@@ -141,5 +141,53 @@
     "message": "Ändringar i projektet ”{{name}}” har inte kunnat sparas än. Spara dem innan du öppnar ett annat projekt, eller släng dem.",
     "retry": "Försök spara igen",
     "discard": "Släng ändringarna"
+  },
+  "background": {
+    "tool": "Bakgrund",
+    "scaleTool": "Skala",
+    "title": "Planritning i bakgrunden",
+    "empty": "Ladda upp en planritning att rita av, som bild (PNG, JPEG, WebP) eller PDF.",
+    "chooseFile": "Välj planritning …",
+    "replace": "Byt planritning …",
+    "reading": "Öppnar PDF:en …",
+    "pickPage_one": "PDF:en har {{count}} sida. Välj den som visar våningen.",
+    "pickPage_other": "PDF:en har {{count}} sidor. Välj den som visar våningen.",
+    "page": "Sida {{page}}",
+    "rendering": "Förbereder sida {{page}} …",
+    "uploading": "Laddar upp …",
+    "failed": {
+      "unsupported": "Den filtypen går inte att använda. Välj en PNG-, JPEG-, WebP- eller PDF-fil.",
+      "pdf": "PDF:en gick inte att öppna.",
+      "upload": "Det gick inte att ladda upp filen. Kontrollera anslutningen och att du får redigera projektet."
+    },
+    "pdfPage": "Sida {{page}} ur PDF:en.",
+    "imageLoading": "Hämtar bilden …",
+    "imageFailed": "Bilden gick inte att visa.",
+    "retry": "Försök igen",
+    "opacity": "Synlighet {{percent}} %",
+    "placeHint": "Flytta och vrid bilden med handtagen på ritytan eller med fälten nedan. Väggar och annat du ritat flyttas inte.",
+    "x": "Läge x (m)",
+    "y": "Läge y (m)",
+    "rotation": "Vridning (°)",
+    "rotate90": "Vrid 90°",
+    "remove": "Ta bort bakgrunden",
+    "measure": "Mät skala",
+    "scaleNotSet": "Skalan är inte satt. Mät ett känt avstånd på ritningen så att den blir rätt.",
+    "scaleValue": "Skala: 1 bildpunkt = {{mm}} mm ({{source}}).",
+    "scaleSource": {
+      "user": "uppmätt",
+      "dimension_text": "från måttangivelse",
+      "ai_estimate": "uppskattad"
+    },
+    "measureNeedsBackground": "Ladda upp en planritning först. Skalan mäts på den.",
+    "measureStart": "Tryck på ena änden av ett känt mått, till exempel en vägg med utskrivet mått.",
+    "measureEnd": "Tryck på andra änden av måttet.",
+    "measureAdjust": "Dra i punkterna för att träffa exakt. Zooma in för bättre noggrannhet.",
+    "realLength": "Verklig längd (m)",
+    "realLengthExample": "t.ex. 3,6",
+    "invalidLength": "Ange en längd större än noll, till exempel 3,6.",
+    "setScale": "Sätt skala",
+    "scaleApplied": "Skalan är satt.",
+    "metres": "{{value}} m"
   }
 }

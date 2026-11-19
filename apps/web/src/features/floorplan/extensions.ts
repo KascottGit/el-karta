@@ -1,4 +1,5 @@
 import { areasExtension } from './areas/extension';
+import { backgroundExtension } from './background/extension';
 import { baseExtension } from './canvas/base-extension';
 import type { EditorExtension } from './canvas/extension';
 import { devExtension } from './dev/extension';
@@ -9,5 +10,6 @@ export const extensions: readonly EditorExtension[] = [
   baseExtension,
   areasExtension,
   wallsExtension,
+  backgroundExtension,
   ...(import.meta.env.DEV ? [devExtension] : []),
 ];
