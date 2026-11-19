@@ -15,10 +15,15 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "perf": "pnpm --filter @el-karta/core perf",
-    "supabase": "supabase"
+    "supabase": "supabase",
+    "db:types": "supabase gen types --local --schema public > packages/data-supabase/src/database.types.ts && prettier --write packages/data-supabase/src/database.types.ts",
+    "test:db": "supabase test db",
+    "test:integration": "INTEGRATION=1 vitest run --project integration",
+    "test:e2e": "playwright test -c apps/web/e2e/playwright.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.65.1",
     "@types/node": "^26.6.6",
     "eslint": "^10.15.0",
     "eslint-config-prettier": "^10.1.8",

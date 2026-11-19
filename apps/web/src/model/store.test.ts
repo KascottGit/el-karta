@@ -2,6 +2,7 @@ import {
   addDevice,
   buildGraph,
   generateProject,
+  InMemoryRepository,
   removeDevice,
   replayChanges,
   updateDevice,
@@ -105,5 +106,78 @@ describe('model store', () => {
     store.getState().undo();
     expect(store.getState().past).toHaveLength(0);
     expect(store.getState().pending).toEqual({});
+  });
+});
+
+describe('model store saving', () => {
+  async function saving() {
+    const repository = new InMemoryRepository();
+    const model = await repository.createProject(generateProject('small'));
+    const [ground, upper] = Object.values(model.floors).sort((a, b) => a.sortOrder - b.sortOrder);
+    const outlets = (floorId: string) =>
+      Object.values(model.floors[floorId]!.data.devices).filter((d) => d.type === 'outlet');
+    const store = createModelStore();
+    store.getState().load(model);
+    return { repository, model, store, ground: ground!, upper: upper!, outlets };
+  }
+
+  it('saves each changed document once and clears its queue', async () => {
+    const { repository, model, store, ground, upper, outlets } = await saving();
+    const crossFloorOutlet = outlets(upper.id)[0]!;
+    store.getState().apply(updateDevice(outlets(ground.id)[0]!.id, { label: 'Sparad' }));
+    store.getState().apply(removeDevice(crossFloorOutlet.id));
+    await store.getState().save(repository);
+
+    const state = store.getState();
+    expect(state.pending).toEqual({ [ground.id]: [], [upper.id]: [], project: [] });
+    expect([
+      state.model!.floors[ground.id]!.version,
+      state.model!.floors[upper.id]!.version,
+      state.model!.project.version,
+    ]).toEqual([2, 2, 2]);
+    expect(await repository.loadProject(model.project.id)).toEqual(state.model);
+    expect(state.conflicts).toEqual([]);
+  });
+
+  it('merges a newer version saved by someone else and reports changes that no longer apply', async () => {
+    const { repository, model, store, ground, outlets } = await saving();
+    const [mine, theirs, gone] = outlets(ground.id);
+    const other = createModelStore();
+    other.getState().load(await repository.loadProject(model.project.id));
+    other.getState().apply(updateDevice(theirs!.id, { label: 'Deras' }));
+    other.getState().apply(removeDevice(gone!.id));
+    await other.getState().save(repository);
+
+    store.getState().apply(updateDevice(mine!.id, { label: 'Min' }));
+    store.getState().apply(updateDevice(gone!.id, { label: 'Försvunnen' }));
+    await store.getState().save(repository);
+
+    const { model: merged, conflicts, graph } = store.getState();
+    const devices = merged!.floors[ground.id]!.data.devices;
+    expect([devices[mine!.id]?.label, devices[theirs!.id]?.label, devices[gone!.id]]).toEqual([
+      'Min',
+      'Deras',
+      undefined,
+    ]);
+    expect(conflicts).toHaveLength(1);
+    expect(merged!.floors[ground.id]!.version).toBe(3);
+    expect(graph!.graph.hasNode(gone!.id)).toBe(false);
+    expect(await repository.loadProject(model.project.id)).toEqual(merged);
+  });
+
+  it('keeps edits made while a save is in flight', async () => {
+    const { repository, store, ground, outlets } = await saving();
+    const [first, second] = outlets(ground.id);
+    store.getState().apply(updateDevice(first!.id, { label: 'Först' }));
+    const inFlight = store.getState().save(repository);
+    store.getState().apply(updateDevice(second!.id, { label: 'Under tiden' }));
+    await inFlight;
+
+    const state = store.getState();
+    expect(state.pending[ground.id]).toHaveLength(1);
+    expect(state.model!.floors[ground.id]!.data.devices[second!.id]!.label).toBe('Under tiden');
+    await state.save(repository);
+    expect(store.getState().pending[ground.id]).toEqual([]);
+    expect(store.getState().model!.floors[ground.id]!.version).toBe(3);
   });
 });

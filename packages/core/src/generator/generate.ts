@@ -1,5 +1,6 @@
 import { wallLength } from '../geometry/index.ts';
 import { CURRENT_SCHEMA_VERSION } from '../migrations/index.ts';
+import { emptyFloorData } from '../project.ts';
 import type {
   Connection,
   Device,
@@ -146,7 +147,7 @@ export function generateProject(size: SyntheticSize, seed = 1): Model {
       name: `Plan ${f + 1}`,
       sortOrder: f,
       version: 1,
-      data: emptyFloor(f * (spec.ceiling + 0.3), spec.ceiling),
+      data: emptyFloorData(spec.ceiling, f * (spec.ceiling + 0.3)),
     };
     floors[floor.id] = floor;
     floorRecords.push(floor);
@@ -383,20 +384,6 @@ export function generateProject(size: SyntheticSize, seed = 1): Model {
       },
     },
     floors,
-  };
-}
-
-function emptyFloor(elevation: number, height: number): FloorData {
-  return {
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    elevation,
-    height,
-    walls: {},
-    openings: {},
-    rooms: {},
-    zones: {},
-    devices: {},
-    connections: {},
   };
 }
 
