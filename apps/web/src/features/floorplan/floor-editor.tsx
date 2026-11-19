@@ -1,6 +1,7 @@
 import type { Id } from '@el-karta/core';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { FloorSwitcher } from '@/features/projects/floor-switcher';
 import { useModelStore } from '@/model/store';
 import { SaveStatus } from './save/save-status';
 
@@ -18,7 +19,10 @@ export function FloorEditor({ floorId, backTo }: { floorId: Id; backTo: string }
           {t('editor.back')}
         </Link>
         <h1 className="font-semibold">{floor.name}</h1>
-        <SaveStatus />
+        <FloorSwitcher floorId={floorId} />
+        <div className="ml-auto">
+          <SaveStatus />
+        </div>
       </header>
       <div data-testid="floor-editor-canvas" className="flex-1 rounded-lg border" />
     </div>

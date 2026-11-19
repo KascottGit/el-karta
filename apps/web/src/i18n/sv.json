@@ -5,7 +5,9 @@
   },
   "common": {
     "loading": "Laddar …",
-    "loadFailed": "Kunde inte hämta data. Försök igen."
+    "loadFailed": "Kunde inte hämta data. Försök igen.",
+    "save": "Spara",
+    "cancel": "Avbryt"
   },
   "nav": {
     "projects": "Projekt"
@@ -42,7 +44,24 @@
     "floors": "Våningar",
     "deviceCount_one": "{{count}} enhet",
     "deviceCount_other": "{{count}} enheter",
-    "notFound": "Projektet finns inte, eller så har du inte tillgång till det."
+    "notFound": "Projektet finns inte, eller så har du inte tillgång till det.",
+    "addFloor": "Lägg till våning",
+    "addBuilding": "Lägg till byggnad",
+    "newFloorName": "Plan {{number}}",
+    "newBuildingName": "Byggnad {{number}}",
+    "rename": "Byt namn på {{name}}",
+    "floorName": "Våningens namn",
+    "buildingName": "Byggnadens namn",
+    "moveUp": "Flytta {{name}} en våning upp",
+    "moveDown": "Flytta {{name}} en våning ned",
+    "deleteFloor": "Ta bort {{name}}",
+    "confirmDeleteFloor": "Ta bort {{name}}? Allt på våningen tas bort, även kopplingar till andra våningar. Det går inte att ångra.",
+    "confirmDelete": "Ta bort",
+    "lastFloor": "Ett projekt måste ha minst en våning.",
+    "removeBuilding": "Ta bort {{name}}",
+    "noFloors": "Inga våningar ännu.",
+    "addFloorFailed": "Det gick inte att lägga till våningen.",
+    "deleteFloorFailed": "Det gick inte att ta bort våningen."
   },
   "share": {
     "title": "Dela projektet",
@@ -61,6 +80,7 @@
   "editor": {
     "back": "← Till projektet",
     "floorNotFound": "Våningen finns inte i projektet.",
+    "floor": "Våning",
     "unknownSize": "Okänd storlek. Välj en av: {{sizes}}"
   },
   "save": {

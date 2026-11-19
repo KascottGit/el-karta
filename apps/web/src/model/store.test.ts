@@ -2,15 +2,19 @@ import {
   addDevice,
   buildGraph,
   generateProject,
+  indexModel,
   InMemoryRepository,
+  newFloor,
   removeDevice,
   replayChanges,
   updateDevice,
   type Device,
+  type FloorRecord,
   type Model,
+  type SaveResult,
 } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
-import { createModelStore } from './store';
+import { createModelStore, type ModelState } from './store';
 
 function setup() {
   const model = generateProject('small');
@@ -179,5 +183,161 @@ describe('model store saving', () => {
     await state.save(repository);
     expect(store.getState().pending[ground.id]).toEqual([]);
     expect(store.getState().model!.floors[ground.id]!.version).toBe(3);
+  });
+});
+
+describe('model store floors', () => {
+  async function floors() {
+    const repository = new InMemoryRepository();
+    const model = await repository.createProject(generateProject('small'));
+    const [ground, upper] = Object.values(model.floors).sort((a, b) => a.sortOrder - b.sortOrder);
+    const store = createModelStore();
+    store.getState().load(model);
+    const outlet = (floorId: string) =>
+      Object.values(model.floors[floorId]!.data.devices).find((d) => d.type === 'outlet')!;
+    return { repository, model, store, ground: ground!, upper: upper!, outlet };
+  }
+
+  const expectGraphRebuilt = (state: ModelState) => {
+    const rebuilt = buildGraph(JSON.parse(JSON.stringify(state.model)) as Model);
+    expect(state.graph!.graph.nodes().sort()).toEqual(rebuilt.nodes().sort());
+    expect(state.graph!.graph.edges().sort()).toEqual(rebuilt.edges().sort());
+  };
+
+  it('adds a floor while other floors have pending changes, keeping them queued', async () => {
+    const { repository, model, store, ground, upper, outlet } = await floors();
+    store.getState().apply(updateDevice(outlet(ground.id).id, { label: 'Väntar' }));
+    const floor = newFloor(model, {
+      id: crypto.randomUUID(),
+      buildingId: upper.buildingId,
+      name: 'Vind',
+    });
+    await store.getState().createFloor(repository, floor);
+
+    let state = store.getState();
+    expect(state.model!.floors[floor.id]).toEqual(floor);
+    expect(state.saved[floor.id]).toEqual(floor);
+    expect(state.pending[ground.id]).toHaveLength(1);
+    expect(state.past).toHaveLength(1);
+    expectGraphRebuilt(state);
+
+    await state.save(repository);
+    state = store.getState();
+    expect(await repository.loadProject(model.project.id)).toEqual(state.model);
+    await expect(store.getState().createFloor(repository, floor)).rejects.toThrow();
+  });
+
+  it('removes a floor, its queued changes and cross-floor connections, keeping other floors pending', async () => {
+    const { repository, model, store, ground, upper, outlet } = await floors();
+    const { deviceFloor, portOwner } = indexModel(model);
+    const crossToUpper = Object.values(model.project.data.crossFloorConnections).filter((c) =>
+      [c.fromPortId, c.toPortId].some((port) => deviceFloor.get(portOwner.get(port)!) === upper.id),
+    );
+    expect(crossToUpper.length).toBeGreaterThan(0);
+    store.getState().apply(updateDevice(outlet(ground.id).id, { label: 'Kvar' }));
+    store.getState().apply(updateDevice(outlet(upper.id).id, { label: 'Borta' }));
+
+    await store.getState().deleteFloor(repository, upper.id);
+    let state = store.getState();
+    expect(state.model!.floors[upper.id]).toBeUndefined();
+    expect(state.pending[upper.id]).toBeUndefined();
+    expect(state.saved[upper.id]).toBeUndefined();
+    expect(state.pending[ground.id]).toHaveLength(1);
+    expect(state.pending.project).toEqual([]);
+    expect([state.past, state.future]).toEqual([[], []]);
+    for (const c of crossToUpper) {
+      expect(state.model!.project.data.crossFloorConnections[c.id]).toBeUndefined();
+    }
+    expectGraphRebuilt(state);
+    const stored = await repository.loadProject(model.project.id);
+    expect(stored.floors[upper.id]).toBeUndefined();
+    expect(stored.project).toEqual(state.model!.project);
+
+    await state.save(repository);
+    state = store.getState();
+    expect(await repository.loadProject(model.project.id)).toEqual(state.model);
+    expect(state.model!.floors[ground.id]!.data.devices[outlet(ground.id).id]!.label).toBe('Kvar');
+  });
+
+  it('waits for a save in flight before deleting a floor', async () => {
+    const { repository, model, store, upper, outlet } = await floors();
+    store.getState().apply(updateDevice(outlet(upper.id).id, { label: 'Sparas' }));
+    const saving = store.getState().save(repository);
+    const deleting = store.getState().deleteFloor(repository, upper.id);
+    await Promise.all([saving, deleting]);
+
+    const state = store.getState();
+    expect(state.saving).toBe(false);
+    expect(state.model!.floors[upper.id]).toBeUndefined();
+    expect(state.saved[upper.id]).toBeUndefined();
+    expect(await repository.loadProject(model.project.id)).toEqual(state.model);
+  });
+
+  it('keeps a floor deleted when its save settles late, and stays saving until every save settles', async () => {
+    class GatedRepository extends InMemoryRepository {
+      readonly failing = new Set<string>();
+      readonly gated = new Set<string>();
+      release: () => void = () => undefined;
+      readonly #gate = new Promise<void>((resolve) => {
+        this.release = resolve;
+      });
+
+      override async saveFloor(
+        record: FloorRecord,
+        expected: number,
+      ): Promise<SaveResult<FloorRecord>> {
+        if (this.failing.has(record.id)) throw new Error('offline');
+        if (this.gated.has(record.id)) await this.#gate;
+        return super.saveFloor(record, expected);
+      }
+    }
+    const repository = new GatedRepository();
+    const model = await repository.createProject(generateProject('small'));
+    const [ground, upper] = Object.values(model.floors).sort((a, b) => a.sortOrder - b.sortOrder);
+    const store = createModelStore();
+    store.getState().load(model);
+    const outlet = (floorId: string) =>
+      Object.values(model.floors[floorId]!.data.devices).find((d) => d.type === 'outlet')!;
+    repository.failing.add(ground!.id);
+    repository.gated.add(upper!.id);
+    store.getState().apply(updateDevice(outlet(ground!.id).id, { label: 'Misslyckas' }));
+    store.getState().apply(updateDevice(outlet(upper!.id).id, { label: 'Försenad' }));
+
+    const saving = store.getState().save(repository);
+    const savingResult = saving.then(
+      () => 'saved',
+      (error: unknown) => (error instanceof Error ? error.message : 'failed'),
+    );
+    const deleting = store.getState().deleteFloor(repository, upper!.id);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.getState().saving).toBe(true);
+    expect(store.getState().model!.floors[upper!.id]).toBeDefined();
+
+    repository.release();
+    await deleting;
+    expect(await savingResult).toBe('offline');
+    const state = store.getState();
+    expect(state.saving).toBe(false);
+    expect(state.model!.floors[upper!.id]).toBeUndefined();
+    expect(state.saved[upper!.id]).toBeUndefined();
+    expect(state.pending[upper!.id]).toBeUndefined();
+    expect(state.pending[ground!.id]).toHaveLength(1);
+    expect((await repository.loadProject(model.project.id)).floors[upper!.id]).toBeUndefined();
+  });
+
+  it('never deletes the last floor, and changes nothing when the repository fails', async () => {
+    const { repository, model, store, ground, upper } = await floors();
+    const failing = Object.assign(Object.create(repository) as InMemoryRepository, {
+      deleteFloor: () => Promise.reject(new Error('offline')),
+    });
+    await expect(store.getState().deleteFloor(failing, upper.id)).rejects.toThrow('offline');
+    expect(store.getState().model).toEqual(model);
+
+    await store.getState().deleteFloor(repository, upper.id);
+    await expect(store.getState().deleteFloor(repository, ground.id)).rejects.toThrow(
+      'at least one floor',
+    );
+    expect((await repository.loadProject(model.project.id)).floors[ground.id]).toBeDefined();
+    expect(store.getState().saving).toBe(false);
   });
 });

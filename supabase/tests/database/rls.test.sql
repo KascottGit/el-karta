@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(33);
+select plan(37);
 
 -- Fixed ids: owner A, editor B, viewer V, outsider C; project P with floors F1, F2.
 insert into auth.users (id, email, aud, role) values
@@ -74,6 +74,12 @@ select throws_ok(
 select set_config('request.jwt.claims', '{"sub":"d0000000-0000-4000-8000-000000000004","role":"authenticated"}', true);
 select is((select count(*) from public.floors)::int, 2, 'viewer sees the floors');
 select is_empty($$ update public.floors set name = 'nope' returning id $$, 'viewer updates no floors');
+select throws_ok(
+  $$ insert into public.floors (project_id, building_id, name, sort_order, data, schema_version)
+     values ('e0000000-0000-4000-8000-000000000010', 'b1', 'Vind', 2, '{}', 1) $$,
+  '42501', null, 'viewer cannot add a floor'
+);
+select is_empty($$ delete from public.floors returning id $$, 'viewer deletes no floors');
 select is((select count(*) from storage.objects where bucket_id = 'project-files')::int, 1, 'viewer sees project files');
 
 -- Editor B saves a floor with the version check; a stale save then matches nothing.
@@ -89,6 +95,16 @@ select is_empty(
   'a save at a stale version matches no row'
 );
 select throws_ok($$ select public.share_project('e0000000-0000-4000-8000-000000000010', 'c@test.local') $$, '42501', null, 'editor cannot share');
+select lives_ok(
+  $$ insert into public.floors (id, project_id, building_id, name, sort_order, data, schema_version)
+     values ('f0000000-0000-4000-8000-000000000013', 'e0000000-0000-4000-8000-000000000010', 'b1', 'Vind', 2, '{}', 1) $$,
+  'editor adds a floor'
+);
+select results_eq(
+  $$ with removed as (delete from public.floors where id = 'f0000000-0000-4000-8000-000000000013' returning id) select count(*)::int from removed $$,
+  $$ values (1) $$,
+  'editor deletes a floor'
+);
 select is_empty($$ delete from public.projects returning id $$, 'editor cannot delete the project');
 select is_empty($$ delete from public.project_members returning user_id $$, 'editor cannot remove members');
 select lives_ok(
