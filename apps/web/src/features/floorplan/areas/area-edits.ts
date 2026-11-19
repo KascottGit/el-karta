@@ -119,11 +119,3 @@ export function withCeilingHeight(room: Room, height: number | undefined): Room 
   delete next.ceilingHeight;
   return next;
 }
-
-/** A positive length in metres from text, accepting a decimal comma. Empty gives undefined. */
-export function parseLength(text: string): number | undefined | 'invalid' {
-  const trimmed = text.trim().replace(',', '.');
-  if (trimmed === '') return undefined;
-  const value = Number(trimmed);
-  return Number.isFinite(value) && value > 0 ? value : 'invalid';
-}

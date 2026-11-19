@@ -17,3 +17,4 @@ Patch paths then look like `data/devices/<id>/label`. Replaying them on a change
 - Normalised state is the standard pattern for editors with patches (Redux, Immer docs); no custom patch format is needed.
 - Item order is not stored. Anything that needs an order (floors, slots) has an explicit field (`sortOrder`, `slot`).
 - JSON in the database is an object of objects instead of an array; JSON Schema for AI output can still use arrays and be converted when suggestions are accepted.
+- Small value lists without ids (a floor's grid lines) are replaced whole by their edit (`setGrid`), so a patch never addresses a line by index; two people editing the same floor's grid at once get last-writer-wins for the whole grid. Grids rarely change concurrently, so this is accepted rather than giving grid lines ids.

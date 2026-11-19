@@ -2,7 +2,7 @@ import type { Pt, Room } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
 import { resolveExtensions } from '../canvas/extension';
 import { extensions } from '../extensions';
-import { checkPolygon, parseLength, reshapePolygon, withCeilingHeight } from './area-edits';
+import { checkPolygon, reshapePolygon, withCeilingHeight } from './area-edits';
 
 const pt = (x: number, y: number): Pt => ({ x, y });
 const square = [pt(0, 0), pt(4, 0), pt(4, 4), pt(0, 4)];
@@ -61,17 +61,6 @@ describe('room fields', () => {
     expect(withCeilingHeight(high, 2.7)).toBe(high);
     expect('ceilingHeight' in withCeilingHeight(high, undefined)).toBe(false);
     expect(withCeilingHeight(room, undefined)).toBe(room);
-  });
-
-  it.each([
-    ['2,4', 2.4],
-    [' 2.75 ', 2.75],
-    ['', undefined],
-    ['0', 'invalid'],
-    ['-1', 'invalid'],
-    ['tre', 'invalid'],
-  ] as const)('parses %j as %j', (text, expected) => {
-    expect(parseLength(text)).toBe(expected);
   });
 });
 

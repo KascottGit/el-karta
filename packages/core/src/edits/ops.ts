@@ -1,4 +1,5 @@
 import type { Draft } from 'immer';
+import type { FloorBackground, FloorScale } from '../geometry/background.ts';
 import { indexModel } from '../model.ts';
 import type {
   Building,
@@ -6,6 +7,7 @@ import type {
   Device,
   FloorData,
   FloorRecord,
+  Grid,
   Id,
   Model,
 } from '../schemas/index.ts';
@@ -137,6 +139,15 @@ export const updateFloor =
     Object.assign(floorOf(draft, floorId), changes);
   };
 
+/** Replaces the floor's grid lines whole; null or a grid without lines removes the grid. */
+export const setGrid =
+  (floorId: Id, grid: Grid | null): Edit =>
+  (draft) => {
+    const { data } = floorOf(draft, floorId);
+    if (grid && (grid.xLines.length > 0 || grid.yLines.length > 0)) data.grid = grid;
+    else if (data.grid) delete data.grid;
+  };
+
 /**
  * Puts a building's floors in the given order, bottom first: `sortOrder` 0, 1, 2 …, and elevations
  * restacked from the lowest current one, each floor starting where the one below ends.
@@ -181,6 +192,27 @@ export const removeFloor =
       else delete connection.route;
     }
     delete draft.floors[floorId];
+  };
+
+/**
+ * Sets or (with null) removes the floor's background image placement. Walls and everything else
+ * stay where they are; only the image moves.
+ */
+export const setBackground =
+  (floorId: Id, background: FloorBackground | null): Edit =>
+  (draft) => {
+    const { data } = floorOf(draft, floorId);
+    if (background) data.background = background;
+    else delete data.background;
+  };
+
+/** Sets or (with null) removes the floor's plan scale. Like `setBackground`, it moves only the image. */
+export const setScale =
+  (floorId: Id, scale: FloorScale | null): Edit =>
+  (draft) => {
+    const { data } = floorOf(draft, floorId);
+    if (scale) data.scale = scale;
+    else delete data.scale;
   };
 
 export const addBuilding =

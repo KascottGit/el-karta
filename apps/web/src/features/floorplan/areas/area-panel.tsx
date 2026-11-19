@@ -5,14 +5,13 @@ import { useModelStore } from '@/model/store';
 import { Label } from '@/ui/label';
 import type { CanvasContext } from '../canvas/extension';
 import { useCanvasState } from '../canvas/use-canvas-state';
-import { parseLength, updateArea, withCeilingHeight, type AreaCollection } from './area-edits';
+import { CommitInput } from '../fields/commit-input';
+import { DecimalField } from '../fields/decimal-field';
+import { formatDecimal } from '../fields/numbers';
+import { updateArea, withCeilingHeight, type AreaCollection } from './area-edits';
 import { areaIssues } from './area-issues';
 import { issueColors } from './colors';
-import { CommitInput } from './commit-input';
 import { selectedArea } from './selected-area';
-
-const formatNumber = (value: number, digits: number) =>
-  new Intl.NumberFormat('sv', { maximumFractionDigits: digits }).format(value);
 
 const fieldClass = 'flex flex-col gap-1.5';
 const selectClass = 'h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm';
@@ -22,7 +21,6 @@ export function RoomPanel({ ctx }: { ctx: CanvasContext }) {
   const room = useCanvasState((editor, model) => selectedArea(editor, model, 'rooms'));
   const floorHeight = useModelStore((s) => s.model?.floors[ctx.floorId]?.data.height);
   const typeId = useId();
-  const ceilingId = useId();
   if (!room) return null;
   const update = (change: (room: Room) => Room) => {
     updateArea<Room>(ctx.floorId, 'rooms', room.id, change);
@@ -48,24 +46,20 @@ export function RoomPanel({ ctx }: { ctx: CanvasContext }) {
         </select>
       </div>
       <div className={fieldClass}>
-        <Label htmlFor={ceilingId}>{t('areas.ceilingHeight')}</Label>
-        <CommitInput
-          id={ceilingId}
-          itemId={room.id}
-          inputMode="decimal"
-          value={room.ceilingHeight === undefined ? '' : formatNumber(room.ceilingHeight, 3)}
-          placeholder={floorHeight === undefined ? undefined : formatNumber(floorHeight, 3)}
-          aria-describedby={`${ceilingId}-hint`}
-          onCommit={(text) => {
-            const height = parseLength(text);
-            if (height === 'invalid') return false;
-            update((r) => withCeilingHeight(r, height));
-            return true;
+        <DecimalField
+          label={t('areas.ceilingHeight')}
+          unit={t('areas.metres')}
+          value={room.ceilingHeight}
+          digits={2}
+          optional
+          accept={(height) => height > 0}
+          onCommit={(height) => {
+            update((r) => withCeilingHeight(r, height ?? undefined));
           }}
         />
         {floorHeight !== undefined && (
-          <p id={`${ceilingId}-hint`} className="text-xs text-muted-foreground">
-            {t('areas.ceilingHeightHint', { height: formatNumber(floorHeight, 3) })}
+          <p className="text-xs text-muted-foreground">
+            {t('areas.ceilingHeightHint', { height: formatDecimal(floorHeight, 2) })}
           </p>
         )}
       </div>
@@ -107,20 +101,20 @@ function AreaFields({
         <Label htmlFor={nameId}>{t('areas.name')}</Label>
         <CommitInput
           id={nameId}
-          itemId={area.id}
+          autoComplete="off"
           value={area.name}
+          valid={() => true}
           onCommit={(name) => {
             const trimmed = name.trim();
             updateArea(ctx.floorId, collection, area.id, (a) =>
               a.name === trimmed ? a : { ...a, name: trimmed },
             );
-            return true;
           }}
         />
       </div>
       {children}
       <p className="text-sm">
-        {t('areas.area', { area: formatNumber(Math.abs(signedArea(area.polygon)), 1) })}
+        {t('areas.area', { area: formatDecimal(Math.abs(signedArea(area.polygon)), 1) })}
       </p>
       {issues && issues.length > 0 && (
         <ul className="flex flex-col gap-1 text-sm">

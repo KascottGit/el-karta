@@ -36,3 +36,4 @@ The 2D editor (`apps/web/src/features/floorplan/`) is a Konva stage that feature
 
 - Features never use Konva `draggable` or attach their own pointer listeners to the stage. They use `handle(spec, payload)` and the `Tool` callbacks.
 - Pan and zoom performance is measured by `apps/web/e2e/canvas-perf.spec.ts` on the large synthetic project. It pans across several render windows and reports p95, max and dropped frames. It asserts the 16 ms budget only with `PERF_BUDGET=1`, because shared CI runners vary.
+- A floor's background attachment is always a raster image. For an uploaded PDF, `background.pdfPage` only records which page the stored PNG was rendered from; the source PDF is not kept in M3 (M4 may decide to store it for text extraction). The image lies in the plan at `offset + R(rotation) · (u, v) · scale.metresPerPixel`, with rotation in degrees, clockwise on screen (`packages/core/src/geometry/background.ts`).
