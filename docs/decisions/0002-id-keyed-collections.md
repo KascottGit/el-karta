@@ -1,6 +1,6 @@
 # 0002 Id-keyed collections in documents
 
-Status: proposed (M1), changes the shape in PLAN.md
+Status: accepted (M1), replaces the array shape sketched in PLAN.md
 
 ## Context
 
