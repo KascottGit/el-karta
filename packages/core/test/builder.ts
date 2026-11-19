@@ -1,5 +1,6 @@
 import { seededRandom, seededUuid } from '../src/generator/random.ts';
 import { CURRENT_SCHEMA_VERSION } from '../src/migrations/index.ts';
+import { emptyFloorData } from '../src/project.ts';
 import type {
   Connection,
   Device,
@@ -33,17 +34,7 @@ export class ModelBuilder {
         name: `Plan ${i + 1}`,
         sortOrder: i,
         version: 1,
-        data: {
-          schemaVersion: CURRENT_SCHEMA_VERSION,
-          elevation: i * 3,
-          height: floorHeight,
-          walls: {},
-          openings: {},
-          rooms: {},
-          zones: {},
-          devices: {},
-          connections: {},
-        },
+        data: emptyFloorData(floorHeight, i * 3),
       };
       floors[floor.id] = floor;
       this.floors.push(floor);

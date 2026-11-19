@@ -1,6 +1,6 @@
+import { freeze } from 'immer';
 import { performance } from 'node:perf_hooks';
 import {
-  buildGraph,
   CONTAINS,
   directlyConnected,
   generateProject,
@@ -11,6 +11,8 @@ import {
   trace,
   updateDevice,
   applyEdit,
+  LiveGraph,
+  removeDevice,
   type Id,
   type Model,
   type ModelGraph,
@@ -47,10 +49,12 @@ export interface PerfReport {
   devices: number;
   connections: number;
   storedMegabytes: number;
+  /** `graph` includes freezing the model and building the index. */
   openMs: { parse: number; validateSchema: number; graph: number; total: number };
   selectMs: { samples: number; p50: number; p95: number; max: number };
   panelDownstreamMs: number;
-  rebuildAfterEditMs: number;
+  /** Applying an edit and bringing the index and graph up to date. */
+  editMs: { samples: number; p95: number; max: number };
 }
 
 export function measure(size: SyntheticSize, samples = 500): PerfReport {
@@ -73,7 +77,14 @@ export function measure(size: SyntheticSize, samples = 500): PerfReport {
       floors: Object.fromEntries(floors.map((f) => [f.id, f])),
     };
   });
-  const [graph, graphMs] = time(() => buildGraph(model));
+  const [live, graphMs] = time(() => {
+    freeze(model, true);
+    indexModel(model);
+    return new LiveGraph(model);
+  });
+  const { graph } = live;
+  const devices = graph.order;
+  const connections = graph.size;
 
   const random = seededRandom(99);
   const loads = graph.filterNodes(
@@ -96,16 +107,27 @@ export function measure(size: SyntheticSize, samples = 500): PerfReport {
   if (everything.steps.size !== graph.order)
     throw new Error('Main panel does not reach every device');
 
-  const [, rebuildAfterEditMs] = time(() => {
-    const edited = applyEdit(model, updateDevice(loads[0]!, { label: 'Ändrad' })).model;
-    indexModel(edited);
-    return buildGraph(edited);
-  });
+  const editTimings: number[] = [];
+  let current = model;
+  const breakers = graph.filterNodes((_id, attrs) => attrs.type === 'breaker');
+  for (let i = 0; i < 100; i++) {
+    const edit =
+      i % 10 === 9
+        ? removeDevice(breakers[Math.floor(i / 10)]!)
+        : updateDevice(loads[i]!, { label: `Ändrad ${i}` });
+    const [, ms] = time(() => {
+      const result = applyEdit(current, edit);
+      live.update(result.model, result.patches);
+      current = result.model;
+    });
+    editTimings.push(ms);
+  }
+  editTimings.sort((a, b) => a - b);
 
   return {
     size,
-    devices: graph.order,
-    connections: graph.size,
+    devices,
+    connections,
     storedMegabytes,
     openMs: {
       parse: parseMs,
@@ -120,13 +142,17 @@ export function measure(size: SyntheticSize, samples = 500): PerfReport {
       max: timings[timings.length - 1]!,
     },
     panelDownstreamMs,
-    rebuildAfterEditMs,
+    editMs: {
+      samples: editTimings.length,
+      p95: percentile(editTimings, 0.95),
+      max: editTimings[editTimings.length - 1]!,
+    },
   };
 }
 
-/** From the performance budget in PLAN.md. */
-export const BUDGET_MS: Record<SyntheticSize, { open: number; select: number }> = {
-  small: { open: 1000, select: 100 },
-  medium: { open: 2000, select: 150 },
-  large: { open: 4000, select: 250 },
+/** From the performance budget in PLAN.md; `edit` is ours, so a single edit never stalls a frame. */
+export const BUDGET_MS: Record<SyntheticSize, { open: number; select: number; edit: number }> = {
+  small: { open: 1000, select: 100, edit: 16 },
+  medium: { open: 2000, select: 150, edit: 16 },
+  large: { open: 4000, select: 250, edit: 16 },
 };

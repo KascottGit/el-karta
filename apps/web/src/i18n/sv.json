@@ -3,15 +3,56 @@
     "name": "El-karta",
     "safetyNote": "El-karta är ett verktyg för dokumentation och planering. Arbete på den fasta elinstallationen ska utföras av en behörig elinstallatör."
   },
+  "common": {
+    "loading": "Laddar …",
+    "loadFailed": "Kunde inte hämta data. Försök igen."
+  },
   "nav": {
     "projects": "Projekt"
   },
+  "auth": {
+    "title": "Logga in",
+    "description": "Vi skickar en inloggningslänk till din e-post.",
+    "email": "E-post",
+    "invalidEmail": "Ange en giltig e-postadress.",
+    "submit": "Skicka inloggningslänk",
+    "sent": "Klart! Öppna länken som skickades till {{email}} i den här webbläsaren.",
+    "failed": "Det gick inte att skicka länken. Försök igen om en stund.",
+    "signOut": "Logga ut"
+  },
+  "projectKind": {
+    "home": "Bostad",
+    "office": "Kontor",
+    "warehouse": "Lager",
+    "other": "Annat"
+  },
   "projects": {
     "title": "Projekt",
-    "empty": "Inga projekt ännu."
+    "empty": "Inga projekt ännu.",
+    "new": "Nytt projekt",
+    "name": "Namn",
+    "nameRequired": "Ge projektet ett namn.",
+    "kind": "Typ av byggnad",
+    "create": "Skapa projekt",
+    "createFailed": "Det gick inte att skapa projektet.",
+    "defaultBuilding": "Byggnad 1",
+    "defaultFloor": "Plan 1"
   },
   "project": {
-    "title": "Projekt {{projectId}}"
+    "floors": "Våningar",
+    "deviceCount_one": "{{count}} enhet",
+    "deviceCount_other": "{{count}} enheter",
+    "notFound": "Projektet finns inte, eller så har du inte tillgång till det."
+  },
+  "share": {
+    "title": "Dela projektet",
+    "email": "E-post till den du vill dela med",
+    "hint": "Personen behöver ha loggat in i El-karta en gång. Hen får redigera projektet.",
+    "submit": "Dela",
+    "done": "Projektet är delat.",
+    "unknownUser": "Ingen användare med den e-postadressen har loggat in ännu.",
+    "notOwner": "Bara projektets ägare kan dela det.",
+    "failed": "Det gick inte att dela projektet."
   },
   "notFound": {
     "title": "Sidan finns inte",

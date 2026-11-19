@@ -10,11 +10,13 @@ for (const size of ['small', 'medium', 'large'] as const) {
     `\n${size}: ${r.devices} devices, ${r.connections} graph edges, ${r.storedMegabytes.toFixed(1)} MB stored JSON`,
   );
   console.log(
-    `  open      ${f(r.openMs.total)} (JSON ${f(r.openMs.parse)}, schema+migrate ${f(r.openMs.validateSchema)}, graph ${f(r.openMs.graph)})  budget ${budget.open} ms`,
+    `  open      ${f(r.openMs.total)} (JSON ${f(r.openMs.parse)}, schema+migrate ${f(r.openMs.validateSchema)}, freeze+index+graph ${f(r.openMs.graph)})  budget ${budget.open} ms`,
   );
   console.log(
     `  select    p50 ${f(r.selectMs.p50, 3)}, p95 ${f(r.selectMs.p95, 3)}, max ${f(r.selectMs.max, 3)} over ${r.selectMs.samples} random devices  budget ${budget.select} ms`,
   );
   console.log(`  main panel downstream (whole building) ${f(r.panelDownstreamMs)}`);
-  console.log(`  edit + reindex + rebuild graph ${f(r.rebuildAfterEditMs)}`);
+  console.log(
+    `  edit + incremental index/graph update  p95 ${f(r.editMs.p95, 2)}, max ${f(r.editMs.max, 2)} over ${r.editMs.samples} edits`,
+  );
 }

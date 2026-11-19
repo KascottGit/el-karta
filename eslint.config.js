@@ -8,7 +8,13 @@ import tseslint from 'typescript-eslint';
 import { boundaries } from './tooling/eslint/boundaries.js';
 
 export default defineConfig(
-  globalIgnores(['**/dist/', '**/dev-dist/', '**/coverage/', 'supabase/.temp/']),
+  globalIgnores([
+    '**/dist/',
+    '**/dev-dist/',
+    '**/coverage/',
+    'supabase/.temp/',
+    'packages/data-supabase/src/database.types.ts',
+  ]),
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   {
@@ -22,6 +28,7 @@ export default defineConfig(
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
+      '@typescript-eslint/no-confusing-void-expression': ['error', { ignoreVoidOperator: true }],
       'no-console': ['error', { allow: ['warn', 'error'] }],
       // noUncheckedIndexedAccess already forces every unchecked index to be acknowledged.
       '@typescript-eslint/no-non-null-assertion': 'off',
@@ -37,6 +44,18 @@ export default defineConfig(
     files: ['apps/web/**/*.{ts,tsx}'],
     extends: [reactHooks.configs.flat['recommended-latest'], reactRefresh.configs.vite],
     languageOptions: { globals: globals.browser },
+  },
+  {
+    files: ['apps/web/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          // The shadcn CLI resolves the utils alias to an unrelated npm package named `cn`.
+          paths: [{ name: 'cn', message: 'Import cn from @/ui/utils.' }],
+        },
+      ],
+    },
   },
   {
     files: ['apps/web/src/ui/**/*.tsx'],

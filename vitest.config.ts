@@ -10,6 +10,19 @@ export default defineConfig({
         test: { name: 'web', root: 'apps/web', include: ['src/**/*.test.{ts,tsx}'] },
       },
       { test: { name: 'tooling', root: 'tooling', include: ['**/*.test.ts'] } },
+      // Needs the local Supabase stack, so it only runs via `pnpm test:integration`.
+      ...(process.env['INTEGRATION']
+        ? [
+            {
+              test: {
+                name: 'integration',
+                root: 'packages/data-supabase',
+                include: ['test/**/*.integration.test.ts'],
+                testTimeout: 30_000,
+              },
+            },
+          ]
+        : []),
     ],
   },
 });
