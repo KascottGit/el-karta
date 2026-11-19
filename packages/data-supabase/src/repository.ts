@@ -155,6 +155,36 @@ export class SupabaseRepository implements Repository {
     return { ok: false, latest: floorFromRow(latest.data) };
   }
 
+  async createFloor(record: FloorRecord): Promise<FloorRecord> {
+    const { data, error } = await this.client
+      .from('floors')
+      .insert({
+        id: record.id,
+        project_id: record.projectId,
+        building_id: record.buildingId,
+        name: record.name,
+        sort_order: record.sortOrder,
+        data: json(record.data),
+        schema_version: record.data.schemaVersion,
+        version: record.version,
+      })
+      .select()
+      .single();
+    if (error) fail(error);
+    return floorFromRow(data!);
+  }
+
+  async deleteFloor(projectId: Id, floorId: Id): Promise<void> {
+    const { data, error } = await this.client
+      .from('floors')
+      .delete()
+      .eq('id', floorId)
+      .eq('project_id', projectId)
+      .select('id');
+    if (error) fail(error);
+    if (!data?.length) throw new NotFoundError(`Floor ${floorId} not found`);
+  }
+
   /** Adds an existing user (by the email they signed in with) to the project. Owners only. */
   async shareProject(projectId: Id, email: string, role: MemberRole = 'editor'): Promise<void> {
     const { error } = await this.client.rpc('share_project', {

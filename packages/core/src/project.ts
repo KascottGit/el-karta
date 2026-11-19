@@ -1,5 +1,5 @@
 import { CURRENT_SCHEMA_VERSION } from './migrations/index.ts';
-import type { FloorData, Id, Model, ProjectKind } from './schemas/index.ts';
+import type { Building, FloorData, FloorRecord, Id, Model, ProjectKind } from './schemas/index.ts';
 
 /** Default ceiling height per kind of building, in metres. */
 export const DEFAULT_FLOOR_HEIGHT: Readonly<Record<ProjectKind, number>> = {
@@ -57,5 +57,40 @@ export function createEmptyProject(input: {
         data: emptyFloorData(DEFAULT_FLOOR_HEIGHT[input.kind]),
       },
     },
+  };
+}
+
+/** Buildings have no stored order, so they are listed by name. */
+export const buildingsInOrder = (model: Model): Building[] =>
+  Object.values(model.project.data.buildings).sort(
+    (a, b) => a.name.localeCompare(b.name, 'sv') || a.id.localeCompare(b.id),
+  );
+
+/** A building's floors from the bottom up. */
+export const floorsInOrder = (model: Model, buildingId: Id): FloorRecord[] =>
+  Object.values(model.floors)
+    .filter((floor) => floor.buildingId === buildingId)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id));
+
+/**
+ * A new empty floor on top of its building. It starts where the floor below ends
+ * (elevation plus height) and gets the default ceiling height for the project's kind.
+ */
+export function newFloor(
+  model: Model,
+  input: { id: Id; buildingId: Id; name: string },
+): FloorRecord {
+  const below = floorsInOrder(model, input.buildingId).at(-1);
+  return {
+    id: input.id,
+    projectId: model.project.id,
+    buildingId: input.buildingId,
+    name: input.name,
+    sortOrder: below ? below.sortOrder + 1 : 0,
+    version: 1,
+    data: emptyFloorData(
+      DEFAULT_FLOOR_HEIGHT[model.project.kind],
+      below ? below.data.elevation + below.data.height : 0,
+    ),
   };
 }

@@ -1,5 +1,6 @@
 import {
   generateProject,
+  newFloor,
   NotFoundError,
   saveWithReplay,
   splitByDocument,
@@ -119,6 +120,36 @@ describe('SupabaseRepository (local Supabase)', () => {
     expect(saved.record.version).toBe(3);
     expect(saved.record.data.devices[first!.id]).toBeUndefined();
     expect(saved.record.data.devices[second!.id]!.label).toBe('Redaktören');
+  });
+
+  it('lets an editor add and delete floors, but not a viewer or an outsider', async () => {
+    const { ownerRepo, editorRepo, outsiderRepo, created } = await sharedProject();
+    const viewer = await signedInUser('viewer');
+    const viewerRepo = new SupabaseRepository(viewer.client);
+    await ownerRepo.shareProject(created.project.id, viewer.email, 'viewer');
+    const [ground] = Object.values(created.floors);
+    const floor = newFloor(created, {
+      id: crypto.randomUUID(),
+      buildingId: ground!.buildingId,
+      name: 'Vind',
+    });
+
+    await expect(viewerRepo.createFloor(floor)).rejects.toThrow(RepositoryError);
+    await expect(outsiderRepo.createFloor(floor)).rejects.toThrow(RepositoryError);
+    expect(await editorRepo.createFloor(floor)).toEqual(floor);
+    expect((await viewerRepo.loadProject(created.project.id)).floors[floor.id]).toEqual(floor);
+
+    await expect(viewerRepo.deleteFloor(created.project.id, floor.id)).rejects.toThrow(
+      NotFoundError,
+    );
+    await expect(outsiderRepo.deleteFloor(created.project.id, floor.id)).rejects.toThrow(
+      NotFoundError,
+    );
+    await editorRepo.deleteFloor(created.project.id, floor.id);
+    expect(await ownerRepo.loadProject(created.project.id)).toEqual(created);
+    await expect(ownerRepo.deleteFloor(created.project.id, floor.id)).rejects.toThrow(
+      NotFoundError,
+    );
   });
 
   it('keeps outsiders out of saving and sharing', async () => {

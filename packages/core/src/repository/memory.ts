@@ -83,6 +83,24 @@ export class InMemoryRepository implements Repository {
     });
   }
 
+  createFloor(record: FloorRecord): Promise<FloorRecord> {
+    return settle(() => {
+      const { floors } = this.#get(record.projectId);
+      if (floors.has(record.id)) throw new Error(`Floor ${record.id} already exists`);
+      const raw = JSON.stringify(record);
+      const stored = parseFloorRecord(JSON.parse(raw));
+      floors.set(record.id, raw);
+      return stored;
+    });
+  }
+
+  deleteFloor(projectId: Id, floorId: Id): Promise<void> {
+    return settle(() => {
+      if (!this.#get(projectId).floors.delete(floorId))
+        throw new NotFoundError(`Floor ${floorId} not found`);
+    });
+  }
+
   #get(projectId: Id): StoredProject {
     const stored = this.#projects.get(projectId);
     if (!stored) throw new NotFoundError(`Project ${projectId} not found`);

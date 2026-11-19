@@ -1,6 +1,14 @@
 import type { Draft } from 'immer';
 import { indexModel } from '../model.ts';
-import type { Connection, Device, FloorData, FloorRecord, Id, Model } from '../schemas/index.ts';
+import type {
+  Building,
+  Connection,
+  Device,
+  FloorData,
+  FloorRecord,
+  Id,
+  Model,
+} from '../schemas/index.ts';
 import { EditError, type Edit } from './apply.ts';
 
 type SpaceCollection = 'walls' | 'openings' | 'rooms' | 'zones';
@@ -112,6 +120,82 @@ function deleteConnection(draft: Draft<Model>, base: Model, connectionId: Id) {
   if (doc === 'project') delete draft.project.data.crossFloorConnections[connectionId];
   else if (doc !== undefined) delete floorOf(draft, doc).data.connections[connectionId];
 }
+
+/** Brings the model in line with a floor row just created through the repository. */
+export const addFloor =
+  (floor: FloorRecord): Edit =>
+  (draft, base) => {
+    if (floor.id in base.floors) throw new EditError(`Floor ${floor.id} already exists`);
+    if (!(floor.buildingId in base.project.data.buildings))
+      throw new EditError(`Unknown building ${floor.buildingId}`);
+    draft.floors[floor.id] = floor;
+  };
+
+export const updateFloor =
+  (floorId: Id, changes: Partial<Pick<FloorRecord, 'name' | 'sortOrder'>>): Edit =>
+  (draft) => {
+    Object.assign(floorOf(draft, floorId), changes);
+  };
+
+/** Gives the floors `sortOrder` 0, 1, 2 … in the given order, touching only floors whose order changes. */
+export const reorderFloors =
+  (floorIds: readonly Id[]): Edit =>
+  (draft) => {
+    floorIds.forEach((floorId, sortOrder) => {
+      const floor = floorOf(draft, floorId);
+      if (floor.sortOrder !== sortOrder) floor.sortOrder = sortOrder;
+    });
+  };
+
+/**
+ * Brings the model in line with a floor row just deleted through the repository: removes the floor
+ * and every cross-floor connection to a port on it. A project always keeps at least one floor.
+ */
+export const removeFloor =
+  (floorId: Id): Edit =>
+  (draft, base) => {
+    const floor = base.floors[floorId];
+    if (!floor) throw new EditError(`Unknown floor ${floorId}`);
+    if (Object.keys(base.floors).length <= 1)
+      throw new EditError('A project must keep at least one floor');
+    const index = indexModel(base);
+    for (const device of Object.values(floor.data.devices)) {
+      for (const port of device.ports) {
+        for (const connectionId of index.connectionsByPort.get(port.id) ?? []) {
+          if (index.connectionDocument.get(connectionId) === 'project')
+            delete draft.project.data.crossFloorConnections[connectionId];
+        }
+      }
+    }
+    delete draft.floors[floorId];
+  };
+
+export const addBuilding =
+  (building: Building): Edit =>
+  (draft, base) => {
+    if (building.id in base.project.data.buildings)
+      throw new EditError(`Building ${building.id} already exists`);
+    draft.project.data.buildings[building.id] = building;
+  };
+
+export const updateBuilding =
+  (buildingId: Id, changes: Partial<Omit<Building, 'id'>>): Edit =>
+  (draft) => {
+    const building = draft.project.data.buildings[buildingId];
+    if (!building) throw new EditError(`Unknown building ${buildingId}`);
+    Object.assign(building, changes);
+  };
+
+/** Only a building without floors can be removed; its floors are deleted first, through the repository. */
+export const removeBuilding =
+  (buildingId: Id): Edit =>
+  (draft, base) => {
+    if (!(buildingId in base.project.data.buildings))
+      throw new EditError(`Unknown building ${buildingId}`);
+    if (Object.values(base.floors).some((floor) => floor.buildingId === buildingId))
+      throw new EditError(`Building ${buildingId} still has floors`);
+    delete draft.project.data.buildings[buildingId];
+  };
 
 /** Runs several edits as one undoable step. */
 export const combine =
