@@ -1,6 +1,6 @@
 import type { FloorScale } from '@el-karta/core';
 import { useTranslation } from 'react-i18next';
-import { formatDecimal } from './numbers';
+import { formatDecimal } from '../fields/numbers';
 
 /** The floor's scale in words, or that it is not set yet. */
 export function ScaleInfo({ scale }: { scale: FloorScale | undefined }) {

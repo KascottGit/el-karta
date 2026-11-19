@@ -95,6 +95,13 @@ A drag that starts on a handle goes to that handle, whichever tool is active. It
 
 A `Panel` shows in the side panel while `visible(editor, model)` holds. On phones the side panel is a sheet over the canvas. An `Action` is a one-shot toolbar button with `run(ctx)` and an optional `enabled(editor, model)`. Both edit the model with `apply(edit)` like everything else.
 
+Fields that edit the model use `fields/`:
+
+- `DecimalField` covers numbers. It takes a decimal comma and has options for a `unit`, an `optional` empty value and a `mixed` placeholder.
+- `CommitInput` covers other text.
+
+Both commit once, on Enter or blur, and only when the text changed.
+
 ## Input
 
 | Input                                                            | Effect                                                            |

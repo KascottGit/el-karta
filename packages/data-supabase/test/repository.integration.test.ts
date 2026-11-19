@@ -202,6 +202,23 @@ describe('SupabaseRepository (local Supabase)', () => {
     expect((await files.list(created.project.id)).data ?? []).toEqual([]);
   });
 
+  it('removes the uploaded file when its attachment row cannot be added', async () => {
+    const { editorRepo, editor, created } = await sharedProject();
+    const attachment: NewAttachment = {
+      id: crypto.randomUUID(),
+      projectId: created.project.id,
+      floorId: crypto.randomUUID(),
+      kind: 'floorplan',
+      extension: 'png',
+      contentType: 'image/png',
+      body: new Uint8Array([1, 2, 3]),
+    };
+    await expect(editorRepo.uploadAttachment(attachment)).rejects.toThrow(RepositoryError);
+    const listed = await editor.client.storage.from(PROJECT_FILES_BUCKET).list(created.project.id);
+    expect(listed.error).toBeNull();
+    expect(listed.data).toEqual([]);
+  });
+
   it('keeps outsiders out of saving and sharing', async () => {
     const { outsiderRepo, editorRepo, outsider, created } = await sharedProject();
     const floor = Object.values(created.floors)[0]!;

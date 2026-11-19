@@ -198,9 +198,9 @@
     "retry": "Försök igen",
     "opacity": "Synlighet {{percent}} %",
     "placeHint": "Flytta och vrid bilden med handtagen på ritytan eller med fälten nedan. Väggar och annat du ritat flyttas inte.",
-    "x": "Läge x (m)",
-    "y": "Läge y (m)",
-    "rotation": "Vridning (°)",
+    "x": "Läge x",
+    "y": "Läge y",
+    "rotation": "Vridning",
     "rotate90": "Vrid 90°",
     "remove": "Ta bort bakgrunden",
     "measure": "Mät skala",
@@ -220,6 +220,11 @@
     "invalidLength": "Ange en längd större än noll, till exempel 3,6.",
     "setScale": "Sätt skala",
     "scaleApplied": "Skalan är satt.",
-    "metres": "{{value}} m"
+    "metres": "{{value}} m",
+    "degrees": "°",
+    "metresUnit": "m"
+  },
+  "fields": {
+    "mixed": "Olika"
   }
 }

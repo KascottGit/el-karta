@@ -6,7 +6,7 @@ import { Input } from '@/ui/input';
 import { Label } from '@/ui/label';
 import { editorStore, useEditorStore } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
-import { parseDecimal } from './numbers';
+import { parseDecimal } from '../fields/numbers';
 import { ScaleInfo } from './scale-info';
 import { applyMeasuredScale, BACKGROUND_TOOL } from './tools';
 

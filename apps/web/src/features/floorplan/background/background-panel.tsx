@@ -14,7 +14,7 @@ import { Button } from '@/ui/button';
 import { editorStore } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
 import { backgroundUi, type UploadStep } from './background-store';
-import { DecimalField } from './decimal-field';
+import { DecimalField } from '../fields/decimal-field';
 import { readyImageSize, reloadImage, useBackgroundImage } from './images';
 import type { PdfFile } from './pdf';
 import { PLAN_FILE_ACCEPT } from './plan-file';
@@ -239,6 +239,7 @@ function BackgroundSettings({
       <div className="grid grid-cols-3 gap-2">
         <DecimalField
           label={t('background.x')}
+          unit={t('background.metresUnit')}
           value={placement.offset.x}
           digits={3}
           signed
@@ -248,6 +249,7 @@ function BackgroundSettings({
         />
         <DecimalField
           label={t('background.y')}
+          unit={t('background.metresUnit')}
           value={placement.offset.y}
           digits={3}
           signed
@@ -257,6 +259,7 @@ function BackgroundSettings({
         />
         <DecimalField
           label={t('background.rotation')}
+          unit={t('background.degrees')}
           value={placement.rotation}
           digits={1}
           signed

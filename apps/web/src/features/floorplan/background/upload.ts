@@ -1,16 +1,20 @@
 import { combine, setBackground, setScale, type Id } from '@el-karta/core';
-import { repository } from '@/features/projects/queries';
 import { modelStore } from '@/model/store';
 import { editorStore } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
+import { uploadAttachment } from './attachments';
 import { backgroundUi, setUploadStep } from './background-store';
 import { showLocalImage } from './images';
 import { openPdf } from './pdf';
 import { classifyPlanFile } from './plan-file';
 
+// Bumped when a PDF being opened or picked from is abandoned, so a late open is thrown away.
+let pdfAttempt = 0;
+
 /** Starts using a picked file as the floor's background: an image directly, a PDF after picking a page. */
 export async function startPlanUpload(file: File, ctx: CanvasContext) {
   cancelUpload();
+  const attempt = pdfAttempt;
   const type = classifyPlanFile(file);
   if (type.kind === 'unsupported') {
     setUploadStep({ step: 'failed', reason: 'unsupported' });
@@ -23,6 +27,10 @@ export async function startPlanUpload(file: File, ctx: CanvasContext) {
   setUploadStep({ step: 'reading' });
   try {
     const pdf = await openPdf(file);
+    if (attempt !== pdfAttempt) {
+      pdf.destroy();
+      return;
+    }
     if (pdf.pageCount === 1) await uploadPdfPage(pdf, 1, ctx);
     else setUploadStep({ step: 'pick-page', pdf });
   } catch {
@@ -49,10 +57,16 @@ export async function uploadPdfPage(
   await uploadPlan(ctx, png, 'png', 'image/png', page);
 }
 
+/**
+ * Abandons a PDF being opened or waiting for a page choice, and clears a failure message. A page
+ * being rendered or a file being uploaded carries on.
+ */
 export function cancelUpload() {
   const { upload } = backgroundUi.getState();
+  if (upload.step === 'rendering' || upload.step === 'uploading') return;
+  pdfAttempt++;
   if (upload.step === 'pick-page') upload.pdf.destroy();
-  setUploadStep({ step: 'idle' });
+  if (upload.step !== 'idle') setUploadStep({ step: 'idle' });
 }
 
 /**
@@ -73,7 +87,7 @@ async function uploadPlan(
   setUploadStep({ step: 'uploading' });
   const attachmentId = crypto.randomUUID();
   try {
-    await repository.uploadAttachment({
+    await uploadAttachment({
       id: attachmentId,
       projectId: floor.projectId,
       floorId,

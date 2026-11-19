@@ -32,7 +32,10 @@ function toPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
 export async function openPdf(file: Blob): Promise<PdfFile> {
   const pdfjs = await loadPdfJs();
   const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
-  const doc = await task.promise;
+  const doc = await task.promise.catch(async (error: unknown) => {
+    await task.destroy();
+    throw error;
+  });
 
   async function render(pageNumber: number, scaleFor: (w: number, h: number) => number) {
     const page = await doc.getPage(pageNumber);

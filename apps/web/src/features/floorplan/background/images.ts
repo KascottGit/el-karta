@@ -2,7 +2,7 @@ import type { Id } from '@el-karta/core';
 import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
-import { repository } from '@/features/projects/queries';
+import { attachmentUrl } from './attachments';
 import type { ImageSize } from './plan-file';
 import { createSignedUrlCache } from './signed-urls';
 
@@ -17,7 +17,7 @@ export type BackgroundImage =
  */
 export const imageStore = createStore<Readonly<Record<Id, BackgroundImage>>>()(() => ({}));
 
-const urls = createSignedUrlCache((attachmentId) => repository.attachmentUrl(attachmentId));
+const urls = createSignedUrlCache(attachmentUrl);
 
 const setImage = (attachmentId: Id, image: BackgroundImage) => {
   imageStore.setState((s) => ({ ...s, [attachmentId]: image }));
@@ -53,7 +53,13 @@ async function load(attachmentId: Id) {
 
 /** Shows a file just uploaded without downloading it again. */
 export async function showLocalImage(attachmentId: Id, file: Blob) {
-  setImage(attachmentId, ready(await decode(URL.createObjectURL(file))));
+  const url = URL.createObjectURL(file);
+  try {
+    // A decoded image keeps its pixels, so the URL is not needed afterwards.
+    setImage(attachmentId, ready(await decode(url)));
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 export function reloadImage(attachmentId: Id) {

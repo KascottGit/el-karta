@@ -14,6 +14,7 @@ import { backgroundUi } from './background-store';
 import { readyImageSize } from './images';
 import { imageCenter } from './plan-file';
 import { measuredScale, normalizeDegrees, placeBackground, rotatedAboutCenter } from './placement';
+import { cancelUpload } from './upload';
 
 export const BACKGROUND_TOOL = 'background';
 export const SCALE_TOOL = 'scale';
@@ -28,6 +29,10 @@ export const backgroundTool: Tool = {
   icon: ImageIcon,
   order: 90,
   shortcut: 'b',
+  // Tool switch, Escape and floor switch close the page picker and free the PDF.
+  onDeactivate: () => {
+    cancelUpload();
+  },
 };
 
 /** Two taps on the image, then the real length in the panel. The points are handles, to fine-tune them. */

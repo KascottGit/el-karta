@@ -7,7 +7,6 @@ import {
   imageToWorld,
 } from '@el-karta/core';
 import { describe, expect, it, vi } from 'vitest';
-import { formatDecimal, parseDecimal } from './numbers';
 import {
   classifyPlanFile,
   imageBounds,
@@ -17,32 +16,6 @@ import {
 } from './plan-file';
 import { measuredScale, normalizeDegrees, placeBackground, rotatedAboutCenter } from './placement';
 import { createSignedUrlCache } from './signed-urls';
-
-describe('parseDecimal', () => {
-  it('reads decimal commas, points, spaces and minus signs', () => {
-    expect(parseDecimal('3,45')).toBe(3.45);
-    expect(parseDecimal(' 3.45 ')).toBe(3.45);
-    expect(parseDecimal('12 500,5')).toBe(12500.5);
-    expect(parseDecimal('-2,5')).toBe(-2.5);
-    expect(parseDecimal('−2,5')).toBe(-2.5);
-    expect(parseDecimal(',5')).toBe(0.5);
-    expect(parseDecimal('7')).toBe(7);
-  });
-
-  it('rejects anything else', () => {
-    for (const text of ['', ' ', 'abc', '3,4,5', '1.2.3', '3 m', '--1', '1e3', ',']) {
-      expect(parseDecimal(text)).toBeNull();
-    }
-  });
-
-  it('reads back what formatDecimal writes', () => {
-    for (const value of [0, 1.5, -12.25, 1234.5678]) {
-      expect(parseDecimal(formatDecimal(value, 3))).toBeCloseTo(value, 3);
-    }
-    expect(formatDecimal(1234.5678, 2)).toBe('1234,57');
-    expect(formatDecimal(-0.5, 1)).toBe('-0,5');
-  });
-});
 
 describe('plan files', () => {
   it('accepts images and PDFs, including PDFs without a type', () => {

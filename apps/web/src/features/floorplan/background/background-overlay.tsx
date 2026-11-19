@@ -7,7 +7,7 @@ import { handle } from '../canvas/hit';
 import { ScreenLabel } from '../canvas/screen-label';
 import { canvasColors } from '../canvas/theme';
 import { useBackgroundImage } from './images';
-import { formatDecimal } from './numbers';
+import { formatDecimal } from '../fields/numbers';
 import { imageCenter, imageCorners } from './plan-file';
 import { BACKGROUND_TOOL, measureEndHandle, moveHandle, rotateHandle, SCALE_TOOL } from './tools';
 import { useShownBackground } from './use-placement';
