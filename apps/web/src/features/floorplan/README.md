@@ -41,7 +41,7 @@ A `Tool` gets pointer callbacks with a `CanvasPointer`: `world` (metres), `scree
 
 Preview state:
 
-- A polyline or polygon in progress goes in `editorStore` (`setDrawing({ points, hover })`) and is drawn from a layer on `overlays`. Tool switch, floor switch and Escape clear it.
+- A polyline or polygon in progress goes in `editorStore` (`setDrawing({ points, hover })`) and is drawn from a layer on `overlays`. Tool switch, floor switch and Escape clear it. A tool may commit the points in `onDeactivate` instead of discarding them, as the wall tool does on Escape, tool switch and floor switch (it remembers the floor it started on, because a floor switch calls `onDeactivate` with the new floor's context).
 - Any other preview (a snap marker, the wall and offset an opening would land on) goes in a small store in your feature folder, reset in `onDeactivate` and `onLeave`.
 
 Escape first cancels a drag in progress. If `onKeyDown` does not handle it, it then clears the drawing, then the selection, then returns to the select tool.

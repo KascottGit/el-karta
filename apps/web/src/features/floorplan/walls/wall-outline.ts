@@ -17,8 +17,19 @@ export const JOINT_TOLERANCE = 0.01;
 export type WallEnd = 'a' | 'b';
 export const endKey = (wallId: Id, end: WallEnd) => `${wallId}:${end}`;
 
-/** The wall ends that meet another wall's end, as `endKey`s. */
+const jointCache = new WeakMap<Readonly<Record<Id, Wall>>, ReadonlySet<string>>();
+
+/** The wall ends that meet another wall's end, as `endKey`s. Cached per walls record. */
 export function jointEnds(walls: Readonly<Record<Id, Wall>>): ReadonlySet<string> {
+  let joined = jointCache.get(walls);
+  if (!joined) {
+    joined = findJoints(walls);
+    jointCache.set(walls, joined);
+  }
+  return joined;
+}
+
+function findJoints(walls: Readonly<Record<Id, Wall>>): ReadonlySet<string> {
   const cell = (v: number) => Math.floor(v / JOINT_TOLERANCE);
   const buckets = new Map<string, { wallId: Id; end: WallEnd; p: Pt }[]>();
   const ends = Object.values(walls).flatMap((w) => [

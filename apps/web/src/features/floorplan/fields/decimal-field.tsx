@@ -16,6 +16,8 @@ interface CommonProps {
   unit?: string;
   /** Several selected items with different values: empty, with a placeholder saying so. */
   mixed?: boolean;
+  /** Shown while the field is empty and not mixed, such as what an unset optional value falls back to. */
+  placeholder?: string;
   accept?: (value: number) => boolean;
 }
 
@@ -27,7 +29,7 @@ type DecimalFieldProps = CommonProps &
 
 /** A labelled number field with a decimal comma that commits on Enter or blur (see `CommitInput`). */
 export function DecimalField(props: DecimalFieldProps) {
-  const { label, value, digits, signed = false, unit, mixed = false, accept } = props;
+  const { label, value, digits, signed = false, unit, mixed = false, placeholder, accept } = props;
   const { t } = useTranslation();
   const id = useId();
   const rules = { optional: props.optional ?? false, ...(accept ? { accept } : {}) };
@@ -40,7 +42,7 @@ export function DecimalField(props: DecimalFieldProps) {
           id={id}
           inputMode={signed ? 'text' : 'decimal'}
           autoComplete="off"
-          placeholder={mixed ? t('fields.mixed') : undefined}
+          placeholder={mixed ? t('fields.mixed') : placeholder}
           value={decimalText(value, digits, mixed)}
           valid={(text) => readDecimal(text, rules).ok}
           onCommit={(text) => {
