@@ -1,0 +1,15 @@
+import { resolve } from 'node:path';
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    projects: [
+      { test: { name: 'core', root: 'packages/core', include: ['test/**/*.test.ts'] } },
+      {
+        resolve: { alias: { '@': resolve(import.meta.dirname, 'apps/web/src') } },
+        test: { name: 'web', root: 'apps/web', include: ['src/**/*.test.{ts,tsx}'] },
+      },
+      { test: { name: 'tooling', root: 'tooling', include: ['**/*.test.ts'] } },
+    ],
+  },
+});
