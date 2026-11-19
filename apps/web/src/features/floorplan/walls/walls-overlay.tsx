@@ -11,9 +11,10 @@ import { selectedIds } from '../canvas/selection';
 import { canvasColors } from '../canvas/theme';
 import { useRenderWindow } from '../canvas/use-render-window';
 import { wallColors } from './colors';
+import { formatDecimal } from '../fields/numbers';
 import { cornerHandle } from './corner-handle';
-import { formatNumber } from './number-format';
 import { endKey, jointEnds, wallOutline } from './wall-outline';
+import { WALL_TOOL } from './wall-tool';
 import { WallShape } from './walls-layer';
 import { useWallsStore } from './walls-store';
 
@@ -35,7 +36,7 @@ export function WallsOverlay({ ctx }: { ctx: CanvasContext }) {
 const flat = (points: readonly Pt[]) => points.flatMap((p) => [p.x, p.y]);
 
 function Draft() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const drawing = useEditorStore((s) => s.drawing);
   const thickness = useWallsStore((s) => s.thickness);
   const labelScale = useRenderWindow().scale;
@@ -82,7 +83,7 @@ function Draft() {
       />
       {a && length > 0 && (
         <ScreenLabel
-          text={t('walls.lengthLabel', { length: formatNumber(length, i18n.language, 2) })}
+          text={t('walls.lengthLabel', { length: formatDecimal(length, 2) })}
           at={scaled(add(a, b), 0.5)}
           maxWidth={Math.max(length, 120 / labelScale)}
           scale={labelScale}
@@ -157,14 +158,19 @@ function Marker({ snap, r }: { snap: Snap; r: number }) {
   );
 }
 
-/** Draggable ends of the selected walls; dragging one moves the whole corner. */
+/**
+ * Draggable ends of the selected walls; dragging one moves the whole corner. Hidden while a shape
+ * is drawn or the wall tool is active, so a drag from the last point of a polyline is not taken
+ * by a corner under it.
+ */
 function CornerHandles({ ctx }: { ctx: CanvasContext }) {
   const walls = useModelStore((s) => s.model?.floors[ctx.floorId]?.data.walls);
   const selection = useEditorStore((s) => s.selection);
   const scale = useEditorStore((s) => s.viewport.scale);
+  const hidden = useEditorStore((s) => s.drawing !== null || s.tool === WALL_TOOL);
   const dragging = useWallsStore((s) => s.drag !== null);
   const ends = useMemo(() => {
-    if (!walls || dragging) return [];
+    if (!walls || dragging || hidden) return [];
     const seen = new Set<string>();
     return [...selectedIds(selection, 'walls')].flatMap((id) => {
       const wall = walls[id];
@@ -176,7 +182,7 @@ function CornerHandles({ ctx }: { ctx: CanvasContext }) {
         return [{ wallId: wall.id, end, at: wall[end] }];
       });
     });
-  }, [walls, selection, dragging]);
+  }, [walls, selection, dragging, hidden]);
   return ends.map(({ wallId, end, at }) => (
     <Circle
       key={endKey(wallId, end)}

@@ -6,15 +6,17 @@ import { modelStore, useModelStore } from '@/model/store';
 import { Button } from '@/ui/button';
 import { editorStore, useEditorStore } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
-import { putWalls, setLength } from './corner';
-import { NumberField } from './number-field';
-import { formatNumber } from './number-format';
+import { DecimalField } from '../fields/decimal-field';
+import { formatDecimal, positive, sharedValue } from '../fields/numbers';
+import { MIN_WALL_LENGTH, putWalls, setLength } from './corner';
 import { wallIssues, type WallIssueCode } from './wall-issues';
 import { WALL_THICKNESS, useWallsStore, wallsStore } from './walls-store';
 
+const DIGITS = 3;
+
 /** Settings for new walls while the wall tool is active. */
 export function WallToolPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const thickness = useWallsStore((s) => s.thickness);
   const snapping = useWallsStore((s) => s.snapping);
   const snapId = useId();
@@ -36,15 +38,17 @@ export function WallToolPanel() {
               wallsStore.setState({ thickness: value });
             }}
           >
-            {t('walls.preset', { label, thickness: formatNumber(value, i18n.language, 2) })}
+            {t('walls.preset', { label, thickness: formatDecimal(value, 2) })}
           </Button>
         ))}
       </div>
-      <NumberField
+      <DecimalField
         label={t('walls.thickness')}
         value={thickness}
+        digits={DIGITS}
+        accept={positive}
         onCommit={(value) => {
-          if (value !== undefined) wallsStore.setState({ thickness: value });
+          wallsStore.setState({ thickness: value });
         }}
       />
       <label htmlFor={snapId} className="flex items-center gap-2 text-sm">
@@ -60,12 +64,10 @@ export function WallToolPanel() {
         {t('walls.snapping')}
       </label>
       <p className="hidden text-xs text-muted-foreground md:block">{t('walls.hint')}</p>
+      <p className="text-xs text-muted-foreground md:hidden">{t('walls.touchHint')}</p>
     </section>
   );
 }
-
-const common = (values: readonly (number | undefined)[]) =>
-  values.every((v) => v === values[0]) ? values[0] : undefined;
 
 /** Length, thickness, height, validation issues and delete for the selected walls. */
 export function WallPropsPanel({ ctx }: { ctx: CanvasContext }) {
@@ -90,6 +92,8 @@ export function WallPropsPanel({ ctx }: { ctx: CanvasContext }) {
   }, [floor, walls]);
   const single = walls.length === 1 ? walls[0] : undefined;
   if (!floor || walls.length === 0) return null;
+  const thickness = sharedValue(walls.map((w) => w.thickness));
+  const height = sharedValue(walls.map((w) => w.height));
 
   const update = (change: (wall: Wall) => Wall) => {
     modelStore.getState().apply(putWalls(ctx.floorId, walls.map(change)));
@@ -101,34 +105,40 @@ export function WallPropsPanel({ ctx }: { ctx: CanvasContext }) {
         {single ? t('walls.properties') : t('walls.selectedCount', { count: walls.length })}
       </h2>
       {single && (
-        <NumberField
+        <DecimalField
           label={t('walls.length')}
-          value={Math.round(wallLength(single) * 1000) / 1000}
+          value={wallLength(single)}
+          digits={DIGITS}
+          accept={(length) => length >= MIN_WALL_LENGTH}
           onCommit={(length) => {
-            const moved =
-              length === undefined ? null : setLength(floor.data.walls, single.id, length);
+            const moved = setLength(floor.data.walls, single.id, length);
             if (moved) modelStore.getState().apply(putWalls(ctx.floorId, moved));
           }}
         />
       )}
-      <NumberField
+      <DecimalField
         label={t('walls.thickness')}
-        value={common(walls.map((w) => w.thickness))}
-        placeholder={t('walls.mixed')}
-        onCommit={(thickness) => {
-          if (thickness !== undefined) update((w) => ({ ...w, thickness }));
+        value={thickness.value}
+        mixed={thickness.mixed}
+        digits={DIGITS}
+        accept={positive}
+        onCommit={(value) => {
+          update((w) => ({ ...w, thickness: value }));
         }}
       />
-      <NumberField
+      <DecimalField
         label={t('walls.height')}
-        value={common(walls.map((w) => w.height))}
+        value={height.value}
+        mixed={height.mixed}
         placeholder={t('walls.heightDefault')}
+        digits={DIGITS}
+        accept={positive}
         optional
-        onCommit={(height) => {
+        onCommit={(value) => {
           update((w) => {
             const next = { ...w };
-            if (height === undefined) delete next.height;
-            else next.height = height;
+            if (value === null) delete next.height;
+            else next.height = value;
             return next;
           });
         }}

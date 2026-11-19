@@ -95,6 +95,28 @@ describe('wall tool', () => {
     expect(drawing()?.hover).toEqual(pt(4.03, 3));
   });
 
+  it('snaps the last corner of a rectangle where steps from the last and first points cross', () => {
+    tap(pt(10, 10));
+    tap(pt(13, 10));
+    tap(pt(13, 12));
+    wallTool.onHover!(pointer(pt(10.06, 11.95)), testCtx(floorId));
+    expect(drawing()?.hover?.x).toBeCloseTo(10, 9);
+    expect(drawing()?.hover?.y).toBeCloseTo(12, 9);
+    expect(wallsStore.getState().snap?.targets.map((t) => t.kind)).toEqual(['angle', 'angle']);
+  });
+
+  it('gives every wall its own copy of the points', () => {
+    tap(pt(10, 10));
+    tap(pt(13, 10));
+    tap(pt(13, 12));
+    const placed = drawing()!.points;
+    finishWalls();
+    const [first, second] = added();
+    expect(first!.b).toEqual(second!.a);
+    expect(first!.b).not.toBe(second!.a);
+    expect(placed).not.toContain(first!.b);
+  });
+
   it('uses the chosen thickness', () => {
     wallsStore.setState({ thickness: WALL_THICKNESS.exterior });
     tap(pt(10, 10));

@@ -79,17 +79,6 @@ function project(origin: Pt, dir: Pt, min: number, max: number, p: Pt) {
   return { t, distance: Math.abs(cross(dir, rel)) };
 }
 
-// Records are immutable, and listing a large one costs far more than scanning the list.
-const wallLists = new WeakMap<Readonly<Record<Id, Wall>>, readonly Wall[]>();
-function wallList(walls: Readonly<Record<Id, Wall>>): readonly Wall[] {
-  let list = wallLists.get(walls);
-  if (!list) {
-    list = Object.values(walls);
-    wallLists.set(walls, list);
-  }
-  return list;
-}
-
 /** A cheap test that rules out most walls before any vector maths. */
 const nearBox = (wall: Wall, p: Pt, reach: number) =>
   p.x >= Math.min(wall.a.x, wall.b.x) - reach &&
@@ -198,7 +187,7 @@ export function snapPoint(floor: SnapFloor, p: Pt, options: SnapOptions): Snap {
     if (d <= tolerance && (!endpoint || d < endpoint.d))
       endpoint = { point, target: { kind: 'endpoint' }, d };
   }
-  for (const wall of wallList(floor.walls)) {
+  for (const wall of Object.values(floor.walls)) {
     if (opts.ignore.has(wall.id) || !nearBox(wall, p, tolerance + wall.thickness / 2)) continue;
     const endCapture = Math.max(tolerance, wall.thickness / 2);
     for (const end of ['a', 'b'] as const) {
@@ -260,6 +249,8 @@ export interface WallHit {
   wallId: Id;
   /** Metres from the wall's end `a` to the nearest point on its centre line, within [0, length]. */
   offset: number;
+  /** The wall's length, for clamping what is placed along it. */
+  length: number;
   /** Distance from the point to the centre line. */
   distance: number;
   /** Which side of the a→b direction the point is on; a point on the centre line counts as left. */
@@ -268,7 +259,7 @@ export interface WallHit {
 
 /**
  * The wall nearest to a point, among those whose face is within `tolerance` of it (a point inside
- * a thick wall is at distance zero from it), or null.
+ * a thick wall is at distance zero from it), or null. Walls without length are skipped.
  */
 export function nearestWall(
   floor: Pick<FloorData, 'walls'>,
@@ -277,19 +268,19 @@ export function nearestWall(
 ): WallHit | null {
   let best: WallHit | null = null;
   let bestFace = Infinity;
-  for (const wall of wallList(floor.walls)) {
+  for (const wall of Object.values(floor.walls)) {
     if (!nearBox(wall, p, tolerance + wall.thickness / 2)) continue;
     const delta = sub(wall.b, wall.a);
-    const len = Math.hypot(delta.x, delta.y);
+    const length = Math.hypot(delta.x, delta.y);
+    if (length < EPSILON) continue;
     const rel = sub(p, wall.a);
-    const offset = len < EPSILON ? 0 : Math.min(len, Math.max(0, dot(rel, delta) / len));
-    const nearest = len < EPSILON ? wall.a : add(wall.a, scale(delta, offset / len));
-    const d = distance(p, nearest);
+    const offset = Math.min(length, Math.max(0, dot(rel, delta) / length));
+    const d = distance(p, add(wall.a, scale(delta, offset / length)));
     const face = Math.max(0, d - wall.thickness / 2);
     if (face > tolerance) continue;
     if (best && (face > bestFace || (face === bestFace && d >= best.distance))) continue;
     const side = dot(rel, leftNormal(delta)) >= 0 ? 'left' : 'right';
-    best = { wallId: wall.id, offset, distance: d, side };
+    best = { wallId: wall.id, offset, length, distance: d, side };
     bestFace = face;
   }
   return best;

@@ -220,6 +220,7 @@ describe('nearestWall', () => {
     expect(nearestWall(data, pt(1.5, -0.3), 0.5)).toEqual({
       wallId: top.id,
       offset: 1.5,
+      length: 4,
       distance: expect.closeTo(0.3, 9) as number,
       side: 'left',
     });
@@ -240,6 +241,12 @@ describe('nearestWall', () => {
     const hit = nearestWall(data, pt(-0.1, 0), 0.2);
     expect(hit).toMatchObject({ wallId: wallAt(data, pt(0, 0)).id, offset: 0 });
     expect(hit?.distance).toBeCloseTo(0.1, 9);
+  });
+
+  it('skips walls without length', () => {
+    const b = new ModelBuilder();
+    b.wall(0, pt(1, 1), pt(1, 1), 0.2);
+    expect(nearestWall(b.build().floors[b.floors[0]!.id]!.data, pt(1, 1), 0.5)).toBeNull();
   });
 
   it('picks the nearer of two walls and returns null when none is in reach', () => {

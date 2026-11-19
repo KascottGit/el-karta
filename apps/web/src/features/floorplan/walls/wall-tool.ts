@@ -14,8 +14,11 @@ const points = (): readonly Pt[] => editorStore.getState().drawing?.points ?? []
 /** Snaps the pointer against the floor and the polyline so far, and shows it as the hover point. */
 function preview(p: CanvasPointer, ctx: CanvasContext): Pt {
   const placed = points();
+  const first = placed[0];
   const last = placed.at(-1);
-  const snap = snapPointer(p, ctx, { from: last ? [last] : [], points: placed });
+  // Steps from the first point too, so the last corner of a rectangle snaps before closing it.
+  const from = first && last ? (placed.length >= 2 ? [last, first] : [last]) : [];
+  const snap = snapPointer(p, ctx, { from, points: placed });
   wallsStore.setState({ snap });
   const { drawing, setDrawing } = editorStore.getState();
   if (drawing) setDrawing({ points: drawing.points, hover: snap.point });
@@ -36,7 +39,13 @@ export function finishWalls() {
   drawing.points.forEach((b, i) => {
     const a = drawing.points[i - 1];
     if (a && distance(a, b) >= MIN_WALL_LENGTH)
-      walls.push({ id: crypto.randomUUID(), a, b, thickness, provenance: { status: 'manual' } });
+      walls.push({
+        id: crypto.randomUUID(),
+        a: { x: a.x, y: a.y },
+        b: { x: b.x, y: b.y },
+        thickness,
+        provenance: { status: 'manual' },
+      });
   });
   if (walls.length > 0) modelStore.getState().apply(putWalls(floorId, walls));
 }
