@@ -165,6 +165,22 @@ describe('autosave', () => {
     expect(hasUnsavedChanges(store.getState())).toBe(true);
   });
 
+  it('resumes after a restart, keeping the failure count (as on a StrictMode remount)', async () => {
+    const { repository, store, autosave, stop, edit } = await setup();
+    repository.failures = 2;
+    edit();
+    await vi.advanceTimersByTimeAsync(OPTIONS.debounceMs);
+    stop();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(autosave.status.getState().failures).toBe(2);
+
+    autosave.start();
+    await vi.advanceTimersByTimeAsync(OPTIONS.debounceMs);
+    expect(repository.saves).toBe(3);
+    expect(hasUnsavedChanges(store.getState())).toBe(false);
+    expect(autosave.status.getState().failures).toBe(0);
+  });
+
   it('describes conflicts with names from before the merge', async () => {
     const { repository, model, floor, store, autosave } = await setup();
     const room = Object.values(floor.data.rooms)[0]!;

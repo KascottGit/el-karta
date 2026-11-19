@@ -68,7 +68,7 @@
     "unsaved": "Osparade ändringar",
     "saving": "Sparar …",
     "failed": "Inte sparat",
-    "failedHint": "Ändringarna finns kvar så länge sidan är öppen, och vi försöker spara igen automatiskt.",
+    "failedHint": "Ändringarna finns kvar medan sidan är öppen och sparas automatiskt så snart det går.",
     "retry": "Försök igen",
     "conflicts": {
       "button_one": "{{count}} ändring kunde inte sparas",

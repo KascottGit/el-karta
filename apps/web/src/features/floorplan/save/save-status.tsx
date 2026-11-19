@@ -38,7 +38,6 @@ function AutosaveStatusView({ autosave }: { autosave: Autosave }) {
             ? 'flex items-center gap-1 text-destructive'
             : 'flex items-center gap-1 text-muted-foreground'
         }
-        title={state === 'failed' ? t('save.failedHint') : undefined}
       >
         <Icon aria-hidden className={state === 'saving' ? 'size-4 animate-spin' : 'size-4'} />
         {t(`save.${state}`)}
@@ -49,6 +48,9 @@ function AutosaveStatusView({ autosave }: { autosave: Autosave }) {
         </Button>
       )}
       <Conflicts autosave={autosave} />
+      {state === 'failed' && (
+        <span className="basis-full text-xs text-muted-foreground">{t('save.failedHint')}</span>
+      )}
     </div>
   );
 }

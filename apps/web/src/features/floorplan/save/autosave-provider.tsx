@@ -6,16 +6,14 @@ import { AutosaveContext } from './autosave-context';
 import { bindPageLifecycle } from './page-lifecycle';
 
 /**
- * Saves the model store's queued changes to `repository` while mounted, and once more when it unmounts,
- * when the page is hidden, and whenever `flushOn` changes (e.g. switching floors).
+ * Saves the model store's queued changes to `repository` while mounted, once more when it unmounts,
+ * and when the page is hidden. Mount it once, above every page that edits the model.
  */
 export function AutosaveProvider({
   repository,
-  flushOn,
   children,
 }: {
   repository: Repository;
-  flushOn?: unknown;
   children: ReactNode;
 }) {
   const autosave = useMemo(() => createAutosave(modelStore, repository), [repository]);
@@ -28,13 +26,6 @@ export function AutosaveProvider({
       stop();
     };
   }, [autosave]);
-
-  useEffect(
-    () => () => {
-      void autosave.flush();
-    },
-    [autosave, flushOn],
-  );
 
   return <AutosaveContext value={autosave}>{children}</AutosaveContext>;
 }
