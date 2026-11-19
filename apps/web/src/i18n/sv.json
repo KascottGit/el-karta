@@ -174,6 +174,37 @@
     "retry": "Försök spara igen",
     "discard": "Släng ändringarna"
   },
+  "walls": {
+    "tool": "Vägg",
+    "newWalls": "Nya väggar",
+    "interior": "Innervägg",
+    "exterior": "Yttervägg",
+    "preset": "{{label}} {{thickness}} m",
+    "snapping": "Fäst mot hörn, väggar, rutnät och vinklar",
+    "hint": "Klicka för att sätta ut hörn. Avsluta med dubbelklick, Enter, Esc eller ett klick på sista punkten. Håll Alt för att inte fästa.",
+    "touchHint": "Tryck för att sätta ut hörn, eller dra från sista punkten och släpp där nästa ska vara. Avsluta genom att trycka på sista punkten igen.",
+    "lengthLabel": "{{length}} m",
+    "properties": "Vägg",
+    "selectedCount": "{{count}} väggar",
+    "length": "Längd (m)",
+    "thickness": "Tjocklek (m)",
+    "height": "Höjd (m)",
+    "heightDefault": "Våningens höjd",
+    "issues": "Att kontrollera",
+    "delete": "Ta bort väggen",
+    "deleteMany": "Ta bort {{count}} väggar"
+  },
+  "issues": {
+    "wall": {
+      "zero-length": "Väggen saknar längd."
+    },
+    "opening": {
+      "outside-wall": "En dörr, ett fönster eller en öppning når utanför väggens ände."
+    },
+    "placement": {
+      "offset-beyond-wall": "En enhet sitter bortom väggens ände."
+    }
+  },
   "background": {
     "tool": "Bakgrund",
     "scaleTool": "Skala",

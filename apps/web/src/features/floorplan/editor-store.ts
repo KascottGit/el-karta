@@ -17,7 +17,8 @@ export const DEFAULT_TOOL = 'select';
  * A polyline or polygon being drawn by the active tool: the points placed so far and the (snapped)
  * pointer position. Cleared on tool switch, floor switch and Escape. Tools that need other preview
  * state (a snap marker, a wall id and offset) keep it in their own store and reset it in
- * `Tool.onDeactivate`.
+ * `Tool.onDeactivate`. A tool may commit the points in `onDeactivate` instead of discarding them,
+ * as the wall tool does on Escape, tool switch and floor switch.
  */
 export interface Drawing {
   points: readonly Pt[];

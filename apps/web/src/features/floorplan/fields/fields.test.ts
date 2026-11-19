@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { textToCommit } from './commit';
-import { decimalText, formatDecimal, parseDecimal, readDecimal } from './numbers';
+import {
+  decimalText,
+  formatDecimal,
+  parseDecimal,
+  positive,
+  readDecimal,
+  sharedValue,
+} from './numbers';
 
 describe('parseDecimal', () => {
   it('reads decimal commas, points, spaces and minus signs', () => {
@@ -40,8 +47,18 @@ describe('readDecimal', () => {
   it('rejects empty required fields, non-numbers and values outside the rules', () => {
     expect(readDecimal('').ok).toBe(false);
     expect(readDecimal('tre', { optional: true }).ok).toBe(false);
-    expect(readDecimal('0', { accept: (v) => v > 0 }).ok).toBe(false);
-    expect(readDecimal('0,1', { accept: (v) => v > 0 }).ok).toBe(true);
+    expect(readDecimal('0', { accept: positive }).ok).toBe(false);
+    expect(readDecimal('-1', { accept: positive }).ok).toBe(false);
+    expect(readDecimal('0,1', { accept: positive }).ok).toBe(true);
+  });
+});
+
+describe('sharedValue', () => {
+  it('is the common value, mixed when values differ, and unset when none has one', () => {
+    expect(sharedValue([2.4, 2.4])).toEqual({ value: 2.4, mixed: false });
+    expect(sharedValue([2.4, undefined])).toEqual({ value: undefined, mixed: true });
+    expect(sharedValue([2.4, 3])).toEqual({ value: undefined, mixed: true });
+    expect(sharedValue([undefined, undefined])).toEqual({ value: undefined, mixed: false });
   });
 });
 

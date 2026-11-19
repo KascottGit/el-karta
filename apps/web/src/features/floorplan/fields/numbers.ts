@@ -16,6 +16,9 @@ export function formatDecimal(value: number, digits: number): string {
     .replace(/−/g, '-');
 }
 
+/** An `accept` rule for lengths, thicknesses and heights. */
+export const positive = (value: number) => value > 0;
+
 export interface DecimalRules {
   /** Empty text means "no value", committed as null. */
   optional?: boolean;
@@ -39,3 +42,12 @@ export function readDecimal(
  */
 export const decimalText = (value: number | null | undefined, digits: number, mixed = false) =>
   mixed || value === null || value === undefined ? '' : formatDecimal(value, digits);
+
+/**
+ * The value several selected items share for a field, or `mixed` when they differ. Items that all
+ * leave an optional value unset share `undefined`, so the field can show what that falls back to.
+ */
+export function sharedValue<T>(values: readonly T[]): { value: T | undefined; mixed: boolean } {
+  const mixed = values.some((v) => v !== values[0]);
+  return { value: mixed ? undefined : values[0], mixed };
+}
