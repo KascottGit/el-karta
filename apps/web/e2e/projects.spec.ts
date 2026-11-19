@@ -49,7 +49,7 @@ test('two people sign in with magic links, and a shared project shows up for the
   ).toBeVisible();
   await shareEmail.fill(editorEmail);
   await owner.getByRole('button', { name: 'Dela' }).click();
-  await expect(owner.getByRole('status')).toHaveText('Projektet är delat.');
+  await expect(owner.getByRole('status').filter({ hasText: 'Projektet är delat.' })).toBeVisible();
 
   await editor.reload();
   await editor.getByRole('link', { name: new RegExp(projectName) }).click();
