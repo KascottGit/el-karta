@@ -1,6 +1,5 @@
 import {
   addBuilding,
-  buildingsInOrder,
   floorsInOrder,
   newFloor,
   removeBuilding,
@@ -15,18 +14,21 @@ import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { useModelStore } from '@/model/store';
 import { Button } from '@/ui/button';
+import { buildingsInOrder } from './buildings';
 import { InlineRename } from './inline-rename';
-import { applyAndSave, useCreateFloor, useDeleteFloor } from './queries';
+import { useCreateFloor, useDeleteFloor } from './queries';
 
 /** Floors per building, highest first like a building section, with add, rename, reorder and delete. */
 export function FloorManager({ model }: { model: Model }) {
-  const { t } = useTranslation();
-  const buildings = buildingsInOrder(model);
+  const { t, i18n } = useTranslation();
+  const apply = useModelStore((s) => s.apply);
+  const buildings = buildingsInOrder(model, i18n.language);
   const floorCount = Object.keys(model.floors).length;
 
   const onAddBuilding = () => {
-    applyAndSave(
+    apply(
       addBuilding({
         id: crypto.randomUUID(),
         name: t('project.newBuildingName', { number: buildings.length + 1 }),
@@ -66,6 +68,7 @@ function BuildingFloors({
   canDeleteFloors: boolean;
 }) {
   const { t } = useTranslation();
+  const apply = useModelStore((s) => s.apply);
   const [renaming, setRenaming] = useState(false);
   const create = useCreateFloor();
   const bottomUp = floorsInOrder(model, building.id);
@@ -76,7 +79,7 @@ function BuildingFloors({
     const to = from + by;
     if (to < 0 || to >= order.length) return;
     [order[from], order[to]] = [order[to]!, order[from]!];
-    applyAndSave(reorderFloors(order));
+    apply(reorderFloors(order));
   };
 
   const onAddFloor = () => {
@@ -98,7 +101,7 @@ function BuildingFloors({
               value={building.name}
               label={t('project.buildingName')}
               onSave={(name) => {
-                applyAndSave(updateBuilding(building.id, { name }));
+                apply(updateBuilding(building.id, { name }));
               }}
               onDone={() => {
                 setRenaming(false);
@@ -123,7 +126,7 @@ function BuildingFloors({
                   size="icon"
                   aria-label={t('project.removeBuilding', { name: building.name })}
                   onClick={() => {
-                    applyAndSave(removeBuilding(building.id));
+                    apply(removeBuilding(building.id));
                   }}
                 >
                   <Trash2 />
@@ -176,6 +179,7 @@ function FloorRow({
   onMove: (by: 1 | -1) => void;
 }) {
   const { t } = useTranslation();
+  const apply = useModelStore((s) => s.apply);
   const [mode, setMode] = useState<'view' | 'rename' | 'confirmDelete'>('view');
   const remove = useDeleteFloor();
   const name = floor.name;
@@ -187,7 +191,7 @@ function FloorRow({
           value={name}
           label={t('project.floorName')}
           onSave={(next) => {
-            applyAndSave(updateFloor(floor.id, { name: next }));
+            apply(updateFloor(floor.id, { name: next }));
           }}
           onDone={() => {
             setMode('view');

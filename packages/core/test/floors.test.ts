@@ -4,7 +4,6 @@ import {
   addFloor,
   applyEdit,
   buildGraph,
-  buildingsInOrder,
   EditError,
   floorsInOrder,
   generateProject,
@@ -58,18 +57,29 @@ describe('floor helpers', () => {
   it('starts a building without floors at ground level', () => {
     const { b, model } = setup();
     const withBuilding = applyEdit(model, addBuilding({ id: b.id(), name: 'Garage' })).model;
-    const garage = buildingsInOrder(withBuilding).find((x) => x.name === 'Garage')!;
+    const garage = Object.values(withBuilding.project.data.buildings).find(
+      (x) => x.name === 'Garage',
+    )!;
     const floor = newFloor(withBuilding, { id: b.id(), buildingId: garage.id, name: 'Plan 1' });
     expect(floor).toMatchObject({ sortOrder: 0, data: { elevation: 0 } });
   });
 
-  it('lists floors bottom-up per building and buildings by name', () => {
-    const { b, model, f0, f1, f2, buildingId } = setup();
+  it('lists floors bottom-up per building', () => {
+    const { model, f0, f1, f2, buildingId } = setup();
     const reordered = applyEdit(model, reorderFloors([f2, f0, f1])).model;
     expect(floorsInOrder(reordered, buildingId).map((f) => f.id)).toEqual([f2, f0, f1]);
-    const withBuildings = applyEdit(reordered, addBuilding({ id: b.id(), name: 'Annex' })).model;
-    expect(buildingsInOrder(withBuildings).map((x) => x.name)).toEqual(['Annex', 'Hus']);
-    expect(floorsInOrder(withBuildings, 'nope')).toEqual([]);
+    expect(floorsInOrder(reordered, 'nope')).toEqual([]);
+  });
+
+  it('restacks elevations when floors are reordered, so a new floor still goes on top', () => {
+    const { b, model, f0, f1, f2, buildingId } = setup();
+    expect([f0, f1, f2].map((id) => model.floors[id]!.data.elevation)).toEqual([0, 3, 6]);
+    const reordered = applyEdit(model, reorderFloors([f2, f0, f1])).model;
+    expect([f2, f0, f1].map((id) => reordered.floors[id]!.data.elevation)).toEqual([0, 2.5, 5]);
+    const top = newFloor(reordered, { id: b.id(), buildingId, name: 'Vind' });
+    expect(top).toMatchObject({ sortOrder: 3, data: { elevation: 7.5 } });
+    const added = applyEdit(reordered, addFloor(top)).model;
+    expect(floorsInOrder(added, buildingId).map((f) => f.id)).toEqual([f2, f0, f1, top.id]);
   });
 });
 
@@ -93,10 +103,15 @@ describe('floor and building edits', () => {
     ]);
 
     const reordered = applyEdit(model, reorderFloors([f1, f0, f2]));
-    expect(Object.fromEntries(splitByDocument(reordered.patches))).toEqual({
-      [f1]: [{ op: 'replace', path: ['sortOrder'], value: 0 }],
-      [f0]: [{ op: 'replace', path: ['sortOrder'], value: 1 }],
-    });
+    const byDocument = splitByDocument(reordered.patches);
+    expect([...byDocument.keys()].sort()).toEqual([f0, f1, f2].sort());
+    expect(byDocument.get(f1)).toEqual(
+      expect.arrayContaining([
+        { op: 'replace', path: ['sortOrder'], value: 0 },
+        { op: 'replace', path: ['data', 'elevation'], value: 0 },
+      ]),
+    );
+    expect(byDocument.get(f2)).toEqual([{ op: 'replace', path: ['data', 'elevation'], value: 5 }]);
     expect(() => applyEdit(model, updateFloor('nope', { name: 'x' }))).toThrow(EditError);
   });
 
@@ -109,6 +124,26 @@ describe('floor and building edits', () => {
     expect(validateModel(result.model)).toEqual([]);
     expect([...splitByDocument(result.patches).keys()].sort()).toEqual([f2, 'project'].sort());
     expect(indexModel(result.model).connectionDocument.has(circuit.id)).toBe(false);
+  });
+
+  it('drops route segments on a removed floor from the remaining cross-floor connections', () => {
+    const { b, model, f0, f1, f2, feeder } = setup();
+    const segment = (floorId: string) => ({
+      floorId,
+      points: [{ x: 1, y: 1, z: 0 }],
+      certainty: 'traced' as const,
+    });
+    const connections = model.project.data.crossFloorConnections;
+    connections[feeder.id]!.route = [segment(f0), segment(f2), segment(f1)];
+    const other = b.floorDevice(0, 'outlet', ['power-in']);
+    const viaRemoved = { ...feeder, id: b.id(), toPortId: other.port('power-in') };
+    connections[viaRemoved.id] = { ...viaRemoved, route: [segment(f2)] };
+    model.floors[f0]!.data.devices[other.id] = other;
+
+    const result = applyEdit(model, removeFloor(f2)).model.project.data.crossFloorConnections;
+    expect(result[feeder.id]!.route).toEqual([segment(f0), segment(f1)]);
+    expect(result[viaRemoved.id]).toBeDefined();
+    expect(result[viaRemoved.id]!.route).toBeUndefined();
   });
 
   it('keeps a live graph equal to a rebuilt one when a floor is added or removed', () => {

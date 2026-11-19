@@ -120,7 +120,8 @@ export function createModelStore() {
       batches: readonly (readonly [DocumentKey, Change[]])[],
     ) {
       const { saved } = get();
-      await Promise.all(
+      // Settle every document before returning, so `saving` stays true until none is in flight.
+      const results = await Promise.allSettled(
         batches.map(async ([doc, changes]) => {
           const base = saved[doc];
           if (!base) throw new Error(`No saved version of document ${doc}`);
@@ -128,6 +129,10 @@ export function createModelStore() {
           settle(doc, base, changes, outcome);
         }),
       );
+      const errors = results.flatMap((r) => (r.status === 'rejected' ? [r.reason as unknown] : []));
+      if (errors.length === 1) throw errors[0];
+      if (errors.length > 1)
+        throw new AggregateError(errors, 'Saving failed for several documents');
     }
 
     const change = (patches: Patch[], history: Pick<ModelState, 'past' | 'future'>) => {
@@ -142,13 +147,17 @@ export function createModelStore() {
       }));
     };
 
-    /** Brings the local document in line with what was stored, keeping changes made while saving. */
+    /**
+     * Brings the local document in line with what was stored, keeping changes made while saving.
+     * A late result for a floor deleted meanwhile is ignored, so it cannot bring the floor back.
+     */
     function settle(
       doc: DocumentKey,
       base: StoredDocument,
       sent: readonly Change[],
       outcome: SaveOutcome<StoredDocument>,
     ) {
+      if (doc !== 'project' && !(doc in get().saved)) return;
       const { model, graph } = requireLoaded();
       const sentIds = new Set(sent.map((c) => c.id));
       const remaining = (get().pending[doc] ?? []).filter((c) => !sentIds.has(c.id));

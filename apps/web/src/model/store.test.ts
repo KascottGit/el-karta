@@ -9,7 +9,9 @@ import {
   replayChanges,
   updateDevice,
   type Device,
+  type FloorRecord,
   type Model,
+  type SaveResult,
 } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
 import { createModelStore, type ModelState } from './store';
@@ -269,6 +271,58 @@ describe('model store floors', () => {
     expect(state.model!.floors[upper.id]).toBeUndefined();
     expect(state.saved[upper.id]).toBeUndefined();
     expect(await repository.loadProject(model.project.id)).toEqual(state.model);
+  });
+
+  it('keeps a floor deleted when its save settles late, and stays saving until every save settles', async () => {
+    class GatedRepository extends InMemoryRepository {
+      readonly failing = new Set<string>();
+      readonly gated = new Set<string>();
+      release: () => void = () => undefined;
+      readonly #gate = new Promise<void>((resolve) => {
+        this.release = resolve;
+      });
+
+      override async saveFloor(
+        record: FloorRecord,
+        expected: number,
+      ): Promise<SaveResult<FloorRecord>> {
+        if (this.failing.has(record.id)) throw new Error('offline');
+        if (this.gated.has(record.id)) await this.#gate;
+        return super.saveFloor(record, expected);
+      }
+    }
+    const repository = new GatedRepository();
+    const model = await repository.createProject(generateProject('small'));
+    const [ground, upper] = Object.values(model.floors).sort((a, b) => a.sortOrder - b.sortOrder);
+    const store = createModelStore();
+    store.getState().load(model);
+    const outlet = (floorId: string) =>
+      Object.values(model.floors[floorId]!.data.devices).find((d) => d.type === 'outlet')!;
+    repository.failing.add(ground!.id);
+    repository.gated.add(upper!.id);
+    store.getState().apply(updateDevice(outlet(ground!.id).id, { label: 'Misslyckas' }));
+    store.getState().apply(updateDevice(outlet(upper!.id).id, { label: 'Försenad' }));
+
+    const saving = store.getState().save(repository);
+    const savingResult = saving.then(
+      () => 'saved',
+      (error: unknown) => (error instanceof Error ? error.message : 'failed'),
+    );
+    const deleting = store.getState().deleteFloor(repository, upper!.id);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(store.getState().saving).toBe(true);
+    expect(store.getState().model!.floors[upper!.id]).toBeDefined();
+
+    repository.release();
+    await deleting;
+    expect(await savingResult).toBe('offline');
+    const state = store.getState();
+    expect(state.saving).toBe(false);
+    expect(state.model!.floors[upper!.id]).toBeUndefined();
+    expect(state.saved[upper!.id]).toBeUndefined();
+    expect(state.pending[upper!.id]).toBeUndefined();
+    expect(state.pending[ground!.id]).toHaveLength(1);
+    expect((await repository.loadProject(model.project.id)).floors[upper!.id]).toBeUndefined();
   });
 
   it('never deletes the last floor, and changes nothing when the repository fails', async () => {

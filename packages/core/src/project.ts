@@ -1,5 +1,5 @@
 import { CURRENT_SCHEMA_VERSION } from './migrations/index.ts';
-import type { Building, FloorData, FloorRecord, Id, Model, ProjectKind } from './schemas/index.ts';
+import type { FloorData, FloorRecord, Id, Model, ProjectKind } from './schemas/index.ts';
 
 /** Default ceiling height per kind of building, in metres. */
 export const DEFAULT_FLOOR_HEIGHT: Readonly<Record<ProjectKind, number>> = {
@@ -59,12 +59,6 @@ export function createEmptyProject(input: {
     },
   };
 }
-
-/** Buildings have no stored order, so they are listed by name. */
-export const buildingsInOrder = (model: Model): Building[] =>
-  Object.values(model.project.data.buildings).sort(
-    (a, b) => a.name.localeCompare(b.name, 'sv') || a.id.localeCompare(b.id),
-  );
 
 /** A building's floors from the bottom up. */
 export const floorsInOrder = (model: Model, buildingId: Id): FloorRecord[] =>

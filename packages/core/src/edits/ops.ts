@@ -137,19 +137,26 @@ export const updateFloor =
     Object.assign(floorOf(draft, floorId), changes);
   };
 
-/** Gives the floors `sortOrder` 0, 1, 2 … in the given order, touching only floors whose order changes. */
+/**
+ * Puts a building's floors in the given order, bottom first: `sortOrder` 0, 1, 2 …, and elevations
+ * restacked from the lowest current one, each floor starting where the one below ends.
+ */
 export const reorderFloors =
   (floorIds: readonly Id[]): Edit =>
   (draft) => {
-    floorIds.forEach((floorId, sortOrder) => {
-      const floor = floorOf(draft, floorId);
+    const floors = floorIds.map((floorId) => floorOf(draft, floorId));
+    let elevation = Math.min(...floors.map((floor) => floor.data.elevation));
+    floors.forEach((floor, sortOrder) => {
       if (floor.sortOrder !== sortOrder) floor.sortOrder = sortOrder;
+      if (floor.data.elevation !== elevation) floor.data.elevation = elevation;
+      elevation += floor.data.height;
     });
   };
 
 /**
- * Brings the model in line with a floor row just deleted through the repository: removes the floor
- * and every cross-floor connection to a port on it. A project always keeps at least one floor.
+ * Brings the model in line with a floor row just deleted through the repository: removes the floor,
+ * every cross-floor connection to a port on it, and the other connections' route segments on it
+ * (a route left with no segments becomes unknown). A project always keeps at least one floor.
  */
 export const removeFloor =
   (floorId: Id): Edit =>
@@ -166,6 +173,12 @@ export const removeFloor =
             delete draft.project.data.crossFloorConnections[connectionId];
         }
       }
+    }
+    for (const connection of Object.values(draft.project.data.crossFloorConnections)) {
+      const route = connection.route?.filter((segment) => segment.floorId !== floorId);
+      if (!route || route.length === connection.route?.length) continue;
+      if (route.length > 0) connection.route = route;
+      else delete connection.route;
     }
     delete draft.floors[floorId];
   };
