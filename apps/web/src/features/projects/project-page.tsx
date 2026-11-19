@@ -1,28 +1,22 @@
 import { RepositoryError } from '@el-karta/data-supabase';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { z } from 'zod';
-import { modelStore, useModelStore } from '@/model/store';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { Input } from '@/ui/input';
 import { Label } from '@/ui/label';
-import { useProject, useShareProject } from './queries';
+import { useShareProject } from './queries';
+import { useLoadedProject } from './use-loaded-project';
 
 export function ProjectPage() {
   const { t } = useTranslation();
   const { projectId = '' } = useParams();
-  const loaded = useProject(projectId);
-  const model = useModelStore((s) => (s.model?.project.id === projectId ? s.model : null));
+  const { model, failed } = useLoadedProject(projectId);
 
-  useEffect(() => {
-    if (loaded.data) modelStore.getState().load(loaded.data);
-  }, [loaded.data]);
-
-  if (loaded.isError) return <p className="text-destructive">{t('project.notFound')}</p>;
+  if (failed) return <p className="text-destructive">{t('project.notFound')}</p>;
   if (!model) return <p className="text-muted-foreground">{t('common.loading')}</p>;
 
   const floors = Object.values(model.floors).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -36,11 +30,16 @@ export function ProjectPage() {
         <h2 className="font-semibold">{t('project.floors')}</h2>
         <ul className="divide-y rounded-lg border">
           {floors.map((floor) => (
-            <li key={floor.id} className="flex justify-between px-4 py-3">
-              <span>{floor.name}</span>
-              <span className="text-sm text-muted-foreground">
-                {t('project.deviceCount', { count: Object.keys(floor.data.devices).length })}
-              </span>
+            <li key={floor.id}>
+              <Link
+                to={`/projects/${projectId}/floors/${floor.id}`}
+                className="flex justify-between px-4 py-3 hover:bg-muted"
+              >
+                <span>{floor.name}</span>
+                <span className="text-sm text-muted-foreground">
+                  {t('project.deviceCount', { count: Object.keys(floor.data.devices).length })}
+                </span>
+              </Link>
             </li>
           ))}
         </ul>

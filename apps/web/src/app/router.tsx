@@ -22,8 +22,24 @@ export const router = createBrowserRouter(
                 Component: (await import('@/features/projects/project-page')).ProjectPage,
               }),
             },
+            {
+              path: 'projects/:projectId/floors/:floorId',
+              lazy: async () => ({
+                Component: (await import('@/features/floorplan/editor-page')).EditorPage,
+              }),
+            },
           ],
         },
+        ...(import.meta.env.DEV
+          ? [
+              {
+                path: 'dev/synthetic/:size',
+                lazy: async () => ({
+                  Component: (await import('@/features/floorplan/synthetic-page')).SyntheticPage,
+                }),
+              },
+            ]
+          : []),
         { path: '*', element: <NotFoundPage /> },
       ],
     },

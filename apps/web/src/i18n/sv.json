@@ -57,5 +57,10 @@
   "notFound": {
     "title": "Sidan finns inte",
     "back": "Till startsidan"
+  },
+  "editor": {
+    "back": "← Till projektet",
+    "floorNotFound": "Våningen finns inte i projektet.",
+    "unknownSize": "Okänd storlek. Välj en av: {{sizes}}"
   }
 }
