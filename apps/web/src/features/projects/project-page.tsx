@@ -4,11 +4,13 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { z } from 'zod';
+import { AutosaveProvider } from '@/features/floorplan/save/autosave-provider';
+import { SaveStatus } from '@/features/floorplan/save/save-status';
 import { Button } from '@/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/ui/card';
 import { Input } from '@/ui/input';
 import { Label } from '@/ui/label';
-import { useShareProject } from './queries';
+import { repository, useShareProject } from './queries';
 import { useLoadedProject } from './use-loaded-project';
 
 export function ProjectPage() {
@@ -25,6 +27,9 @@ export function ProjectPage() {
       <header>
         <h1 className="text-xl font-semibold">{model.project.name}</h1>
         <p className="text-sm text-muted-foreground">{t(`projectKind.${model.project.kind}`)}</p>
+        <AutosaveProvider repository={repository}>
+          <SaveStatus />
+        </AutosaveProvider>
       </header>
       <section className="space-y-2">
         <h2 className="font-semibold">{t('project.floors')}</h2>
