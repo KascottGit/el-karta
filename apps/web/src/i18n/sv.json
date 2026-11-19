@@ -85,6 +85,38 @@
     "delete": "Ta bort markerade",
     "zoomToFit": "Visa hela planen"
   },
+  "grid": {
+    "tool": "Rutnät",
+    "title": "Rutnät",
+    "empty": "Våningen har inget rutnät.",
+    "pointerHint": "Peka på planen för att se rutan.",
+    "pointerCell": "Ruta under pekaren: {{cell}}",
+    "selectionCell": "Ruta i rutnätet: {{cell}}",
+    "outside": "utanför rutnätet",
+    "axis": {
+      "x": "Lodräta linjer (A, B, C …)",
+      "y": "Vågräta linjer (1, 2, 3 …)"
+    },
+    "metres": "m",
+    "lineLabel": "Beteckning för linje {{label}}",
+    "linePosition": "Läge i meter för linje {{label}}",
+    "removeLine": "Ta bort linje {{label}}",
+    "addLine": "Lägg till linje",
+    "relabel": "Återställ beteckningar",
+    "remove": "Ta bort rutnätet",
+    "even": {
+      "title": "Jämnt rutnät",
+      "count": "Antal",
+      "spacing": "Avstånd (m)",
+      "start": {
+        "x": "Första x (m)",
+        "y": "Första y (m)"
+      },
+      "create": "Skapa rutnät",
+      "replace": "Ersätt rutnätet",
+      "fitFloor": "Anpassa till våningen"
+    }
+  },
   "notFound": {
     "title": "Sidan finns inte",
     "back": "Till startsidan"

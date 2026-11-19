@@ -6,6 +6,7 @@ import type {
   Device,
   FloorData,
   FloorRecord,
+  Grid,
   Id,
   Model,
 } from '../schemas/index.ts';
@@ -135,6 +136,15 @@ export const updateFloor =
   (floorId: Id, changes: Partial<Pick<FloorRecord, 'name' | 'sortOrder'>>): Edit =>
   (draft) => {
     Object.assign(floorOf(draft, floorId), changes);
+  };
+
+/** Replaces the floor's grid lines whole; null or a grid without lines removes the grid. */
+export const setGrid =
+  (floorId: Id, grid: Grid | null): Edit =>
+  (draft) => {
+    const { data } = floorOf(draft, floorId);
+    if (grid && (grid.xLines.length > 0 || grid.yLines.length > 0)) data.grid = grid;
+    else if (data.grid) delete data.grid;
   };
 
 /**
