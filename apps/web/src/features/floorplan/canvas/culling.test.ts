@@ -2,7 +2,7 @@ import { generateProject } from '@el-karta/core';
 import { describe, expect, it, vi } from 'vitest';
 import { createCuller } from './culling';
 import { boundsOf, contains, expand, intersects, union, type Rect } from './rect';
-import { wallBounds } from './wall-outline';
+import { wallBounds } from '../walls/wall-outline';
 
 const box = (minX: number, minY: number, maxX: number, maxY: number): Rect => ({
   minX,

@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createGestureController, type GestureHandlers, type PointerInput } from './gestures';
+import { pointerFixtures } from './pointer-fixtures';
+
+const { mouse, touch, wait } = pointerFixtures();
 
 function setup(options: { toolDrags?: boolean } = {}) {
   const calls: string[] = [];
@@ -21,24 +24,6 @@ function setup(options: { toolDrags?: boolean } = {}) {
   return { calls, gestures: createGestureController(handlers) };
 }
 
-let clock = 0;
-const mouse = (x: number, y: number, extra: Partial<PointerInput> = {}): PointerInput => ({
-  id: 1,
-  kind: 'mouse',
-  button: 0,
-  buttons: 1,
-  x,
-  y,
-  time: (clock += 100),
-  claimed: false,
-  panKey: false,
-  shiftKey: false,
-  altKey: false,
-  modKey: false,
-  ...extra,
-});
-const touch = (id: number, x: number, y: number) => mouse(x, y, { id, kind: 'touch' });
-
 describe('gesture controller', () => {
   it('reports a press and release without movement as a tap, and hovers in between', () => {
     const { calls, gestures } = setup();
@@ -46,7 +31,7 @@ describe('gesture controller', () => {
     gestures.down(mouse(10, 10));
     gestures.move(mouse(12, 11));
     gestures.up(mouse(12, 11));
-    clock += 1000;
+    wait(1000);
     gestures.move(mouse(20, 20, { buttons: 0 }));
     expect(calls).toEqual(['hover 5,5', 'tap 12,11', 'hover 20,20']);
   });
@@ -83,26 +68,28 @@ describe('gesture controller', () => {
 
   it('detects a double tap close in time and place', () => {
     const { calls, gestures } = setup();
-    clock = 0;
     gestures.down(mouse(10, 10));
     gestures.up(mouse(10, 10));
     gestures.down(mouse(12, 10));
     gestures.up(mouse(12, 10));
     gestures.down(mouse(12, 10));
     gestures.up(mouse(12, 10));
-    clock += 1000;
+    wait(1000);
     gestures.down(mouse(12, 10));
     gestures.up(mouse(12, 10));
     expect(calls).toEqual(['tap 10,10', 'doubleTap 12,10', 'tap 12,10', 'tap 12,10']);
   });
 
-  it('ignores a gesture claimed by a Konva shape until its pointer is released', () => {
-    const { calls, gestures } = setup();
-    gestures.down(mouse(0, 0, { claimed: true }));
-    gestures.move(mouse(50, 50));
-    gestures.up(mouse(50, 50));
-    gestures.move(mouse(60, 60, { buttons: 0 }));
-    expect(calls).toEqual(['hover 60,60']);
+  it('cancels a drag on request and ignores its pointer until released', () => {
+    const { calls, gestures } = setup({ toolDrags: true });
+    expect(gestures.cancelDrag()).toBe(false);
+    gestures.down(mouse(0, 0));
+    gestures.move(mouse(10, 0));
+    expect(gestures.cancelDrag()).toBe(true);
+    gestures.move(mouse(30, 0));
+    gestures.up(mouse(30, 0));
+    gestures.move(mouse(40, 0, { buttons: 0 }));
+    expect(calls).toEqual(['dragStart 0,0→10,0', 'drag 10,0', 'dragCancel', 'hover 40,0']);
   });
 
   it('ignores the right button', () => {

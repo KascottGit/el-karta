@@ -9,7 +9,7 @@ import {
   type Pt,
   type Wall,
 } from '@el-karta/core';
-import { boundsOf, type Rect } from './rect';
+import { boundsOf, type Rect } from '../canvas/rect';
 
 /** Endpoints this close count as one corner (M3 design decision 3). */
 export const JOINT_TOLERANCE = 0.01;

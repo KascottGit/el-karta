@@ -36,6 +36,7 @@ describe('resolveExtensions', () => {
       id: 'walls',
       tools: [tool('wall', 10, 'w')],
       layers: [content('wall-handles', 'overlays', 0), content('wall-preview', 'walls', -1)],
+      handles: [{ name: 'wall-end', onDrag: () => {} }],
       panels: [{ id: 'wall-panel', order: 5, visible: () => true, Component: Nothing }],
     };
     const grid: EditorExtension = {
@@ -53,6 +54,7 @@ describe('resolveExtensions', () => {
     expect(resolved.layers.walls.map((c) => c.id)).toEqual(['wall-preview', 'walls']);
     expect(resolved.layers.overlays.map((c) => c.id)).toEqual(['wall-handles']);
     expect(resolved.layers.background).toEqual([]);
+    expect([...resolved.handles.keys()]).toEqual(['wall-end']);
     expect(resolved.shortcuts.tools).toEqual(
       new Map([
         ['v', DEFAULT_TOOL],
@@ -78,5 +80,9 @@ describe('resolveExtensions', () => {
       /Shortcut "v"/,
     );
     expect(() => resolveExtensions([{ id: 'x', tools: [tool('other', 1)] }])).toThrow(/default id/);
+    const handle = { name: 'h', onDrag: () => {} };
+    expect(() =>
+      resolveExtensions([base, { id: 'x', handles: [handle] }, { id: 'y', handles: [handle] }]),
+    ).toThrow(/handle id "h"/);
   });
 });

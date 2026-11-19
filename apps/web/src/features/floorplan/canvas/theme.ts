@@ -1,10 +1,8 @@
-/** Konva draws to a canvas, so it needs concrete colours rather than the CSS theme variables. */
+/**
+ * Colours shared by every feature. Konva draws to a canvas, so it needs concrete colours rather
+ * than the CSS theme variables. Feature-specific colours live with the feature.
+ */
 export const canvasColors = {
-  wall: '#334155',
-  room: '#f8fafc',
-  roomStroke: '#cbd5e1',
-  zone: 'rgba(16, 185, 129, 0.10)',
-  zoneStroke: '#10b981',
   label: '#475569',
   selected: '#2563eb',
   selectedFill: '#dbeafe',

@@ -11,8 +11,6 @@ export interface PointerInput {
   x: number;
   y: number;
   time: number;
-  /** A Konva shape handled the press itself (called `preventDefault`); the canvas ignores the gesture. */
-  claimed: boolean;
   /** Space is held, so a primary drag pans whatever the tool. */
   panKey: boolean;
   shiftKey: boolean;
@@ -46,7 +44,8 @@ type Mode =
   | { kind: 'drag'; owner: number }
   | { kind: 'pan'; owner: number; last: Pt }
   | { kind: 'pinch' }
-  | { kind: 'claimed'; owner: number };
+  /** A cancelled press: its pointer is ignored until released. */
+  | { kind: 'ignored'; owner: number };
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -68,12 +67,11 @@ export function createGestureController(handlers: GestureHandlers) {
       if (p.kind === 'touch') touches.set(p.id, { x: p.x, y: p.y });
       if (p.kind === 'touch' && touches.size >= 2) {
         if (mode.kind === 'drag') handlers.dragCancel();
-        if (mode.kind !== 'claimed') mode = { kind: 'pinch' };
+        mode = { kind: 'pinch' };
         return;
       }
       if (mode.kind !== 'idle') return;
-      if (p.claimed) mode = { kind: 'claimed', owner: p.id };
-      else if (p.button === MIDDLE_BUTTON || (p.button === 0 && p.panKey))
+      if (p.button === MIDDLE_BUTTON || (p.button === 0 && p.panKey))
         mode = { kind: 'pan', owner: p.id, last: p };
       else if (p.button === 0) mode = { kind: 'pending', owner: p.id, start: p };
     },
@@ -114,7 +112,7 @@ export function createGestureController(handlers: GestureHandlers) {
           handlers.pinch(idA === p.id ? prevTouch : a, idB === p.id ? prevTouch : b, a, b);
           return;
         }
-        case 'claimed':
+        case 'ignored':
           return;
       }
     },
@@ -152,12 +150,20 @@ export function createGestureController(handlers: GestureHandlers) {
           return;
         }
         case 'pan':
-        case 'claimed':
+        case 'ignored':
           if (p.id === mode.owner) mode = { kind: 'idle' };
           return;
         case 'idle':
           return;
       }
+    },
+
+    /** Cancels a tool or handle drag in progress (Escape, unmount). Returns whether there was one. */
+    cancelDrag(): boolean {
+      if (mode.kind !== 'drag') return false;
+      mode = { kind: 'ignored', owner: mode.owner };
+      handlers.dragCancel();
+      return true;
     },
 
     cancel(p: PointerInput) {

@@ -23,7 +23,9 @@ export function EditorWorkspace({
   const ctx = useMemo<CanvasContext>(
     () => ({
       floorId,
-      itemAt: (screen) => (stageRef.current ? itemAt(stageRef.current, screen) : null),
+      itemAt: (screen, kind = 'mouse') =>
+        stageRef.current ? itemAt(stageRef.current, screen, kind) : null,
+      pxToWorld: (px) => px / editorStore.getState().viewport.scale,
       zoomToFit: () => {
         zoomToFit(floorId, registry);
       },
@@ -32,8 +34,9 @@ export function EditorWorkspace({
   );
 
   useEffect(() => {
+    registry.tool(editorStore.getState().tool).onDeactivate?.(ctx);
     editorStore.getState().openFloor(floorId);
-  }, [floorId]);
+  }, [floorId, registry, ctx]);
   useEditorKeyboard(ctx, registry);
 
   return (

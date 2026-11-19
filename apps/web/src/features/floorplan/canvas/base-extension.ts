@@ -3,11 +3,7 @@ import { modelStore } from '@/model/store';
 import { DEFAULT_TOOL, editorStore } from '../editor-store';
 import { deleteSelected } from './commands';
 import type { EditorExtension, Tool } from './extension';
-import { boundsOf, union } from './rect';
-import { AreasLayer } from './render/areas-layer';
-import { WallsLayer } from './render/walls-layer';
 import { toggleItem } from './selection';
-import { wallBounds } from './wall-outline';
 
 const selectTool: Tool = {
   id: DEFAULT_TOOL,
@@ -16,7 +12,8 @@ const selectTool: Tool = {
   order: 0,
   shortcut: 'v',
   onTap: (p, ctx) => {
-    const hit = ctx.itemAt(p.screen);
+    if (p.onHandle) return;
+    const hit = ctx.itemAt(p.screen, p.kind);
     const { selection, select } = editorStore.getState();
     if (p.shiftKey || p.modKey) {
       if (hit) select(toggleItem(selection, hit));
@@ -24,7 +21,7 @@ const selectTool: Tool = {
   },
 };
 
-/** The select tool, undo/redo/delete/fit actions and the read-only renderers of walls, rooms and zones. */
+/** The select tool and the undo, redo, delete and zoom-to-fit actions. Features render their own items. */
 export const baseExtension: EditorExtension = {
   id: 'base',
   tools: [selectTool],
@@ -68,27 +65,6 @@ export const baseExtension: EditorExtension = {
       run: (ctx) => {
         ctx.zoomToFit();
       },
-    },
-  ],
-  layers: [
-    {
-      id: 'areas',
-      layer: 'areas',
-      order: 0,
-      Component: AreasLayer,
-      bounds: ({ data }) =>
-        union(
-          [...Object.values(data.rooms), ...Object.values(data.zones)].map((a) =>
-            boundsOf(a.polygon),
-          ),
-        ),
-    },
-    {
-      id: 'walls',
-      layer: 'walls',
-      order: 0,
-      Component: WallsLayer,
-      bounds: ({ data }) => union(Object.values(data.walls).map(wallBounds)),
     },
   ],
 };

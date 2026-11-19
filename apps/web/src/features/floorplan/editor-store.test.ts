@@ -63,6 +63,20 @@ describe('editor store', () => {
     expect(contains(renderWindow.rect, visibleRect(viewport, size))).toBe(true);
   });
 
+  it('refits on resize until the view is moved', () => {
+    const store = setup();
+    const bounds = { minX: 0, minY: 0, maxX: 10, maxY: 10 };
+    store.getState().fit(bounds);
+    store.getState().setSize({ width: 400, height: 600 });
+    const center = () => worldToScreen(store.getState().viewport, { x: 5, y: 5 });
+    expect(center().x).toBeCloseTo(200);
+    expect(store.getState().viewport.scale).toBeCloseTo((400 - 48) / 10);
+
+    store.getState().setViewport(panBy(store.getState().viewport, 30, 0));
+    store.getState().setSize({ width: 800, height: 600 });
+    expect(center().x).toBeCloseTo(230);
+  });
+
   it('fits bounds into the measured canvas', () => {
     const store = setup();
     store.getState().fit({ minX: 10, minY: 10, maxX: 20, maxY: 15 });

@@ -1,60 +1,100 @@
 # Floor editor
 
-`floor-editor.tsx` is the page body: a header (back link, floor name; further header items such as the floor switcher or save status go after the `<h1>`) and the `EditorWorkspace` (`canvas/editor-workspace.tsx`): toolbar, Konva canvas and side panel.
+`floor-editor.tsx` is the page body. It has a header (back link, floor name, floor switcher, save status) and the `EditorWorkspace` (`canvas/editor-workspace.tsx`), which holds the toolbar, the Konva canvas and the side panel. ADR 0006 explains the design.
 
 ## State
 
 - **Model** (`@/model/store`): the project. Change it only with `modelStore.getState().apply(edit)` using the edit operations in `@el-karta/core`; undo, redo and saving follow from that.
-- **Editor** (`editor-store.ts`): active tool, selection, viewport, canvas size, render window and the shape being drawn (`drawing`). UI-only: never undone or saved.
+- **Editor** (`editor-store.ts`): active tool, selection, viewport, canvas size, render window and the polyline being drawn (`drawing`). It is UI-only and is never undone or saved.
 
-## Adding a tool, panel, action or layer content
+## Adding a feature
 
-Each feature lives in its own folder (`walls/`, `areas/`, …) and exports one `EditorExtension` (`canvas/extension.ts`). Register it with one line in `extensions.ts`. Nothing in `canvas/` needs to change.
+Each feature lives in its own folder (`walls/`, `areas/`, `openings/`, …) and exports one `EditorExtension` (`canvas/extension.ts`). Register it with one line in `extensions.ts`. `canvas/` holds only infrastructure and the select tool, so a feature never needs to change it. `walls/` and `areas/` are working examples.
 
 ```ts
 // walls/extension.ts
 export const wallsExtension: EditorExtension = {
   id: 'walls',
-  tools: [wallTool], // toolbar button + pointer handling
-  layers: [{ id: 'wall-draft', layer: 'overlays', order: 0, Component: WallDraft }],
-  panels: [
-    { id: 'wall-props', order: 10, visible: (e) => hasWall(e.selection), Component: WallPanel },
+  tools: [wallTool], // toolbar button + pointer callbacks
+  handles: [wallEnd], // draggable points
+  layers: [
+    { id: 'walls', layer: 'walls', order: 0, Component: WallsLayer, bounds: wallsBounds },
+    { id: 'wall-draft', layer: 'overlays', order: 0, Component: WallDraft },
   ],
+  panels: [{ id: 'wall-props', order: 10, visible: hasWallSelected, Component: WallPanel }],
 };
 // extensions.ts
-export const extensions = [baseExtension, wallsExtension];
+export const extensions = [baseExtension, areasExtension, wallsExtension];
 ```
 
-Ids must be unique across extensions, as must shortcuts; `resolveExtensions` throws on a clash.
+Ids must be unique across extensions (tools, actions, handles, panels, layer content), and so must shortcuts. `resolveExtensions` throws on a clash.
 
 ### Tools
 
-A `Tool` gets pointer callbacks with `world` (metres) and `screen` (pixels) positions: `onHover` (mouse and pen only), `onTap`, `onDoubleTap` (replaces the second tap; falls back to `onTap`), `onDragStart`/`onDrag`/`onDragEnd`/`onDragCancel`, and `onKeyDown`, which sees every key first. A drag the tool does not take (no `onDragStart`, or it returns false) pans the view, so one-finger drags pan on phones.
+A `Tool` gets pointer callbacks with a `CanvasPointer`: `world` (metres), `screen` (pixels), `kind` (mouse, pen or touch), modifier keys and `onHandle`.
 
-Keep the in-progress shape in `editorStore` (`setDrawing`) and draw it from a layer component on `overlays`. Switching tools clears it. Escape (when `onKeyDown` does not handle it) clears the drawing, then the selection, then returns to the select tool.
+- `onHover` (mouse and pen only) and `onLeave` (the pointer left the canvas).
+- `onTap`, and `onDoubleTap`, which replaces the second tap and falls back to `onTap`.
+- `onDragStart`, `onDrag`, `onDragEnd`, `onDragCancel`. A drag the tool does not take (no `onDragStart`, or it returns false) pans the view, so one-finger drags pan on phones.
+- `onKeyDown` sees every key first; returning true stops the default handling.
+- `onDeactivate` is called before switching to another tool, on Escape and on floor switch. Reset your preview state there.
+
+Preview state:
+
+- A polyline or polygon in progress goes in `editorStore` (`setDrawing({ points, hover })`) and is drawn from a layer on `overlays`. Tool switch, floor switch and Escape clear it.
+- Any other preview (a snap marker, the wall and offset an opening would land on) goes in a small store in your feature folder, reset in `onDeactivate` and `onLeave`.
+
+Escape first cancels a drag in progress. If `onKeyDown` does not handle it, it then clears the drawing, then the selection, then returns to the select tool.
+
+**Tolerances:** give snap and hit distances in pixels and convert them with `ctx.pxToWorld(px)`, so they feel the same at every zoom. Use a larger value for `p.kind === 'touch'`.
+
+### Handles (draggable points)
+
+Do not use Konva `draggable` or attach pointer listeners to shapes. Register a `Handle` and spread `handle(spec, payload)` (`canvas/hit.ts`) on the Konva node:
+
+```tsx
+const wallEnd: Handle<{ wallId: Id; end: 'a' | 'b' }> = {
+  name: 'wall-end',
+  onDrag: ({ wallId, end }, p, ctx) => {
+    /* preview at p.world */
+  },
+  onDragEnd: ({ wallId, end }, p, ctx) => {
+    /* modelStore.getState().apply(...) */
+  },
+  onDragCancel: ({ wallId }) => {
+    /* drop the preview */
+  },
+};
+<Circle {...handle(wallEnd, { wallId, end: 'a' })} x={a.x} y={a.y} radius={6 / scale} />;
+```
+
+A drag that starts on a handle goes to that handle, whichever tool is active. It gets the same threshold, pointer capture and cancellation (Escape, a second finger, unmount) as any drag. A tap on a handle still reaches the tool with `p.onHandle` set; the select tool ignores it. Touch presses find handles within a fingertip's radius. `dev/` has a test handle (open `/dev/synthetic/small?test-handle`) that the e2e tests drag.
 
 ### Layer content
 
-`CANVAS_LAYERS` sets the drawing order: `background`, `grid`, `areas`, `walls`, `openings`, `overlays`. A `LayerContent` component renders Konva nodes in world coordinates (metres, y down) and gets `ctx` (floor id, `itemAt`, `zoomToFit`). Optional `bounds(floor)` adds to zoom to fit.
+`CANVAS_LAYERS` sets the drawing order: `background`, `grid`, `areas`, `walls`, `openings`, `overlays`. A `LayerContent` component renders Konva nodes in world coordinates (metres, y down) and gets `ctx` (floor id, `itemAt`, `pxToWorld`, `zoomToFit`). The optional `bounds(floor)` adds to zoom to fit.
 
-- **Culling:** read `useEditorStore((s) => s.renderWindow)` and filter with `createCuller(boundsFn)` (`canvas/culling.ts`). The window is larger than the view and only changes when the view leaves it, so panning does not re-render React; the stage transform is set directly.
-- **Constant-pixel sizes:** strokes with `strokeScaleEnabled={false}`; text laid out in pixels and scaled by `1 / renderWindow.scale` (see `render/areas-layer.tsx`).
-- **Selection:** spread `selectable(collection, id)` (`canvas/hit.ts`) on a node, and the select tool will pick it via Konva's hit graph. Set `listening={false}` on decoration such as labels. Read `selection` from the editor store to highlight.
-- **Handles:** a Konva node that handles its own press calls `e.evt.preventDefault()` in `onPointerDown`; the canvas then neither pans nor passes that gesture to the tool.
+- **Culling:** read `useRenderWindow()` and filter with `createCuller(boundsFn)` (`canvas/culling.ts`). The window is larger than the view and changes rarely, and it is deferred, so panning neither re-renders React nor stalls when new shapes come into view. Memoize per-item shape components (`memo`) so a window change only mounts the new ones.
+- **Constant-pixel sizes:** strokes use `strokeScaleEnabled={false}`. Text goes through `ScreenLabel` (`canvas/screen-label.tsx`), with `useRenderWindow().scale`.
+- **Selection:** spread `selectable(collection, id)` on a node, and the select tool picks it through Konva's hit graph. Set `listening={false}` on decoration such as labels. A shape that lies over others (zones over rooms) should hit only on its outline with a `hitFunc`, as `areas/areas-layer.tsx` does. Read `selection` from the editor store to highlight.
+- **Colours:** shared ones (selection, labels, font) are in `canvas/theme.ts`; feature colours live in the feature folder.
 
 ### Panels and actions
 
-A `Panel` shows in the side panel (a sheet over the canvas on phones) while `visible(editor, model)` holds. An `Action` is a one-shot toolbar button with `run(ctx)` and an optional `enabled(editor, model)`. Panels and actions edit the model with `apply(edit)` like everything else.
+A `Panel` shows in the side panel while `visible(editor, model)` holds. On phones the side panel is a sheet over the canvas. An `Action` is a one-shot toolbar button with `run(ctx)` and an optional `enabled(editor, model)`. Both edit the model with `apply(edit)` like everything else.
 
 ## Input
 
 | Input                                                                  | Effect                                                            |
 | ---------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Wheel, trackpad pinch                                                  | Zoom at the pointer                                               |
-| Shift + wheel                                                          | Pan                                                               |
-| Middle-button drag, Space + drag, drag where the tool does not take it | Pan                                                               |
+| Mouse wheel (line/page deltas, or whole-number steps of 50 px or more) | Zoom at the pointer                                               |
+| Trackpad pinch, Ctrl/Cmd + wheel                                       | Zoom at the pointer                                               |
+| Trackpad two-finger scroll (other pixel deltas), Shift + wheel         | Pan                                                               |
+| Middle-button drag, Space + drag, a drag no handle or tool takes       | Pan                                                               |
 | Two fingers                                                            | Pinch-zoom and pan                                                |
-| Escape                                                                 | Cancel (see above)                                                |
+| Escape                                                                 | Cancel a drag, else see Tools above                               |
 | Delete, Backspace                                                      | Delete the selection                                              |
 | Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z, Ctrl + Y                           | Undo, redo                                                        |
 | Single key                                                             | The tool or action with that `shortcut` (V select, F zoom to fit) |
+
+Browsers do not say whether a wheel event comes from a mouse or a trackpad, so the wheel rows are a heuristic (`canvas/wheel.ts`). A trackpad that sends large whole-number steps zooms, and a mouse with smooth scrolling pans. Ctrl/Cmd + wheel always zooms.

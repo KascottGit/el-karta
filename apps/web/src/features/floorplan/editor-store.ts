@@ -13,7 +13,12 @@ import type { Rect } from './canvas/rect';
 
 export const DEFAULT_TOOL = 'select';
 
-/** A shape being drawn by the active tool: the points placed so far and the (snapped) pointer position. */
+/**
+ * A polyline or polygon being drawn by the active tool: the points placed so far and the (snapped)
+ * pointer position. Cleared on tool switch, floor switch and Escape. Tools that need other preview
+ * state (a snap marker, a wall id and offset) keep it in their own store and reset it in
+ * `Tool.onDeactivate`.
+ */
 export interface Drawing {
   points: readonly Pt[];
   hover: Pt | null;
@@ -29,6 +34,8 @@ export interface EditorState {
   size: Size;
   /** Updated only when the view leaves it, so renderers that cull by it re-render rarely. */
   renderWindow: RenderWindow;
+  /** The bounds of the last zoom to fit, kept until the view is moved so a resize can refit them. */
+  fitted: { bounds: Rect | null } | null;
   drawing: Drawing | null;
   /** Clears selection and drawing for another floor. The viewport stays, since floors are stacked. */
   openFloor: (floorId: Id) => void;
@@ -57,6 +64,7 @@ export function createEditorStore() {
       viewport: INITIAL_VIEWPORT,
       size: NO_SIZE,
       renderWindow: nextRenderWindow(null, INITIAL_VIEWPORT, NO_SIZE),
+      fitted: null,
       drawing: null,
 
       openFloor: (floorId) => {
@@ -69,13 +77,17 @@ export function createEditorStore() {
         set({ selection });
       },
       setViewport: (viewport) => {
-        set(view(viewport));
+        set({ ...view(viewport), fitted: null });
       },
       setSize: (size) => {
-        set({ size, ...view(get().viewport, size) });
+        const { fitted, viewport } = get();
+        set({
+          size,
+          ...(fitted ? view(fitRect(fitted.bounds, size), size, true) : view(viewport, size)),
+        });
       },
       fit: (bounds) => {
-        set(view(fitRect(bounds, get().size), get().size, true));
+        set({ ...view(fitRect(bounds, get().size), get().size, true), fitted: { bounds } });
       },
       setDrawing: (drawing) => {
         set({ drawing });

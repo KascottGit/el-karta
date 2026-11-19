@@ -1,25 +1,34 @@
 import { centroid, type Pt, type Room, type Zone } from '@el-karta/core';
+import type Konva from 'konva';
 import { memo, useMemo } from 'react';
-import { Line, Text } from 'react-konva';
+import { Line } from 'react-konva';
 import { useModelStore } from '@/model/store';
-import { useEditorStore } from '../../editor-store';
-import { createCuller } from '../culling';
-import type { CanvasContext } from '../extension';
-import { selectable } from '../hit';
-import { boundsOf, width } from '../rect';
-import { selectedIds } from '../selection';
-import { canvasColors, canvasFont } from '../theme';
+import { useEditorStore } from '../editor-store';
+import { createCuller } from '../canvas/culling';
+import type { CanvasContext } from '../canvas/extension';
+import { selectable } from '../canvas/hit';
+import { boundsOf, width } from '../canvas/rect';
+import { ScreenLabel } from '../canvas/screen-label';
+import { selectedIds } from '../canvas/selection';
+import { canvasColors } from '../canvas/theme';
+import { useRenderWindow } from '../canvas/use-render-window';
+import { areaBounds } from './bounds';
 
-const cullAreas = createCuller((area: { polygon: readonly Pt[] }) => boundsOf(area.polygon));
-const LABEL_PX = 12;
-const MIN_LABEL_WIDTH_PX = 40;
+const areaColors = {
+  room: '#f8fafc',
+  roomStroke: '#cbd5e1',
+  zone: 'rgba(16, 185, 129, 0.10)',
+  zoneStroke: '#10b981',
+} as const;
+
+const cullAreas = createCuller(areaBounds);
 
 /** Read-only rooms with name labels, and translucent zones over them. */
 export function AreasLayer({ ctx }: { ctx: CanvasContext }) {
   const data = useModelStore((s) => s.model?.floors[ctx.floorId]?.data);
   const rooms = data?.rooms;
   const zones = data?.zones;
-  const { rect: view, scale } = useEditorStore((s) => s.renderWindow);
+  const { rect: view, scale } = useRenderWindow();
   const selection = useEditorStore((s) => s.selection);
   const visibleRooms = useMemo(() => (rooms ? cullAreas(rooms, view) : []), [rooms, view]);
   const visibleZones = useMemo(() => (zones ? cullAreas(zones, view) : []), [zones, view]);
@@ -55,82 +64,52 @@ const RoomShape = memo(function RoomShape({
   labelScale: number;
 }) {
   const points = useMemo(() => flat(room.polygon), [room.polygon]);
-  const label = useMemo(
-    () => ({
-      at: centroid(room.polygon),
-      width: 0.9 * (room.polygon.length > 0 ? width(boundsOf(room.polygon)!) : 0),
-    }),
-    [room.polygon],
-  );
+  const label = useMemo(() => {
+    const bounds = boundsOf(room.polygon);
+    return { at: centroid(room.polygon), width: bounds ? 0.9 * width(bounds) : 0 };
+  }, [room.polygon]);
   return (
     <>
       <Line
         {...selectable('rooms', room.id)}
         points={points}
         closed
-        fill={selected ? canvasColors.selectedFill : canvasColors.room}
-        stroke={selected ? canvasColors.selected : canvasColors.roomStroke}
+        fill={selected ? canvasColors.selectedFill : areaColors.room}
+        stroke={selected ? canvasColors.selected : areaColors.roomStroke}
         strokeWidth={1}
         strokeScaleEnabled={false}
         perfectDrawEnabled={false}
       />
-      <Label text={room.name} at={label.at} maxWidth={label.width} scale={labelScale} />
+      <ScreenLabel text={room.name} at={label.at} maxWidth={label.width} scale={labelScale} />
     </>
   );
 });
 
+// Zones overlap rooms, so they are picked by their outline only and taps inside reach the room.
+const outlineHit = (points: number[]) => (context: Konva.Context, shape: Konva.Shape) => {
+  context.beginPath();
+  context.moveTo(points[0] ?? 0, points[1] ?? 0);
+  for (let i = 2; i < points.length; i += 2) context.lineTo(points[i]!, points[i + 1]!);
+  context.closePath();
+  context.strokeShape(shape);
+};
+
 const ZoneShape = memo(function ZoneShape({ zone, selected }: { zone: Zone; selected: boolean }) {
   const points = useMemo(() => flat(zone.polygon), [zone.polygon]);
+  const hitFunc = useMemo(() => outlineHit(points), [points]);
   return (
     <Line
       {...selectable('zones', zone.id)}
       points={points}
       closed
-      fill={canvasColors.zone}
-      stroke={selected ? canvasColors.selected : canvasColors.zoneStroke}
+      fill={areaColors.zone}
+      stroke={selected ? canvasColors.selected : areaColors.zoneStroke}
       strokeWidth={selected ? 2 : 1}
       dash={[6, 4]}
       strokeScaleEnabled={false}
+      hitStrokeWidth={8}
+      hitFunc={hitFunc}
       perfectDrawEnabled={false}
     />
   );
 });
-
-/**
- * A label of constant screen size centred on `at`. It is laid out in pixels and scaled down to
- * world units, because Konva measures text badly at sub-pixel font sizes.
- */
-function Label({
-  text,
-  at,
-  maxWidth,
-  scale,
-}: {
-  text: string;
-  at: Pt;
-  maxWidth: number;
-  scale: number;
-}) {
-  const widthPx = maxWidth * scale;
-  if (!text || widthPx < MIN_LABEL_WIDTH_PX) return null;
-  return (
-    <Text
-      text={text}
-      x={at.x}
-      y={at.y}
-      scaleX={1 / scale}
-      scaleY={1 / scale}
-      width={widthPx}
-      offsetX={widthPx / 2}
-      offsetY={LABEL_PX / 2}
-      fontSize={LABEL_PX}
-      fontFamily={canvasFont}
-      fill={canvasColors.label}
-      align="center"
-      wrap="none"
-      ellipsis
-      listening={false}
-      perfectDrawEnabled={false}
-    />
-  );
-}

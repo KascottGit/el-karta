@@ -24,8 +24,13 @@ export type MessageKey = ParseKeys;
 /** What tools, actions, panels and layer content get to talk to the canvas. */
 export interface CanvasContext {
   floorId: Id;
-  /** The topmost selectable shape under a screen point (see `selectable` in `hit.ts`). */
-  itemAt(screen: Pt): SelectionItem | null;
+  /**
+   * The topmost selectable shape at a screen point (see `selectable` in `hit.ts`). For touch it
+   * also searches a finger-sized radius around the point.
+   */
+  itemAt(screen: Pt, kind?: PointerKind): SelectionItem | null;
+  /** Converts a distance in screen pixels to metres at the current zoom, for snap and hit tolerances. */
+  pxToWorld(px: number): number;
   zoomToFit(): void;
 }
 
@@ -39,6 +44,8 @@ export interface CanvasPointer {
   altKey: boolean;
   /** Ctrl, or Cmd on a Mac. */
   modKey: boolean;
+  /** The press started on a handle. Its drag goes to the handle; a tap still reaches the tool. */
+  onHandle: boolean;
 }
 
 /**
@@ -65,6 +72,27 @@ export interface Tool {
   onDragCancel?(ctx: CanvasContext): void;
   /** Sees every key press first while the tool is active; returning true stops the default handling. */
   onKeyDown?(e: KeyboardEvent, ctx: CanvasContext): boolean;
+  /** The pointer left the canvas; hide hover previews. */
+  onLeave?(ctx: CanvasContext): void;
+  /**
+   * Reset any preview state the tool keeps outside the editor store's `drawing`. Called before the
+   * tool is switched away from and on Escape.
+   */
+  onDeactivate?(ctx: CanvasContext): void;
+}
+
+/**
+ * A draggable point such as a wall end or a polygon vertex. Draw it with the `handle(spec, payload)`
+ * props from `hit.ts`; a drag that starts on it comes here instead of to the active tool, whatever
+ * the tool. Do not use Konva's `draggable`.
+ */
+export interface Handle<P = unknown> {
+  name: string;
+  onDragStart?(payload: P, start: CanvasPointer, p: CanvasPointer, ctx: CanvasContext): void;
+  onDrag(payload: P, p: CanvasPointer, ctx: CanvasContext): void;
+  onDragEnd?(payload: P, p: CanvasPointer, ctx: CanvasContext): void;
+  /** Escape, a second finger or leaving the editor: undo any preview. */
+  onDragCancel?(payload: P, ctx: CanvasContext): void;
 }
 
 /** A one-shot toolbar button, such as undo or zoom to fit. */
@@ -104,6 +132,8 @@ export interface EditorExtension {
   actions?: readonly Action[];
   layers?: readonly LayerContent[];
   panels?: readonly Panel[];
+  // A `never` payload accepts handles of any payload type.
+  handles?: readonly Handle<never>[];
 }
 
 export interface ResolvedExtensions {
@@ -111,6 +141,7 @@ export interface ResolvedExtensions {
   actions: readonly Action[];
   layers: Readonly<Record<CanvasLayer, readonly LayerContent[]>>;
   panels: readonly Panel[];
+  handles: ReadonlyMap<string, Handle<never>>;
   /** The tool with this id, or the default tool if there is none. */
   tool(id: string): Tool;
   shortcuts: { tools: ReadonlyMap<string, string>; actions: ReadonlyMap<string, string> };
@@ -145,10 +176,15 @@ export function resolveExtensions(extensions: readonly EditorExtension[]): Resol
   const actions = byOrder(extensions.flatMap((e) => e.actions ?? []));
   const content = byOrder(extensions.flatMap((e) => e.layers ?? []));
   const panels = byOrder(extensions.flatMap((e) => e.panels ?? []));
+  const handles = extensions.flatMap((e) => e.handles ?? []);
   uniqueIds('tool', tools);
   uniqueIds('action', actions);
   uniqueIds('layer content', content);
   uniqueIds('panel', panels);
+  uniqueIds(
+    'handle',
+    handles.map((h) => ({ id: h.name })),
+  );
 
   const fallback = tools.find((t) => t.id === DEFAULT_TOOL);
   if (!fallback) throw new Error(`No tool with the default id "${DEFAULT_TOOL}" is registered`);
@@ -162,6 +198,7 @@ export function resolveExtensions(extensions: readonly EditorExtension[]): Resol
       CANVAS_LAYERS.map((layer) => [layer, content.filter((c) => c.layer === layer)]),
     ) as Record<CanvasLayer, LayerContent[]>,
     panels,
+    handles: new Map(handles.map((h) => [h.name, h])),
     tool: (id) => toolById.get(id) ?? fallback,
     shortcuts: { tools: shortcutMap(tools, taken), actions: shortcutMap(actions, taken) },
   };

@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { modelStore } from '@/model/store';
 import { editorStore } from '../editor-store';
-import { cancel, deleteSelected } from './commands';
+import { cancel, deleteSelected, switchTool } from './commands';
 import type { CanvasContext, ResolvedExtensions } from './extension';
 import { resolveKey, type KeyCommand } from './keymap';
 
@@ -12,7 +12,7 @@ export const isEditableTarget = (target: EventTarget | null): boolean =>
 function run(command: KeyCommand, ctx: CanvasContext, registry: ResolvedExtensions) {
   switch (command.kind) {
     case 'cancel':
-      cancel();
+      cancel(registry, ctx);
       return;
     case 'delete':
       deleteSelected(ctx.floorId);
@@ -24,7 +24,7 @@ function run(command: KeyCommand, ctx: CanvasContext, registry: ResolvedExtensio
       modelStore.getState().redo();
       return;
     case 'tool':
-      editorStore.getState().setTool(command.id);
+      switchTool(command.id, registry, ctx);
       return;
     case 'action': {
       const action = registry.actions.find((a) => a.id === command.id);
