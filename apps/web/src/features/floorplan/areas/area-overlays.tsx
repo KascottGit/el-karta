@@ -1,34 +1,32 @@
 import type { Id, Pt } from '@el-karta/core';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Circle, Line } from 'react-konva';
+import { Circle, Label, Line, Tag, Text } from 'react-konva';
 import { useModelStore } from '@/model/store';
 import { useEditorStore, type Drawing } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
 import { handle } from '../canvas/hit';
-import { ScreenLabel } from '../canvas/screen-label';
+import { canvasFont, issueColors } from '../canvas/theme';
+import { SnapMarker } from '../snapping/snap-marker';
 import { AREA_COLLECTIONS, type AreaCollection } from './area-edits';
 import { midpointHandle, vertexHandle } from './area-handles';
 import { AREA_DRAWING_TOOLS, fillRoomTool } from './area-tools';
 import { useAreasUi } from './areas-ui-store';
 import { flat } from './bounds';
-import { areaColors, issueColors } from './colors';
+import { areaColors } from './colors';
 
 const VERTEX_PX = 6;
 const MIDPOINT_PX = 4;
-const SNAP_PX = 5;
-const NOTICE_WIDTH_PX = 480;
-const NOTICE_OFFSET_PX = 18;
+const NOTICE_MARGIN_PX = 12;
+const NOTICE_MAX_WIDTH_PX = 420;
 
 /** The polygon being drawn, the room the fill tool would make, the snap marker and notices. */
 export function AreaDrafts() {
-  const { t } = useTranslation();
   const tool = useEditorStore((s) => s.tool);
   const drawing = useEditorStore((s) => s.drawing);
   const scale = useEditorStore((s) => s.viewport.scale);
   const snap = useAreasUi((s) => s.snap);
   const fill = useAreasUi((s) => s.fill);
-  const notice = useAreasUi((s) => s.notice);
   return (
     <>
       {fill && tool === fillRoomTool.id && (
@@ -43,27 +41,49 @@ export function AreaDrafts() {
         />
       )}
       {drawing && AREA_DRAWING_TOOLS.has(tool) && <DraftPolygon drawing={drawing} scale={scale} />}
-      {snap && (
-        <Circle
-          x={snap.x}
-          y={snap.y}
-          radius={SNAP_PX / scale}
-          stroke={areaColors.draft}
-          strokeWidth={2}
-          strokeScaleEnabled={false}
-          listening={false}
-        />
-      )}
-      {notice && (
-        <ScreenLabel
-          text={t(notice.message, { count: 1 })}
-          at={{ x: notice.at.x, y: notice.at.y - NOTICE_OFFSET_PX / scale }}
-          maxWidth={NOTICE_WIDTH_PX / scale}
-          scale={scale}
-          fill={issueColors.error}
-        />
-      )}
+      {snap && <SnapMarker snap={snap} scale={scale} />}
+      <AreaNotice />
     </>
+  );
+}
+
+/**
+ * Why the last action did nothing, as a banner across the top of the canvas. It is laid out in
+ * screen pixels and wraps to the canvas width, so it fits a phone.
+ */
+function AreaNotice() {
+  const { t } = useTranslation();
+  const notice = useAreasUi((s) => s.notice);
+  const viewport = useEditorStore((s) => (notice ? s.viewport : null));
+  const canvasWidth = useEditorStore((s) => s.size.width);
+  if (!notice || !viewport) return null;
+  const width = Math.min(canvasWidth - 2 * NOTICE_MARGIN_PX, NOTICE_MAX_WIDTH_PX);
+  if (width <= 0) return null;
+  const left = (canvasWidth - width) / 2;
+  return (
+    <Label
+      x={(left - viewport.x) / viewport.scale}
+      y={(NOTICE_MARGIN_PX - viewport.y) / viewport.scale}
+      scaleX={1 / viewport.scale}
+      scaleY={1 / viewport.scale}
+      listening={false}
+    >
+      <Tag
+        fill={areaColors.noticeBackground}
+        stroke={issueColors.error}
+        strokeWidth={1}
+        cornerRadius={6}
+      />
+      <Text
+        text={t(notice, { count: 1 })}
+        width={width}
+        padding={8}
+        wrap="word"
+        fontSize={13}
+        fontFamily={canvasFont}
+        fill={issueColors.error}
+      />
+    </Label>
   );
 }
 

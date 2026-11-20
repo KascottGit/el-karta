@@ -10,12 +10,12 @@ import { selectable } from '../canvas/hit';
 import { boundsOf, width } from '../canvas/rect';
 import { ScreenLabel } from '../canvas/screen-label';
 import { selectedIds } from '../canvas/selection';
-import { canvasColors } from '../canvas/theme';
+import { canvasColors, issueColors } from '../canvas/theme';
 import { useRenderWindow } from '../canvas/use-render-window';
 import { areaIssues, worstSeverity } from './area-issues';
 import { useAreasUi } from './areas-ui-store';
 import { areaBounds, flat } from './bounds';
-import { areaColors, issueColors } from './colors';
+import { areaColors } from './colors';
 
 const cullAreas = createCuller(areaBounds);
 const NO_ISSUES: ReturnType<typeof areaIssues> = new Map();

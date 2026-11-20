@@ -85,6 +85,9 @@
     "delete": "Ta bort markerade",
     "zoomToFit": "Visa hela planen"
   },
+  "snapping": {
+    "enabled": "Fäst mot hörn, väggar, rutnät och vinklar"
+  },
   "areas": {
     "tools": {
       "room": "Rita rum",
@@ -95,11 +98,12 @@
     "newZone": "Zon {{number}}",
     "room": "Rum",
     "zone": "Zon",
+    "drawTitle": "Rita rum och zoner",
+    "drawHint": "Tryck för att sätta hörn. Avsluta genom att trycka på första hörnet, dubbeltrycka eller trycka Enter. Backsteg tar bort senaste hörnet. Esc sparar en giltig form och släpper annars den.",
     "name": "Namn",
     "type": "Typ av rum",
     "ceilingHeight": "Takhöjd",
-    "metres": "m",
-    "ceilingHeightHint": "Lämna tomt för våningens takhöjd, {{height}} m.",
+    "ceilingHeightDefault": "{{height}} (våningens)",
     "area": "Yta: {{area}} m²",
     "editHint": "Dra i ett hörn för att flytta det, dra i en mittpunkt för att lägga till ett hörn, och släpp ett hörn på ett grannhörn för att ta bort det.",
     "notEnclosed": "Väggarna omsluter inte den här punkten. Stäng glipan eller rita rummet.",
@@ -128,7 +132,6 @@
       "x": "Lodräta linjer (A, B, C …)",
       "y": "Vågräta linjer (1, 2, 3 …)"
     },
-    "metres": "m",
     "lineLabel": "Beteckning för linje {{label}}",
     "linePosition": "Läge i meter för linje {{label}}",
     "removeLine": "Ta bort linje {{label}}",
@@ -211,15 +214,14 @@
     "interior": "Innervägg",
     "exterior": "Yttervägg",
     "preset": "{{label}} {{thickness}} m",
-    "snapping": "Fäst mot hörn, väggar, rutnät och vinklar",
     "hint": "Klicka för att sätta ut hörn. Avsluta med dubbelklick, Enter, Esc eller ett klick på sista punkten. Håll Alt för att inte fästa.",
     "touchHint": "Tryck för att sätta ut hörn, eller dra från sista punkten och släpp där nästa ska vara. Avsluta genom att trycka på sista punkten igen.",
     "lengthLabel": "{{length}} m",
     "properties": "Vägg",
     "selectedCount": "{{count}} väggar",
-    "length": "Längd (m)",
-    "thickness": "Tjocklek (m)",
-    "height": "Höjd (m)",
+    "length": "Längd",
+    "thickness": "Tjocklek",
+    "height": "Höjd",
     "heightDefault": "Våningens höjd",
     "issues": "Att kontrollera",
     "delete": "Ta bort väggen",
@@ -233,7 +235,21 @@
       "outside-wall": "En dörr, ett fönster eller en öppning når utanför väggens ände."
     },
     "placement": {
-      "offset-beyond-wall": "En enhet sitter bortom väggens ände."
+      "offset-beyond-wall": "En enhet sitter bortom väggens ände.",
+      "outside-room_one": "{{count}} takmonterad enhet ligger utanför rummet.",
+      "outside-room_other": "{{count}} takmonterade enheter ligger utanför rummet."
+    },
+    "room": {
+      "polygon-too-few-points": "Rummet behöver minst tre hörn.",
+      "polygon-repeated-point": "Rummet har två hörn på samma ställe.",
+      "polygon-zero-area": "Rummet har ingen yta.",
+      "polygon-self-intersecting": "Rummets kontur korsar sig själv."
+    },
+    "zone": {
+      "polygon-too-few-points": "Zonen behöver minst tre hörn.",
+      "polygon-repeated-point": "Zonen har två hörn på samma ställe.",
+      "polygon-zero-area": "Zonen har ingen yta.",
+      "polygon-self-intersecting": "Zonens kontur korsar sig själv."
     }
   },
   "background": {
@@ -283,28 +299,10 @@
     "setScale": "Sätt skala",
     "scaleApplied": "Skalan är satt.",
     "metres": "{{value}} m",
-    "degrees": "°",
-    "metresUnit": "m"
+    "degrees": "°"
   },
   "fields": {
-    "mixed": "Olika"
-  },
-  "issues": {
-    "room": {
-      "polygon-too-few-points": "Rummet behöver minst tre hörn.",
-      "polygon-repeated-point": "Rummet har två hörn på samma ställe.",
-      "polygon-zero-area": "Rummet har ingen yta.",
-      "polygon-self-intersecting": "Rummets kontur korsar sig själv."
-    },
-    "zone": {
-      "polygon-too-few-points": "Zonen behöver minst tre hörn.",
-      "polygon-repeated-point": "Zonen har två hörn på samma ställe.",
-      "polygon-zero-area": "Zonen har ingen yta.",
-      "polygon-self-intersecting": "Zonens kontur korsar sig själv."
-    },
-    "placement": {
-      "outside-room_one": "{{count}} takmonterad enhet ligger utanför rummet.",
-      "outside-room_other": "{{count}} takmonterade enheter ligger utanför rummet."
-    }
+    "mixed": "Olika",
+    "metres": "m"
   }
 }

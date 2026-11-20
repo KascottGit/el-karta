@@ -2,7 +2,7 @@ import { distance, EPSILON, type Id } from '@el-karta/core';
 import { modelStore } from '@/model/store';
 import type { CanvasContext, CanvasPointer, Handle } from '../canvas/extension';
 import { cornerAt, fixedEnds, moveEnds, putWalls } from './corner';
-import { snapPointer } from './snapping';
+import { snapPointer } from '../snapping/snapping';
 import type { WallEnd } from './wall-outline';
 import { wallsStore } from './walls-store';
 

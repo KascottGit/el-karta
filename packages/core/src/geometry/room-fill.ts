@@ -90,7 +90,7 @@ function cutSegments(segments: Segment[], tolerance: number) {
 /**
  * Every region enclosed by the walls' centrelines. Ends within `tolerance` of each other or of
  * another wall join; walls are split where others end on them or cross them. Walls that enclose
- * nothing (open ends, stubs into a room) are ignored.
+ * nothing (open ends, stubs into a room, a wall joining a shaft to the room around it) are ignored.
  */
 export function wallFaces(
   walls: Readonly<Record<Id, Wall>>,
@@ -137,7 +137,40 @@ export function wallFaces(
     }
   }
 
-  // Dead ends cannot bound a region; dropping them keeps spikes out of the faces.
+  const { points } = nodes;
+  pruneDeadEnds(adjacency);
+  let traced = traceFaces(adjacency, points);
+  // An edge with the same face on both sides is a bridge, such as a wall joining a shaft to the
+  // room around it. Tracing walks it twice and leaves a zero-width slit, so it is dropped.
+  const bridges: [number, number][] = [];
+  for (const [u, around] of adjacency) {
+    for (const v of around) {
+      if (u < v && traced.faceOf.get(traced.edge(u, v)) === traced.faceOf.get(traced.edge(v, u)))
+        bridges.push([u, v]);
+    }
+  }
+  if (bridges.length > 0) {
+    for (const [u, v] of bridges) {
+      adjacency.get(u)?.delete(v);
+      adjacency.get(v)?.delete(u);
+    }
+    pruneDeadEnds(adjacency);
+    traced = traceFaces(adjacency, points);
+  }
+
+  const faces: WallFace[] = [];
+  for (const cycle of traced.cycles) {
+    const raw = cycle.map((id) => points[id]!);
+    const area = signedArea(raw);
+    if (area <= EPSILON) continue;
+    const polygon = withoutCollinear(raw);
+    faces.push({ polygon, area, bounds: boundsOf(polygon) });
+  }
+  return faces;
+}
+
+/** Dead ends cannot bound a region; dropping them keeps spikes out of the faces. */
+function pruneDeadEnds(adjacency: Map<number, Set<number>>) {
   const dangling = [...adjacency.keys()].filter((u) => adjacency.get(u)!.size < 2);
   while (dangling.length > 0) {
     const u = dangling.pop()!;
@@ -148,8 +181,15 @@ export function wallFaces(
     }
     adjacency.delete(u);
   }
+}
 
-  const { points } = nodes;
+/**
+ * Walking each directed edge and turning to the neighbour just before the reverse edge in angle
+ * order traces every face once. Bounded faces come out with positive signed area, the unbounded
+ * outside of each connected group of walls with negative. `faceOf` maps each directed edge to the
+ * index of the face on its left.
+ */
+function traceFaces(adjacency: ReadonlyMap<number, ReadonlySet<number>>, points: readonly Pt[]) {
   const sorted = new Map<number, number[]>();
   for (const [u, around] of adjacency) {
     const p = points[u]!;
@@ -159,21 +199,17 @@ export function wallFaces(
       [...around].sort((v, w) => angle(v) - angle(w)),
     );
   }
-
-  // Walking each directed edge and turning to the neighbour just before the reverse edge in angle
-  // order traces every face once. Bounded faces come out with positive signed area, the unbounded
-  // outside of each connected group of walls with negative.
-  const faces: WallFace[] = [];
-  const visited = new Set<number>();
   const edge = (u: number, v: number) => u * points.length + v;
+  const faceOf = new Map<number, number>();
+  const cycles: number[][] = [];
   for (const [start, around] of sorted) {
     for (const first of around) {
-      if (visited.has(edge(start, first))) continue;
+      if (faceOf.has(edge(start, first))) continue;
       const cycle: number[] = [];
       let u = start;
       let v = first;
       do {
-        visited.add(edge(u, v));
+        faceOf.set(edge(u, v), cycles.length);
         cycle.push(u);
         const next = sorted.get(v)!;
         const back = next.indexOf(u);
@@ -181,14 +217,10 @@ export function wallFaces(
         u = v;
         v = w;
       } while (u !== start || v !== first);
-      const raw = cycle.map((id) => points[id]!);
-      const area = signedArea(raw);
-      if (area <= EPSILON) continue;
-      const polygon = withoutCollinear(raw);
-      faces.push({ polygon, area, bounds: boundsOf(polygon) });
+      cycles.push(cycle);
     }
   }
-  return faces;
+  return { cycles, faceOf, edge };
 }
 
 function boundsOf(polygon: readonly Pt[]): WallFace['bounds'] {

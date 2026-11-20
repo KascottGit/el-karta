@@ -22,7 +22,6 @@ export interface CornerDrag {
  */
 export interface WallsState {
   thickness: number;
-  snapping: boolean;
   /** The floor the polyline in the editor store's `drawing` belongs to, so it is committed there. */
   drawingFloorId: Id | null;
   snap: Snap | null;
@@ -31,7 +30,6 @@ export interface WallsState {
 
 export const wallsStore = createStore<WallsState>()(() => ({
   thickness: WALL_THICKNESS.interior,
-  snapping: true,
   drawingFloorId: null,
   snap: null,
   drag: null,

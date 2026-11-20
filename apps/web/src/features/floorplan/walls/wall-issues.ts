@@ -1,4 +1,5 @@
-import { checkDevices, checkSpace, type FloorRecord, type Id, type Issue } from '@el-karta/core';
+import type { FloorRecord, Id, Issue } from '@el-karta/core';
+import { floorIssues } from '../validation/floor-issues';
 
 /** Validator codes that point at a wall: a wall without length, or items beyond its end. */
 export const WALL_ISSUE_CODES = [
@@ -33,7 +34,7 @@ export function wallIssues(floor: FloorRecord): ReadonlyMap<Id, readonly WallIss
   const cached = cache.get(floor.data);
   if (cached) return cached;
   const byWall = new Map<Id, WallIssue[]>();
-  for (const issue of [...checkSpace(floor), ...checkDevices(floor)]) {
+  for (const issue of floorIssues(floor)) {
     if (!isWallIssue(issue)) continue;
     const wallId = wallOf(issue);
     if (wallId === undefined || !(wallId in floor.data.walls)) continue;

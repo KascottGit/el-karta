@@ -1,6 +1,6 @@
 import { combine, removeSpaceItem, wallLength, type Wall } from '@el-karta/core';
 import { TriangleAlert } from 'lucide-react';
-import { useId, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { modelStore, useModelStore } from '@/model/store';
 import { Button } from '@/ui/button';
@@ -11,6 +11,7 @@ import { formatDecimal, positive, sharedValue } from '../fields/numbers';
 import { MIN_WALL_LENGTH, putWalls, setLength } from './corner';
 import { wallIssues, type WallIssueCode } from './wall-issues';
 import { WALL_THICKNESS, useWallsStore, wallsStore } from './walls-store';
+import { SnappingToggle } from '../snapping/snapping-toggle';
 
 const DIGITS = 3;
 
@@ -18,8 +19,6 @@ const DIGITS = 3;
 export function WallToolPanel() {
   const { t } = useTranslation();
   const thickness = useWallsStore((s) => s.thickness);
-  const snapping = useWallsStore((s) => s.snapping);
-  const snapId = useId();
   const presets = [
     { label: t('walls.interior'), value: WALL_THICKNESS.interior },
     { label: t('walls.exterior'), value: WALL_THICKNESS.exterior },
@@ -44,6 +43,7 @@ export function WallToolPanel() {
       </div>
       <DecimalField
         label={t('walls.thickness')}
+        unit={t('fields.metres')}
         value={thickness}
         digits={DIGITS}
         accept={positive}
@@ -51,18 +51,7 @@ export function WallToolPanel() {
           wallsStore.setState({ thickness: value });
         }}
       />
-      <label htmlFor={snapId} className="flex items-center gap-2 text-sm">
-        <input
-          id={snapId}
-          type="checkbox"
-          className="size-4"
-          checked={snapping}
-          onChange={(e) => {
-            wallsStore.setState({ snapping: e.target.checked });
-          }}
-        />
-        {t('walls.snapping')}
-      </label>
+      <SnappingToggle />
       <p className="hidden text-xs text-muted-foreground md:block">{t('walls.hint')}</p>
       <p className="text-xs text-muted-foreground md:hidden">{t('walls.touchHint')}</p>
     </section>
@@ -107,6 +96,7 @@ export function WallPropsPanel({ ctx }: { ctx: CanvasContext }) {
       {single && (
         <DecimalField
           label={t('walls.length')}
+          unit={t('fields.metres')}
           value={wallLength(single)}
           digits={DIGITS}
           accept={(length) => length >= MIN_WALL_LENGTH}
@@ -118,6 +108,7 @@ export function WallPropsPanel({ ctx }: { ctx: CanvasContext }) {
       )}
       <DecimalField
         label={t('walls.thickness')}
+        unit={t('fields.metres')}
         value={thickness.value}
         mixed={thickness.mixed}
         digits={DIGITS}
@@ -128,6 +119,7 @@ export function WallPropsPanel({ ctx }: { ctx: CanvasContext }) {
       />
       <DecimalField
         label={t('walls.height')}
+        unit={t('fields.metres')}
         value={height.value}
         mixed={height.mixed}
         placeholder={t('walls.heightDefault')}

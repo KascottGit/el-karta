@@ -1,6 +1,7 @@
 import {
   createEmptyProject,
   putSpaceItem,
+  removeSpaceItem,
   type Id,
   type Pt,
   type Room,
@@ -12,12 +13,13 @@ import { editorStore } from '../editor-store';
 import type { CanvasContext, CanvasPointer } from '../canvas/extension';
 import { midpointHandle, vertexHandle } from './area-handles';
 import { fillRoomTool, roomTool, zoneTool } from './area-tools';
+import { setSnapping } from '../snapping/snapping';
 import { areasUiStore } from './areas-ui-store';
 
 const pt = (x: number, y: number): Pt => ({ x, y });
 
 let floorId: Id;
-// One pixel is a centimetre, so the 8 px mouse snap reaches 8 cm.
+// One pixel is a centimetre, so the 10 px mouse snap reaches 10 cm.
 const ctx = (): CanvasContext => ({
   floorId,
   itemAt: () => null,
@@ -50,7 +52,7 @@ const floor = () => modelStore.getState().model!.floors[floorId]!.data;
 const rooms = () => Object.values(floor().rooms);
 const zones = () => Object.values(floor().zones);
 const history = () => modelStore.getState().past.length;
-const notice = () => areasUiStore.getState().notice?.message;
+const notice = () => areasUiStore.getState().notice;
 
 function tapAll(tool: typeof roomTool, points: [number, number][]) {
   for (const [x, y] of points) tool.onTap!(at(x, y), ctx());
@@ -77,7 +79,8 @@ beforeEach(() => {
   editorStore.getState().openFloor(floorId);
   editorStore.getState().select([]);
   editorStore.getState().setDrawing(null);
-  areasUiStore.setState({ snap: null, fill: null, drag: null, notice: null });
+  areasUiStore.setState({ snap: null, fill: null, drag: null, drawingFloorId: null, notice: null });
+  setSnapping(true);
 });
 
 describe('room tool', () => {
@@ -110,9 +113,84 @@ describe('room tool', () => {
     expect(rooms()).toEqual([]);
   });
 
-  it('does not snap with Alt held', () => {
+  it('does not snap with Alt held or with snapping turned off', () => {
     roomTool.onTap!(at(0.03, 0.02, { altKey: true }), ctx());
     expect(editorStore.getState().drawing?.points).toEqual([pt(0.03, 0.02)]);
+    setSnapping(false);
+    roomTool.onTap!(at(3.96, 0.01), ctx());
+    expect(editorStore.getState().drawing?.points.at(-1)).toEqual(pt(3.96, 0.01));
+  });
+
+  it('snaps to the corners of other rooms and to angle steps from the last corner', () => {
+    modelStore.getState().apply(
+      putSpaceItem(floorId, 'rooms', {
+        id: crypto.randomUUID(),
+        name: 'Kök',
+        type: 'kitchen',
+        polygon: [pt(10, 10), pt(12, 10), pt(12, 12)],
+        provenance: { status: 'manual' },
+      }),
+    );
+    roomTool.onTap!(at(12.05, 11.96), ctx());
+    expect(editorStore.getState().drawing?.points).toEqual([pt(12, 12)]);
+    roomTool.onHover!(at(15, 12.1), ctx());
+    expect(areasUiStore.getState().snap?.kind).toBe('angle');
+    expect(editorStore.getState().drawing?.hover?.y).toBeCloseTo(12);
+  });
+
+  it('on Escape or a tool switch, adds a valid polygon and drops an invalid one with a notice', () => {
+    tapAll(roomTool, [
+      [10, 10],
+      [12, 10],
+      [12, 12],
+    ]);
+    roomTool.onDeactivate!(ctx());
+    expect(rooms()).toHaveLength(1);
+    expect(editorStore.getState().drawing).toBeNull();
+
+    tapAll(roomTool, [
+      [20, 20],
+      [22, 20],
+    ]);
+    roomTool.onDeactivate!(ctx());
+    expect(rooms()).toHaveLength(1);
+    expect(editorStore.getState().drawing).toBeNull();
+    expect(notice()).toBe('issues.room.polygon-too-few-points');
+  });
+
+  it('adds the polygon to the floor it was started on', () => {
+    tapAll(roomTool, [
+      [10, 10],
+      [12, 10],
+      [12, 12],
+    ]);
+    const started = floorId;
+    floorId = crypto.randomUUID();
+    roomTool.onDeactivate!(ctx());
+    floorId = started;
+    expect(rooms()).toHaveLength(1);
+  });
+
+  it('names new rooms with the smallest unused number', () => {
+    const square = (x: number): [number, number][] => [
+      [x, 10],
+      [x + 1, 10],
+      [x + 1, 11],
+    ];
+    for (const x of [10, 20, 30]) {
+      tapAll(roomTool, square(x));
+      roomTool.onKeyDown!(key('Enter'), ctx());
+    }
+    expect(rooms().map((r) => r.name)).toEqual(['Rum 1', 'Rum 2', 'Rum 3']);
+    const second = rooms().find((r) => r.name === 'Rum 2')!;
+    modelStore.getState().apply(removeSpaceItem(floorId, 'rooms', second.id));
+    tapAll(roomTool, square(40));
+    roomTool.onKeyDown!(key('Enter'), ctx());
+    expect(
+      rooms()
+        .map((r) => r.name)
+        .sort(),
+    ).toEqual(['Rum 1', 'Rum 2', 'Rum 3']);
   });
 
   it('ignores a tap on the last corner again', () => {
@@ -137,7 +215,7 @@ describe('room tool', () => {
 
     expect(roomTool.onKeyDown!(key('Backspace'), ctx())).toBe(true);
     expect(editorStore.getState().drawing?.points).toHaveLength(3);
-    expect(notice()).toBeUndefined();
+    expect(notice()).toBeNull();
   });
 
   it('closes on a double tap and needs three corners', () => {
@@ -254,8 +332,8 @@ describe('vertex handles', () => {
   it('lets a broken outline be mended a step at a time', () => {
     const bowtie = [pt(0, 0), pt(4, 3), pt(4, 0), pt(0, 3), pt(-1, 1)];
     modelStore.getState().apply(putSpaceItem(floorId, 'rooms', { ...room, polygon: bowtie }));
-    vertexHandle.onDragEnd!({ collection: 'rooms', id: room.id, index: 4 }, at(-2, 1), ctx());
-    expect(polygon()).toContainEqual(pt(-2, 1));
+    vertexHandle.onDragEnd!({ collection: 'rooms', id: room.id, index: 4 }, at(-2.5, 1.3), ctx());
+    expect(polygon()).toContainEqual(pt(-2.5, 1.3));
   });
 
   it('adds no undo step for a drag that ends where it started', () => {

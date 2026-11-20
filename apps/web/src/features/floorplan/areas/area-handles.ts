@@ -9,8 +9,9 @@ import {
   type AreaCollection,
   type Reshape,
 } from './area-edits';
-import { snapForArea, snapTolerance } from './area-tools';
-import { areasUiStore, showNotice } from './areas-ui-store';
+import { snapTolerance } from '../snapping/snapping';
+import { snapForArea } from './area-tools';
+import { areasUiStore, clearNotice, showNotice } from './areas-ui-store';
 
 export interface AreaHandlePayload {
   collection: AreaCollection;
@@ -18,7 +19,10 @@ export interface AreaHandlePayload {
   index: number;
 }
 
-/** The reshaped polygon under the pointer, snapped to everything but the polygon itself. */
+/**
+ * The reshaped polygon under the pointer, snapped to everything but the polygon itself, with angle
+ * steps from the corners the dragged one connects to.
+ */
 function reshaped(
   { collection, id, index }: AreaHandlePayload,
   kind: Reshape['kind'],
@@ -27,7 +31,12 @@ function reshaped(
 ) {
   const area = areaOf(ctx.floorId, collection, id);
   if (!area) return null;
-  const snap = snapForArea(p, ctx, { ignore: id });
+  const n = area.polygon.length;
+  const from =
+    kind === 'move'
+      ? [area.polygon[(index - 1 + n) % n]!, area.polygon[(index + 1) % n]!]
+      : [area.polygon[index]!, area.polygon[(index + 1) % n]!];
+  const snap = snapForArea(p, ctx, { ignore: id, from });
   const mergeTolerance = kind === 'move' ? snapTolerance(p, ctx) : 0;
   const polygon = reshapePolygon(area.polygon, { kind, index }, snap.point, mergeTolerance);
   // With too few corners left to remove one, the preview keeps it under the pointer.
@@ -42,9 +51,9 @@ function reshapeHandle(name: string, kind: Reshape['kind']): Handle<AreaHandlePa
     onDrag: (payload, p, ctx) => {
       const result = reshaped(payload, kind, p, ctx);
       if (!result) return;
+      clearNotice();
       areasUiStore.setState({
-        snap: result.snap.snapped ? result.snap.point : null,
-        notice: null,
+        snap: result.snap,
         drag: { collection: payload.collection, id: payload.id, polygon: result.preview },
       });
     },
@@ -57,7 +66,7 @@ function reshapeHandle(name: string, kind: Reshape['kind']): Handle<AreaHandlePa
       // An outline that is already broken may take several drags to mend, so only a valid one is guarded.
       const guarded = polygonProblem(area.polygon) === null;
       if (!check.ok && (guarded || !polygon)) {
-        showNotice(result.snap.point, polygonMessage(payload.collection, check.problem));
+        showNotice(polygonMessage(payload.collection, check.problem));
         return;
       }
       const next = polygon ?? area.polygon;

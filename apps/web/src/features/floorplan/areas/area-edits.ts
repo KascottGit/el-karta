@@ -74,6 +74,15 @@ function put(floorId: Id, collection: AreaCollection, item: Room | Zone) {
   modelStore.getState().apply(edit);
 }
 
+/** The name with the smallest number from 1 up that no existing item has, so deleted numbers are reused. */
+export function firstFreeName(taken: Iterable<string>, name: (number: number) => string): string {
+  const names = new Set(taken);
+  for (let number = 1; ; number++) {
+    const candidate = name(number);
+    if (!names.has(candidate)) return candidate;
+  }
+}
+
 /**
  * Adds a room or zone with a numbered name and selects it. A room with the same outline is selected
  * instead of being added twice. The polygon must already be valid.
@@ -87,12 +96,12 @@ export function addArea(floorId: Id, collection: AreaCollection, polygon: Pt[]):
     return existing.id;
   }
   const id = crypto.randomUUID();
-  const number = Object.keys(data[collection]).length + 1;
-  const base = { id, polygon, provenance: { status: 'manual' as const } };
-  const item: Room | Zone =
-    collection === 'rooms'
-      ? { ...base, name: i18n.t('areas.newRoom', { number }), type: 'other' }
-      : { ...base, name: i18n.t('areas.newZone', { number }) };
+  const name = firstFreeName(
+    Object.values(data[collection]).map((a) => a.name),
+    (number) => i18n.t(collection === 'rooms' ? 'areas.newRoom' : 'areas.newZone', { number }),
+  );
+  const base = { id, name, polygon, provenance: { status: 'manual' as const } };
+  const item: Room | Zone = collection === 'rooms' ? { ...base, type: 'other' } : base;
   put(floorId, collection, item);
   editorStore.getState().select([{ collection, id }]);
   return id;

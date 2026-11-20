@@ -2,8 +2,8 @@ import type { EditorExtension } from '../canvas/extension';
 import { union } from '../canvas/rect';
 import { midpointHandle, vertexHandle } from './area-handles';
 import { AreaDrafts, AreaHandles } from './area-overlays';
-import { RoomPanel, ZonePanel } from './area-panel';
-import { fillRoomTool, roomTool, zoneTool } from './area-tools';
+import { AreaToolPanel, RoomPanel, ZonePanel } from './area-panel';
+import { AREA_DRAWING_TOOLS, fillRoomTool, roomTool, zoneTool } from './area-tools';
 import { AreasLayer } from './areas-layer';
 import { areaBounds } from './bounds';
 import { hasRoomSelected, hasZoneSelected } from './selected-area';
@@ -26,6 +26,12 @@ export const areasExtension: EditorExtension = {
     { id: 'area-handles', layer: 'overlays', order: 20, Component: AreaHandles },
   ],
   panels: [
+    {
+      id: 'area-tool',
+      order: 19,
+      visible: (editor) => AREA_DRAWING_TOOLS.has(editor.tool),
+      Component: AreaToolPanel,
+    },
     { id: 'room-props', order: 20, visible: hasRoomSelected, Component: RoomPanel },
     { id: 'zone-props', order: 21, visible: hasZoneSelected, Component: ZonePanel },
   ],

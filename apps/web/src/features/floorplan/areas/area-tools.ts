@@ -3,8 +3,10 @@ import {
   EPSILON,
   faceAt,
   wallFaces,
+  type FloorData,
   type Id,
   type Pt,
+  type Snap,
   type Wall,
   type WallFace,
 } from '@el-karta/core';
@@ -13,44 +15,63 @@ import { PaintBucket, Pentagon, SquareDashed } from 'lucide-react';
 import { modelStore } from '@/model/store';
 import { editorStore } from '../editor-store';
 import type { CanvasContext, CanvasPointer, MessageKey, Tool } from '../canvas/extension';
+import { snapPointer, snapTolerance } from '../snapping/snapping';
 import { addArea, checkPolygon, polygonMessage, type AreaCollection } from './area-edits';
-import { areaSnapTargets, snapAreaPoint, type AreaSnap } from './area-snap';
-import { areasUiStore, resetAreasUi, showNotice } from './areas-ui-store';
+import { areasUiStore, clearNotice, resetAreasPreview, showNotice } from './areas-ui-store';
 
-const SNAP_PX = { mouse: 8, pen: 8, touch: 16 } as const;
+interface Corner {
+  owner: Id;
+  p: Pt;
+}
 
-export const snapTolerance = (p: CanvasPointer, ctx: CanvasContext) =>
-  ctx.pxToWorld(SNAP_PX[p.kind]);
+const cornersCache = new WeakMap<FloorData, readonly Corner[]>();
 
-/** Snaps a pointer for a room or zone corner; Alt turns snapping off. */
+function areaCorners(data: FloorData): readonly Corner[] {
+  let corners = cornersCache.get(data);
+  if (!corners) {
+    corners = [...Object.values(data.rooms), ...Object.values(data.zones)].flatMap((area) =>
+      area.polygon.map((p) => ({ owner: area.id, p })),
+    );
+    cornersCache.set(data, corners);
+  }
+  return corners;
+}
+
+/**
+ * Snaps a room or zone corner with the shared `snapPointer`: to walls, the grid and angle steps
+ * from `from`, plus the corners of other rooms and zones and the extra `points` (such as those
+ * drawn so far). Corners of the polygon `ignore` (the one being reshaped) are left out.
+ */
 export function snapForArea(
   p: CanvasPointer,
   ctx: CanvasContext,
-  options: { ignore?: Id; extra?: readonly Pt[] } = {},
-): AreaSnap {
+  options: { ignore?: Id; points?: readonly Pt[]; from?: readonly Pt[] } = {},
+): Snap {
   const data = modelStore.getState().model?.floors[ctx.floorId]?.data;
-  if (!data || p.altKey) return { point: p.world, snapped: false };
-  return snapAreaPoint(p.world, areaSnapTargets(data), snapTolerance(p, ctx), options);
+  const corners = data
+    ? areaCorners(data).flatMap((c) => (c.owner === options.ignore ? [] : [c.p]))
+    : [];
+  return snapPointer(p, ctx, {
+    points: [...corners, ...(options.points ?? [])],
+    from: options.from ?? [],
+  });
 }
 
-const showSnap = (snap: AreaSnap) => {
-  areasUiStore.setState({ snap: snap.snapped ? snap.point : null });
-};
-
-/** Validates and adds the polygon, or shows what is wrong with it. True when it was added. */
-function commit(ctx: CanvasContext, collection: AreaCollection, polygon: readonly Pt[], at: Pt) {
+/** Validates and adds the polygon to the floor, or shows what is wrong with it. True when it was added. */
+function commit(floorId: Id, collection: AreaCollection, polygon: readonly Pt[]) {
   const check = checkPolygon(polygon);
   if (!check.ok) {
-    showNotice(at, polygonMessage(collection, check.problem));
+    showNotice(polygonMessage(collection, check.problem));
     return false;
   }
-  addArea(ctx.floorId, collection, check.polygon);
+  addArea(floorId, collection, check.polygon);
   return true;
 }
 
 /**
  * Draws a room or zone corner by corner. A tap on the first corner, a double tap or Enter closes it;
- * Backspace takes back the last corner.
+ * Backspace takes back the last corner. Escape, a tool switch or a floor switch also closes it if
+ * it makes a valid polygon, and otherwise drops it with a notice saying why.
  */
 export function polygonTool(spec: {
   id: string;
@@ -61,14 +82,29 @@ export function polygonTool(spec: {
   shortcut: string;
 }): Tool {
   const points = () => editorStore.getState().drawing?.points ?? [];
-  const finish = (ctx: CanvasContext) => {
+
+  /** Snaps against the polygon so far, with angle steps from its last and first corners. */
+  const snapDraft = (p: CanvasPointer, ctx: CanvasContext) => {
     const placed = points();
+    const first = placed[0];
     const last = placed.at(-1);
-    if (last && commit(ctx, spec.collection, placed, last)) {
-      editorStore.getState().setDrawing(null);
-      areasUiStore.setState({ snap: null });
-    }
+    const from = first && last ? (placed.length >= 2 ? [last, first] : [last]) : [];
+    const snap = snapForArea(p, ctx, { points: placed, from });
+    areasUiStore.setState({ snap });
+    return snap.point;
   };
+
+  /** Ends the drawing, adding the polygon if it is valid; `keepInvalid` keeps an invalid one to fix. */
+  const finish = (keepInvalid: boolean) => {
+    const placed = points();
+    const floorId = areasUiStore.getState().drawingFloorId;
+    if (placed.length === 0 || !floorId) return;
+    const added = commit(floorId, spec.collection, placed);
+    if (!added && keepInvalid) return;
+    editorStore.getState().setDrawing(null);
+    resetAreasPreview();
+  };
+
   return {
     id: spec.id,
     label: spec.label,
@@ -77,40 +113,39 @@ export function polygonTool(spec: {
     shortcut: spec.shortcut,
     cursor: 'crosshair',
     onHover: (p, ctx) => {
-      const snap = snapForArea(p, ctx, { extra: points() });
-      showSnap(snap);
+      const point = snapDraft(p, ctx);
       const { drawing, setDrawing } = editorStore.getState();
-      if (drawing) setDrawing({ points: drawing.points, hover: snap.point });
+      if (drawing) setDrawing({ points: drawing.points, hover: point });
     },
     onTap: (p, ctx) => {
-      areasUiStore.setState({ notice: null });
+      clearNotice();
       const placed = points();
       const first = placed[0];
       if (placed.length >= 3 && first && distance(p.world, first) <= snapTolerance(p, ctx)) {
-        finish(ctx);
+        finish(true);
         return;
       }
-      const snap = snapForArea(p, ctx, { extra: placed });
-      showSnap(snap);
+      const point = snapDraft(p, ctx);
       const last = placed.at(-1);
-      if (last && distance(last, snap.point) < EPSILON) return;
-      editorStore.getState().setDrawing({ points: [...placed, snap.point], hover: snap.point });
+      if (last && distance(last, point) < EPSILON) return;
+      if (placed.length === 0) areasUiStore.setState({ drawingFloorId: ctx.floorId });
+      editorStore.getState().setDrawing({ points: [...placed, point], hover: point });
     },
     // The first tap of the pair has already placed the corner.
-    onDoubleTap: (_p, ctx) => {
-      finish(ctx);
+    onDoubleTap: () => {
+      finish(true);
     },
-    onKeyDown: (e, ctx) => {
+    onKeyDown: (e) => {
       const { drawing, setDrawing } = editorStore.getState();
       if (!drawing) return false;
       if (e.key === 'Enter') {
-        finish(ctx);
+        finish(true);
         return true;
       }
       if (e.key === 'Backspace') {
         const remaining = drawing.points.slice(0, -1);
         setDrawing(remaining.length > 0 ? { points: remaining, hover: drawing.hover } : null);
-        areasUiStore.setState({ notice: null });
+        clearNotice();
         return true;
       }
       return false;
@@ -120,7 +155,10 @@ export function polygonTool(spec: {
       const { drawing, setDrawing } = editorStore.getState();
       if (drawing?.hover) setDrawing({ points: drawing.points, hover: null });
     },
-    onDeactivate: resetAreasUi,
+    onDeactivate: () => {
+      finish(false);
+      resetAreasPreview();
+    },
   };
 }
 
@@ -153,15 +191,15 @@ export const fillRoomTool: Tool = {
     areasUiStore.setState({ fill: faceUnder(p, ctx)?.polygon ?? null });
   },
   onTap: (p, ctx) => {
-    areasUiStore.setState({ notice: null });
+    clearNotice();
     const face = faceUnder(p, ctx);
-    if (!face) showNotice(p.world, 'areas.notEnclosed');
-    else commit(ctx, 'rooms', face.polygon, p.world);
+    if (!face) showNotice('areas.notEnclosed');
+    else commit(ctx.floorId, 'rooms', face.polygon);
   },
   onLeave: () => {
     areasUiStore.setState({ fill: null });
   },
-  onDeactivate: resetAreasUi,
+  onDeactivate: resetAreasPreview,
 };
 
 export const roomTool = polygonTool({

@@ -7,7 +7,7 @@ import { createCuller } from '../canvas/culling';
 import type { CanvasContext } from '../canvas/extension';
 import { selectable } from '../canvas/hit';
 import { selectedIds } from '../canvas/selection';
-import { canvasColors } from '../canvas/theme';
+import { canvasColors, issueColors } from '../canvas/theme';
 import { useRenderWindow } from '../canvas/use-render-window';
 import { wallColors } from './colors';
 import { wallIssues, type WallIssue } from './wall-issues';
@@ -115,7 +115,7 @@ const IssueMarker = memo(function IssueMarker({
       y={at.y}
       sides={3}
       radius={MARKER_PX / scale}
-      fill={error ? wallColors.error : wallColors.warning}
+      fill={error ? issueColors.error : issueColors.warning}
       stroke={wallColors.handle}
       strokeWidth={1.5}
       strokeScaleEnabled={false}

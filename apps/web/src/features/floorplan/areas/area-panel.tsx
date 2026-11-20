@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next';
 import { useModelStore } from '@/model/store';
 import { Label } from '@/ui/label';
 import type { CanvasContext } from '../canvas/extension';
+import { issueColors } from '../canvas/theme';
 import { useCanvasState } from '../canvas/use-canvas-state';
 import { CommitInput } from '../fields/commit-input';
 import { DecimalField } from '../fields/decimal-field';
-import { formatDecimal } from '../fields/numbers';
+import { formatDecimal, positive } from '../fields/numbers';
+import { SnappingToggle } from '../snapping/snapping-toggle';
 import { updateArea, withCeilingHeight, type AreaCollection } from './area-edits';
 import { areaIssues } from './area-issues';
-import { issueColors } from './colors';
 import { selectedArea } from './selected-area';
 
 const fieldClass = 'flex flex-col gap-1.5';
@@ -45,25 +46,35 @@ export function RoomPanel({ ctx }: { ctx: CanvasContext }) {
           ))}
         </select>
       </div>
-      <div className={fieldClass}>
-        <DecimalField
-          label={t('areas.ceilingHeight')}
-          unit={t('areas.metres')}
-          value={room.ceilingHeight}
-          digits={2}
-          optional
-          accept={(height) => height > 0}
-          onCommit={(height) => {
-            update((r) => withCeilingHeight(r, height ?? undefined));
-          }}
-        />
-        {floorHeight !== undefined && (
-          <p className="text-xs text-muted-foreground">
-            {t('areas.ceilingHeightHint', { height: formatDecimal(floorHeight, 2) })}
-          </p>
-        )}
-      </div>
+      <DecimalField
+        label={t('areas.ceilingHeight')}
+        unit={t('fields.metres')}
+        value={room.ceilingHeight}
+        digits={2}
+        optional
+        placeholder={
+          floorHeight === undefined
+            ? ''
+            : t('areas.ceilingHeightDefault', { height: formatDecimal(floorHeight, 2) })
+        }
+        accept={positive}
+        onCommit={(height) => {
+          update((r) => withCeilingHeight(r, height ?? undefined));
+        }}
+      />
     </AreaFields>
+  );
+}
+
+/** Snapping and how to draw, while the room or zone tool is active. */
+export function AreaToolPanel() {
+  const { t } = useTranslation();
+  return (
+    <section className="flex flex-col gap-3" aria-label={t('areas.drawTitle')}>
+      <h2 className="text-sm font-semibold">{t('areas.drawTitle')}</h2>
+      <SnappingToggle />
+      <p className="text-xs text-muted-foreground">{t('areas.drawHint')}</p>
+    </section>
   );
 }
 

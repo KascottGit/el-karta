@@ -291,6 +291,119 @@ describe('fill room', () => {
     ]);
   });
 
+  it('drops a wall that joins a shaft to the room around it, leaving no slit', () => {
+    const walls = wallsOf(
+      [
+        [0, 0],
+        [10, 0],
+        [10, 10],
+        [0, 10],
+        [0, 0],
+      ],
+      [
+        [4, 4],
+        [6, 4],
+        [6, 6],
+        [4, 6],
+        [4, 4],
+      ],
+      [
+        [5, 0],
+        [5, 4],
+      ],
+    );
+    const room = fillRoom(walls, pt(1, 1))!;
+    expect(normalized(room)).toEqual([
+      [0, 0],
+      [10, 0],
+      [10, 10],
+      [0, 10],
+    ]);
+    expect(polygonProblem(room)).toBeNull();
+    expect(fill(walls, 5, 5)).toEqual([
+      [4, 4],
+      [6, 4],
+      [6, 6],
+      [4, 6],
+    ]);
+  });
+
+  it('handles overlapping collinear walls and duplicate walls', () => {
+    const box: [number, number][] = [
+      [0, 0],
+      [4, 0],
+      [4, 3],
+      [0, 3],
+      [0, 0],
+    ];
+    const expected = [
+      [0, 0],
+      [4, 0],
+      [4, 3],
+      [0, 3],
+    ];
+    const overlapping = wallsOf(
+      box,
+      [
+        [1, 0],
+        [3, 0],
+      ],
+      [
+        [2, 3],
+        [5, 3],
+      ],
+    );
+    expect(fill(overlapping, 1, 1)).toEqual(expected);
+    const duplicated = wallsOf(box, box);
+    expect(fill(duplicated, 1, 1)).toEqual(expected);
+    expect(wallFaces(duplicated)).toHaveLength(1);
+  });
+
+  it('ignores walls without length', () => {
+    const walls = wallsOf(
+      [
+        [0, 0],
+        [4, 0],
+        [4, 3],
+        [0, 3],
+        [0, 0],
+      ],
+      [
+        [2, 1],
+        [2, 1],
+      ],
+      [
+        [4, 0],
+        [4, 0],
+      ],
+    );
+    expect(fill(walls, 1, 1)).toEqual([
+      [0, 0],
+      [4, 0],
+      [4, 3],
+      [0, 3],
+    ]);
+  });
+
+  it('gives one of the rooms beside a wall when tapped exactly on it', () => {
+    const walls = wallsOf(
+      [
+        [0, 0],
+        [6, 0],
+        [6, 3],
+        [0, 3],
+        [0, 0],
+      ],
+      [
+        [2, 0],
+        [2, 3],
+      ],
+    );
+    const left = fill(walls, 1, 1);
+    const right = fill(walls, 4, 1);
+    expect([left, right]).toContainEqual(fill(walls, 2, 1.5));
+  });
+
   it('only returns bounded faces, each once', () => {
     const walls = wallsOf(
       [

@@ -1,5 +1,3 @@
-import type { IssueSeverity } from '@el-karta/core';
-
 // Fills are translucent so the plan image and grid lines below the areas layer stay visible.
 export const areaColors = {
   room: 'rgba(148, 163, 184, 0.12)',
@@ -11,9 +9,5 @@ export const areaColors = {
   draftFill: 'rgba(37, 99, 235, 0.08)',
   handle: '#ffffff',
   midpoint: 'rgba(37, 99, 235, 0.35)',
+  noticeBackground: 'rgba(255, 255, 255, 0.95)',
 } as const;
-
-export const issueColors: Readonly<Record<IssueSeverity, string>> = {
-  error: '#dc2626',
-  warning: '#d97706',
-};
