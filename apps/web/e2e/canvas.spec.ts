@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { readEditor, readTestHandle } from './app-modules';
+import { countRenderWindowChanges, EDITOR_STORE, readEditor, readTestHandle } from './app-modules';
 
 /** Konva draws on the next animation frame, so wait until two screenshots agree. */
 async function settledScreenshot(locator: Locator) {
@@ -29,6 +29,89 @@ async function openWithTestHandle(page: Page) {
   });
   return { viewport, start: at, handle: toPage(at), toWorld: (dx: number) => dx / viewport.scale };
 }
+
+interface Pt {
+  x: number;
+  y: number;
+}
+
+/** The selected item ids, and a point on the topmost wall of the open floor, clear of its openings. */
+const readTopWall = (page: Page) =>
+  page.evaluate(
+    async ([modelUrl, editorUrl]) => {
+      const { modelStore } = (await import(/* @vite-ignore */ modelUrl)) as {
+        modelStore: {
+          getState(): {
+            model: {
+              floors: Record<
+                string,
+                { data: { walls: Record<string, { id: string; a: Pt; b: Pt }> } }
+              >;
+            };
+          };
+        };
+      };
+      const { editorStore } = (await import(/* @vite-ignore */ editorUrl)) as {
+        editorStore: { getState(): { floorId: string; selection: { id: string }[] } };
+      };
+      const { floorId, selection } = editorStore.getState();
+      const walls = Object.values(modelStore.getState().model.floors[floorId]!.data.walls);
+      const top = walls
+        .filter((w) => w.a.y === w.b.y)
+        .reduce((best, w) => (w.a.y < best.a.y ? w : best));
+      return {
+        selected: selection.map((s) => s.id),
+        id: top.id,
+        // Openings sit around the middle of the synthetic walls.
+        middle: { x: top.a.x + 0.15 * (top.b.x - top.a.x), y: top.a.y },
+      };
+    },
+    ['/src/model/store.ts', EDITOR_STORE] as const,
+  );
+
+/**
+ * Pans down within the render window, so only the stage moves and nothing re-renders, then
+ * checks that taps hit the wall where it is now drawn, not where it was: the hit graph is redrawn
+ * lazily after a pan (ADR 0006).
+ */
+async function checkHitsAfterPan(
+  page: Page,
+  box: { x: number; y: number },
+  pan: (from: Pt, to: Pt) => Promise<void>,
+  tap: (at: Pt) => Promise<void>,
+) {
+  const { viewport } = await readEditor(page);
+  const wall = await readTopWall(page);
+  const toPage = (p: Pt, dy = 0) => ({
+    x: box.x + p.x * viewport.scale + viewport.x,
+    y: box.y + p.y * viewport.scale + viewport.y + dy,
+  });
+  const windowChanges = await countRenderWindowChanges(page);
+  const from = { x: box.x + 5, y: box.y + 5 };
+  await pan(from, { x: from.x, y: from.y + 60 });
+  expect((await readEditor(page)).viewport.y).toBeCloseTo(viewport.y + 60, 5);
+  expect(await windowChanges()).toBe(0);
+
+  await tap(toPage(wall.middle));
+  expect((await readTopWall(page)).selected).toEqual([]);
+  await tap(toPage(wall.middle, 60));
+  expect((await readTopWall(page)).selected).toEqual([wall.id]);
+}
+
+test('after a pan, a click selects a wall where it is drawn now', async ({ page }) => {
+  const { box } = await openSmall(page);
+  await checkHitsAfterPan(
+    page,
+    box,
+    async (from, to) => {
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(to.x, to.y, { steps: 6 });
+      await page.mouse.up();
+    },
+    (at) => page.mouse.click(at.x, at.y),
+  );
+});
 
 test('a mouse drag on a handle moves the handle, not the view or the selection; Escape cancels', async ({
   page,
@@ -97,6 +180,30 @@ test('selecting a wall, deselecting it with Escape, deleting it with the keyboar
 
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test('after a pan, a tap selects a wall where it is drawn now', async ({ page }) => {
+    const { box } = await openSmall(page);
+    const cdp = await page.context().newCDPSession(page);
+    await checkHitsAfterPan(
+      page,
+      box,
+      async (from, to) => {
+        const finger = (y: number) => [{ x: from.x, y, id: 1 }];
+        await cdp.send('Input.dispatchTouchEvent', {
+          type: 'touchStart',
+          touchPoints: finger(from.y),
+        });
+        for (let i = 1; i <= 6; i++) {
+          await cdp.send('Input.dispatchTouchEvent', {
+            type: 'touchMove',
+            touchPoints: finger(from.y + ((to.y - from.y) * i) / 6),
+          });
+        }
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      },
+      (at) => page.touchscreen.tap(at.x, at.y),
+    );
+  });
 
   test('two fingers pinch-zoom the plan', async ({ page }) => {
     const { box } = await openSmall(page);

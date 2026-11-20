@@ -59,6 +59,21 @@ export function samplePoints(center: Pt, radius: number): Pt[] {
   return points;
 }
 
+const staleHitGraphs = new WeakSet<Konva.Stage>();
+
+/**
+ * Marks the stage's hit graph as out of date after the view moved without a full draw. Hit-testing
+ * redraws it first, so panning and zooming draw only the visible scene.
+ */
+export function invalidateHitGraph(stage: Konva.Stage) {
+  staleHitGraphs.add(stage);
+}
+
+function refreshHitGraph(stage: Konva.Stage) {
+  if (!staleHitGraphs.delete(stage)) return;
+  for (const layer of stage.getLayers()) layer.drawHit();
+}
+
 /** Uses Konva's hit graph, so whatever is drawn on top wins and shapes need no hit-testing code. */
 function findAt<T>(
   stage: Konva.Stage,
@@ -66,6 +81,7 @@ function findAt<T>(
   kind: PointerKind,
   match: (node: Konva.Node) => T | undefined,
 ): T | null {
+  refreshHitGraph(stage);
   for (const point of samplePoints(screen, kind === 'touch' ? TOUCH_RADIUS : 0)) {
     let node: Konva.Node | null = stage.getIntersection(point);
     while (node && node !== stage) {

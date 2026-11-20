@@ -1,8 +1,12 @@
-import { describe, expect, it } from 'vitest';
-import type { Handle } from './extension';
+import type Konva from 'konva';
+import { describe, expect, it, vi } from 'vitest';
+import type { Handle, ResolvedExtensions } from './extension';
 import {
   handle,
+  handleAt,
   handleName,
+  invalidateHitGraph,
+  itemAt,
   nodeProps,
   samplePoints,
   selectable,
@@ -52,5 +56,35 @@ describe('node names', () => {
 
   it('ignores names that are not a known collection', () => {
     expect(selectableCollection('selectable:nonsense layer-walls')).toBeUndefined();
+  });
+});
+
+describe('lazy hit graph', () => {
+  function fakeStage() {
+    const calls: string[] = [];
+    const layer = (name: string) => ({ drawHit: vi.fn(() => calls.push(`drawHit:${name}`)) });
+    const layers = [layer('a'), layer('b'), layer('c')];
+    const stage = {
+      getLayers: () => layers,
+      getIntersection: vi.fn(() => {
+        calls.push('getIntersection');
+        return null;
+      }),
+    };
+    return { stage: stage as unknown as Konva.Stage, layers, calls };
+  }
+  const registry = { handles: new Map() } as unknown as ResolvedExtensions;
+
+  it.each([
+    ['itemAt', (stage: Konva.Stage) => itemAt(stage, { x: 1, y: 2 }, 'mouse')],
+    ['handleAt', (stage: Konva.Stage) => handleAt(stage, { x: 1, y: 2 }, 'mouse', registry)],
+  ])('%s redraws every layer once after the view moved, before hit-testing', (_, find) => {
+    const { stage, layers, calls } = fakeStage();
+    invalidateHitGraph(stage);
+    find(stage);
+    expect(calls).toEqual(['drawHit:a', 'drawHit:b', 'drawHit:c', 'getIntersection']);
+    find(stage);
+    for (const layer of layers) expect(layer.drawHit).toHaveBeenCalledTimes(1);
+    expect(calls.slice(4)).toEqual(['getIntersection']);
   });
 });

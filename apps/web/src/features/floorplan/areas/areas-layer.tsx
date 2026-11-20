@@ -1,4 +1,4 @@
-import { centroid, type IssueSeverity, type Pt, type Room, type Zone } from '@el-karta/core';
+import type { Id, IssueSeverity, Room, Zone } from '@el-karta/core';
 import type Konva from 'konva';
 import { memo, useMemo } from 'react';
 import { Line } from 'react-konva';
@@ -7,82 +7,80 @@ import { useEditorStore } from '../editor-store';
 import { createCuller } from '../canvas/culling';
 import type { CanvasContext } from '../canvas/extension';
 import { selectable } from '../canvas/hit';
-import { boundsOf, width } from '../canvas/rect';
 import { ScreenLabel } from '../canvas/screen-label';
 import { selectedIds } from '../canvas/selection';
 import { canvasColors, issueColors } from '../canvas/theme';
 import { useRenderWindow } from '../canvas/use-render-window';
 import { areaIssues, worstSeverity } from './area-issues';
 import { useAreasUi } from './areas-ui-store';
-import { areaBounds, flat } from './bounds';
+import { areaBounds, flat, labelPlacement, ZONE_LABEL_OFFSET_PX } from './bounds';
 import { areaColors } from './colors';
 
 const cullAreas = createCuller(areaBounds);
 const NO_ISSUES: ReturnType<typeof areaIssues> = new Map();
-const ZONE_LABEL_OFFSET_PX = 16;
+
+const without = <A extends Room | Zone>(areas: readonly A[], id: Id | undefined) =>
+  id === undefined ? areas : areas.filter((a) => a.id !== id);
 
 /** Rooms with name labels and translucent zones over them, outlined in the colour of their worst issue. */
 export function AreasLayer({ ctx }: { ctx: CanvasContext }) {
   const floor = useModelStore((s) => s.model?.floors[ctx.floorId]);
   const rooms = floor?.data.rooms;
   const zones = floor?.data.zones;
-  const { rect: view, scale } = useRenderWindow();
+  const { rect: view } = useRenderWindow();
   const selection = useEditorStore((s) => s.selection);
-  const drag = useAreasUi((s) => s.drag);
   const issues = useMemo(() => (floor ? areaIssues(floor) : NO_ISSUES), [floor]);
-  const visibleRooms = useMemo(() => (rooms ? cullAreas(rooms, view) : []), [rooms, view]);
-  const visibleZones = useMemo(() => (zones ? cullAreas(zones, view) : []), [zones, view]);
+  // The area whose outline is being reshaped is drawn by the overlay meanwhile.
+  const dragged = useAreasUi((s) => s.drag?.id);
+  const visibleRooms = useMemo(
+    () => (rooms ? without(cullAreas(rooms, view), dragged) : []),
+    [rooms, view, dragged],
+  );
+  const visibleZones = useMemo(
+    () => (zones ? without(cullAreas(zones, view), dragged) : []),
+    [zones, view, dragged],
+  );
   const selectedRooms = useMemo(() => selectedIds(selection, 'rooms'), [selection]);
   const selectedZones = useMemo(() => selectedIds(selection, 'zones'), [selection]);
-  const shape = (area: Room | Zone) => (drag?.id === area.id ? drag.polygon : area.polygon);
 
-  return (
-    <>
-      {visibleRooms.map((room) => (
-        <RoomShape
-          key={room.id}
-          room={room}
-          polygon={shape(room)}
-          selected={selectedRooms.has(room.id)}
-          severity={worstSeverity(issues.get(room.id))}
-          labelScale={scale}
-        />
-      ))}
-      {visibleZones.map((zone) => (
-        <ZoneShape
-          key={zone.id}
-          zone={zone}
-          polygon={shape(zone)}
-          selected={selectedZones.has(zone.id)}
-          severity={worstSeverity(issues.get(zone.id))}
-          labelScale={scale}
-        />
-      ))}
-    </>
+  // Memoized, so that the urgent render after a render window change, which still sees the old
+  // window, reuses the elements instead of creating them again (see `useRenderWindow`).
+  return useMemo(
+    () => (
+      <>
+        {visibleRooms.map((room) => (
+          <RoomShape
+            key={room.id}
+            room={room}
+            selected={selectedRooms.has(room.id)}
+            severity={worstSeverity(issues.get(room.id))}
+          />
+        ))}
+        {visibleZones.map((zone) => (
+          <ZoneShape
+            key={zone.id}
+            zone={zone}
+            selected={selectedZones.has(zone.id)}
+            severity={worstSeverity(issues.get(zone.id))}
+          />
+        ))}
+      </>
+    ),
+    [visibleRooms, visibleZones, selectedRooms, selectedZones, issues],
   );
-}
-
-function labelPlacement(polygon: readonly Pt[], dy = 0) {
-  const bounds = boundsOf(polygon);
-  const at = centroid(polygon);
-  return { at: { x: at.x, y: at.y + dy }, width: bounds ? 0.9 * width(bounds) : 0 };
 }
 
 const RoomShape = memo(function RoomShape({
   room,
-  polygon,
   selected,
   severity,
-  labelScale,
 }: {
   room: Room;
-  polygon: readonly Pt[];
   selected: boolean;
   severity: IssueSeverity | null;
-  labelScale: number;
 }) {
-  const points = useMemo(() => flat(polygon), [polygon]);
-  const label = useMemo(() => labelPlacement(polygon), [polygon]);
+  const points = useMemo(() => flat(room.polygon), [room.polygon]);
+  const label = useMemo(() => labelPlacement(room.polygon), [room.polygon]);
   return (
     <>
       <Line
@@ -101,7 +99,7 @@ const RoomShape = memo(function RoomShape({
         strokeScaleEnabled={false}
         perfectDrawEnabled={false}
       />
-      <ScreenLabel text={room.name} at={label.at} maxWidth={label.width} scale={labelScale} />
+      <ScreenLabel text={room.name} at={label.at} maxWidth={label.width} />
     </>
   );
 });
@@ -117,24 +115,16 @@ const outlineHit = (points: number[]) => (context: Konva.Context, shape: Konva.S
 
 const ZoneShape = memo(function ZoneShape({
   zone,
-  polygon,
   selected,
   severity,
-  labelScale,
 }: {
   zone: Zone;
-  polygon: readonly Pt[];
   selected: boolean;
   severity: IssueSeverity | null;
-  labelScale: number;
 }) {
-  const points = useMemo(() => flat(polygon), [polygon]);
+  const points = useMemo(() => flat(zone.polygon), [zone.polygon]);
   const hitFunc = useMemo(() => outlineHit(points), [points]);
-  // Below the centre, so it does not cover the name of a room with the same outline.
-  const label = useMemo(
-    () => labelPlacement(polygon, ZONE_LABEL_OFFSET_PX / labelScale),
-    [polygon, labelScale],
-  );
+  const label = useMemo(() => labelPlacement(zone.polygon), [zone.polygon]);
   return (
     <>
       <Line
@@ -160,7 +150,8 @@ const ZoneShape = memo(function ZoneShape({
         text={zone.name}
         at={label.at}
         maxWidth={label.width}
-        scale={labelScale}
+        // Below the centre, so it does not cover the name of a room with the same outline.
+        offsetYPx={ZONE_LABEL_OFFSET_PX}
         fill={areaColors.zoneStroke}
       />
     </>

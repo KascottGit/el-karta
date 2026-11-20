@@ -65,6 +65,18 @@ describe('culling', () => {
     expect(bounds).toHaveBeenCalledTimes(5);
   });
 
+  it('returns the previous array while the same items of the same collection are visible', () => {
+    const cull = createCuller((item: Item) => item.r);
+    const first = cull(items, box(0.5, 0.5, 5.5, 5.5));
+    expect(cull(items, box(0, 0, 6, 6))).toBe(first);
+    const other = cull(items, box(-10, -10, 6, 6));
+    expect(other).not.toBe(first);
+    expect(other.map((i) => i.id)).toEqual(['a', 'b', 'c']);
+    const copy = { ...items };
+    expect(cull(copy, box(-10, -10, 6, 6))).not.toBe(other);
+    expect(cull(items, box(-10, -10, 6, 6))).toBe(other);
+  });
+
   it('finds the walls in a corner of the busiest large floor in well under a millisecond', () => {
     const model = generateProject('large');
     const floor = Object.values(model.floors).reduce((a, b) =>

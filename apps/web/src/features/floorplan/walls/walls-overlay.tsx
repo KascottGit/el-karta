@@ -9,7 +9,6 @@ import { handle } from '../canvas/hit';
 import { ScreenLabel } from '../canvas/screen-label';
 import { selectedIds } from '../canvas/selection';
 import { canvasColors } from '../canvas/theme';
-import { useRenderWindow } from '../canvas/use-render-window';
 import { wallColors } from './colors';
 import { formatDecimal } from '../fields/numbers';
 import { cornerHandle } from './corner-handle';
@@ -39,7 +38,6 @@ function Draft() {
   const { t } = useTranslation();
   const drawing = useEditorStore((s) => s.drawing);
   const thickness = useWallsStore((s) => s.thickness);
-  const labelScale = useRenderWindow().scale;
   const points = useMemo(
     () => (drawing ? (drawing.hover ? [...drawing.points, drawing.hover] : drawing.points) : []),
     [drawing],
@@ -85,8 +83,8 @@ function Draft() {
         <ScreenLabel
           text={t('walls.lengthLabel', { length: formatDecimal(length, 2) })}
           at={scaled(add(a, b), 0.5)}
-          maxWidth={Math.max(length, 120 / labelScale)}
-          scale={labelScale}
+          maxWidth={length}
+          minWidthPx={120}
           fill={wallColors.draftLine}
         />
       )}

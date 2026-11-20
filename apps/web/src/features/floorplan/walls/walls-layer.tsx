@@ -1,14 +1,15 @@
-import type { Id, Pt, Wall } from '@el-karta/core';
+import type { Id, Wall } from '@el-karta/core';
 import { memo, useMemo } from 'react';
-import { Line, RegularPolygon } from 'react-konva';
+import { Line } from 'react-konva';
 import { useModelStore } from '@/model/store';
 import { useEditorStore } from '../editor-store';
 import { createCuller } from '../canvas/culling';
 import type { CanvasContext } from '../canvas/extension';
 import { selectable } from '../canvas/hit';
 import { selectedIds } from '../canvas/selection';
-import { canvasColors, issueColors } from '../canvas/theme';
+import { canvasColors } from '../canvas/theme';
 import { useRenderWindow } from '../canvas/use-render-window';
+import { IssueMarker } from '../validation/issue-marker';
 import { wallColors } from './colors';
 import { wallIssues, type WallIssue } from './wall-issues';
 import { endKey, jointEnds, wallBounds, wallOutline } from './wall-outline';
@@ -18,13 +19,14 @@ const cullWalls = createCuller(wallBounds);
 const NO_JOINTS: ReadonlySet<string> = new Set();
 const NO_ISSUES: ReadonlyMap<Id, readonly WallIssue[]> = new Map();
 const NOT_MOVING: ReadonlySet<Id> = new Set();
+const NO_WALLS: readonly Wall[] = [];
 const MARKER_PX = 9;
 
 /** Walls, each drawn as a polygon of its thickness, with a marker on walls the validator flags. */
 export function WallsLayer({ ctx }: { ctx: CanvasContext }) {
   const floor = useModelStore((s) => s.model?.floors[ctx.floorId]);
   const walls = floor?.data.walls;
-  const { rect: view, scale } = useRenderWindow();
+  const { rect: view } = useRenderWindow();
   const selection = useEditorStore((s) => s.selection);
   // Walls whose corner is being dragged are drawn by the overlay meanwhile.
   const moving = useWallsStore((s) =>
@@ -32,36 +34,43 @@ export function WallsLayer({ ctx }: { ctx: CanvasContext }) {
   );
   const joints = useMemo(() => (walls ? jointEnds(walls) : NO_JOINTS), [walls]);
   const issues = useMemo(() => (floor ? wallIssues(floor) : NO_ISSUES), [floor]);
+  const culled = useMemo(() => (walls ? cullWalls(walls, view) : NO_WALLS), [walls, view]);
   const visible = useMemo(
-    () => (walls ? cullWalls(walls, view).filter((w) => !moving.has(w.id)) : []),
-    [walls, view, moving],
+    () => (moving.size > 0 ? culled.filter((w) => !moving.has(w.id)) : culled),
+    [culled, moving],
   );
   const selected = useMemo(() => selectedIds(selection, 'walls'), [selection]);
 
-  return (
-    <>
-      {visible.map((wall) => (
-        <WallShape
-          key={wall.id}
-          wall={wall}
-          capA={joints.has(endKey(wall.id, 'a'))}
-          capB={joints.has(endKey(wall.id, 'b'))}
-          color={selected.has(wall.id) ? canvasColors.selected : wallColors.wall}
-        />
-      ))}
-      {visible.map((wall) => {
-        const flagged = issues.get(wall.id);
-        return flagged ? (
-          <IssueMarker
-            key={`issue:${wall.id}`}
-            wallId={wall.id}
-            at={flagged.some((i) => i.code === 'wall.zero-length') ? wall.a : wall.b}
-            error={flagged.some((i) => i.severity === 'error')}
-            scale={scale}
+  // Memoized like `AreasLayer`'s, for the urgent render after a render window change.
+  return useMemo(
+    () => (
+      <>
+        {visible.map((wall) => (
+          <WallShape
+            key={wall.id}
+            wall={wall}
+            capA={joints.has(endKey(wall.id, 'a'))}
+            capB={joints.has(endKey(wall.id, 'b'))}
+            color={selected.has(wall.id) ? canvasColors.selected : wallColors.wall}
           />
-        ) : null;
-      })}
-    </>
+        ))}
+        {visible.map((wall) => {
+          const flagged = issues.get(wall.id);
+          return flagged ? (
+            <IssueMarker
+              key={`issue:${wall.id}`}
+              collection="walls"
+              id={wall.id}
+              // At the end beyond which openings or devices lie.
+              at={flagged.some((i) => i.code === 'wall.zero-length') ? wall.a : wall.b}
+              severity={flagged.some((i) => i.severity === 'error') ? 'error' : 'warning'}
+              radiusPx={MARKER_PX}
+            />
+          ) : null;
+        })}
+      </>
+    ),
+    [visible, joints, selected, issues],
   );
 }
 
@@ -91,34 +100,6 @@ export const WallShape = memo(function WallShape({
       strokeScaleEnabled={false}
       hitStrokeWidth={8}
       listening={listening}
-      perfectDrawEnabled={false}
-    />
-  );
-});
-
-/** A warning triangle at the wall end beyond which openings or devices lie; tapping it selects the wall. */
-const IssueMarker = memo(function IssueMarker({
-  wallId,
-  at,
-  error,
-  scale,
-}: {
-  wallId: Id;
-  at: Pt;
-  error: boolean;
-  scale: number;
-}) {
-  return (
-    <RegularPolygon
-      {...selectable('walls', wallId)}
-      x={at.x}
-      y={at.y}
-      sides={3}
-      radius={MARKER_PX / scale}
-      fill={error ? issueColors.error : issueColors.warning}
-      stroke={wallColors.handle}
-      strokeWidth={1.5}
-      strokeScaleEnabled={false}
       perfectDrawEnabled={false}
     />
   );

@@ -25,7 +25,8 @@ const busiest = (floors: Record<string, FloorRecord>) =>
 export function SyntheticPage() {
   const { t } = useTranslation();
   const { size = '' } = useParams();
-  const model = useModelStore((s) => s.model);
+  // The floor id rather than the model, so that edits do not re-render the page.
+  const floorId = useModelStore((s) => s.model && busiest(s.model.floors)?.id);
 
   useEffect(() => {
     if (isSize(size)) modelStore.getState().load(generateProject(size));
@@ -34,7 +35,6 @@ export function SyntheticPage() {
   if (!isSize(size)) {
     return <p>{t('editor.unknownSize', { sizes: Object.keys(SYNTHETIC_SPECS).join(', ') })}</p>;
   }
-  const floor = model && busiest(model.floors);
-  if (!floor) return null;
-  return <FloorEditor floorId={floor.id} backTo="/" />;
+  if (!floorId) return null;
+  return <FloorEditor floorId={floorId} backTo="/" />;
 }

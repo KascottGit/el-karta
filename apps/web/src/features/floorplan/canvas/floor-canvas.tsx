@@ -1,10 +1,10 @@
-import type Konva from 'konva';
-import { useEffect, useRef, type RefObject } from 'react';
+import Konva from 'konva';
+import { memo, useEffect, useRef, type RefObject } from 'react';
 import { Group, Layer, Stage } from 'react-konva';
 import { editorStore, useEditorStore } from '../editor-store';
 import type { CanvasContext, CanvasLayer, ResolvedExtensions } from './extension';
 import type { PointerInput, PointerKind } from './gestures';
-import { handleAt } from './hit';
+import { handleAt, invalidateHitGraph } from './hit';
 import { createPointerDispatch } from './pointer-dispatch';
 import { panBy, zoomAt, type Viewport } from './viewport';
 import { wheelIntent } from './wheel';
@@ -24,8 +24,11 @@ const LINE_HEIGHT_PX = 16;
 const pointerKind = (type: string): PointerKind =>
   type === 'touch' || type === 'pen' ? type : 'mouse';
 
-/** The Konva stage: renders registered layer content and routes input to tools, handles and the view. */
-export function FloorCanvas({
+/**
+ * The Konva stage: renders registered layer content and routes input to tools, handles and the view.
+ * Memoized, because re-rendering the stage reconciles every layer.
+ */
+export const FloorCanvas = memo(function FloorCanvas({
   ctx,
   registry,
   stageRef,
@@ -61,18 +64,36 @@ export function FloorCanvas({
     };
   }, []);
 
-  // The view moves by transforming the stage directly, so panning never re-renders React.
+  // The view moves by transforming the stage directly, so panning never re-renders React. It
+  // redraws only the scene; the hit graph is redrawn when something is next hit-tested.
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
+    let frame = 0;
+    const drawScene = () => {
+      frame = 0;
+      for (const layer of stage.getLayers()) layer.drawScene();
+    };
     const apply = ({ x, y, scale }: Viewport) => {
-      stage.setAttrs({ x, y, scaleX: scale, scaleY: scale });
-      stage.batchDraw();
+      // Konva's automatic redraw would also redraw the hit graph.
+      const autoDraw = Konva.autoDrawEnabled;
+      Konva.autoDrawEnabled = false;
+      try {
+        stage.setAttrs({ x, y, scaleX: scale, scaleY: scale });
+      } finally {
+        Konva.autoDrawEnabled = autoDraw;
+      }
+      invalidateHitGraph(stage);
+      frame ||= requestAnimationFrame(drawScene);
     };
     apply(editorStore.getState().viewport);
-    return editorStore.subscribe((s, prev) => {
+    const unsubscribe = editorStore.subscribe((s, prev) => {
       if (s.viewport !== prev.viewport) apply(s.viewport);
     });
+    return () => {
+      unsubscribe();
+      cancelAnimationFrame(frame);
+    };
   }, [stageRef]);
 
   useEffect(() => {
@@ -221,4 +242,4 @@ export function FloorCanvas({
       </Stage>
     </div>
   );
-}
+});

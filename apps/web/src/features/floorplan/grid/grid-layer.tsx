@@ -1,6 +1,7 @@
 import { gridLines, sortLines, type GridAxis, type GridLine } from '@el-karta/core';
 import { memo, useMemo } from 'react';
-import { Circle, Line } from 'react-konva';
+import type Konva from 'konva';
+import { Line, Shape } from 'react-konva';
 import { useStore } from 'zustand';
 import { useModelStore } from '@/model/store';
 import { useEditorStore } from '../editor-store';
@@ -94,7 +95,8 @@ const GridLineShape = memo(function GridLineShape({
   color?: string;
 }) {
   const over = OVERHANG_PX / scale;
-  const radius = Math.max(BUBBLE_RADIUS_PX, 4 + 3.5 * line.label.length) / scale;
+  const radiusPx = Math.max(BUBBLE_RADIUS_PX, 4 + 3.5 * line.label.length);
+  const radius = radiusPx / scale;
   const [lo, hi] = axis === 'x' ? [extent.minY, extent.maxY] : [extent.minX, extent.maxX];
   const at = (along: number) =>
     axis === 'x' ? { x: line.pos, y: along } : { x: along, y: line.pos };
@@ -116,9 +118,8 @@ const GridLineShape = memo(function GridLineShape({
         <Bubble
           key={i}
           center={center}
-          radius={radius}
+          radiusPx={radiusPx}
           label={line.label}
-          scale={scale}
           color={color}
           faded={faded}
           handleProps={editable ? handle(gridLineHandle, { axis, index, from: line.pos }) : null}
@@ -128,31 +129,38 @@ const GridLineShape = memo(function GridLineShape({
   );
 });
 
+const circle = (radiusPx: number) => (context: Konva.Context, shape: Konva.Shape) => {
+  context.beginPath();
+  context.arc(0, 0, radiusPx / shape.getAbsoluteScale().x, 0, 2 * Math.PI);
+  context.closePath();
+  context.fillStrokeShape(shape);
+};
+
+/** A label bubble of constant screen size; it reads the zoom when drawn, so its hit area is exact too. */
 function Bubble({
   center,
-  radius,
+  radiusPx,
   label,
-  scale,
   color,
   faded,
   handleProps,
 }: {
   center: { x: number; y: number };
-  radius: number;
+  radiusPx: number;
   label: string;
-  scale: number;
   color: string | undefined;
   faded: boolean;
   handleProps: ReturnType<typeof handle> | null;
 }) {
+  const sceneFunc = useMemo(() => circle(radiusPx), [radiusPx]);
   return (
     <>
-      <Circle
+      <Shape
         {...handleProps}
         listening={handleProps !== null}
         x={center.x}
         y={center.y}
-        radius={radius}
+        sceneFunc={sceneFunc}
         fill={gridColors.bubble}
         stroke={color ?? gridColors.line}
         strokeWidth={handleProps ? 2 : 1}
@@ -163,8 +171,8 @@ function Bubble({
       <ScreenLabel
         text={label}
         at={center}
-        maxWidth={Math.max(LABEL_WIDTH_PX / scale, 2 * radius)}
-        scale={scale}
+        maxWidth={0}
+        minWidthPx={Math.max(LABEL_WIDTH_PX, 2 * radiusPx)}
         fontSize={11}
         fill={color ?? gridColors.label}
       />
