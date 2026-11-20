@@ -13,7 +13,11 @@ const looks: Readonly<Record<OpeningLook, { gap: string; edge: string; line: str
   // The gap is drawn over the wall in the canvas background colour, edge included, so it also
   // covers the wall's one-pixel outline.
   plain: { gap: '#ffffff', edge: '#ffffff', line: wallColors.wall },
-  selected: { gap: canvasColors.selectedFill, edge: canvasColors.selected, line: canvasColors.selected },
+  selected: {
+    gap: canvasColors.selectedFill,
+    edge: canvasColors.selected,
+    line: canvasColors.selected,
+  },
   preview: { gap: wallColors.draft, edge: wallColors.draftLine, line: wallColors.draftLine },
 };
 
@@ -52,7 +56,9 @@ export const OpeningShape = memo(function OpeningShape({
       />
       {symbol.leaf && <Line points={symbol.leaf} strokeWidth={2} {...stroke} />}
       {symbol.arc && <Line points={symbol.arc} strokeWidth={1} {...stroke} />}
-      {symbol.panes?.map((pane, i) => <Line key={i} points={pane} strokeWidth={1} {...stroke} />)}
+      {symbol.panes?.map((pane, i) => (
+        <Line key={i} points={pane} strokeWidth={1} {...stroke} />
+      ))}
     </>
   );
 });

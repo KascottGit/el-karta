@@ -80,8 +80,7 @@ export const doorFacing = (side: WallHit['side']): Pick<Opening, 'hinge' | 'swin
   side === 'left' ? { hinge: 'right', swing: 'in' } : { hinge: 'left', swing: 'out' };
 
 export type Placement =
-  | { ok: true; opening: Opening }
-  | { ok: false; reason: 'too-short' | 'no-room' };
+  { ok: true; opening: Opening } | { ok: false; reason: 'too-short' | 'no-room' };
 
 /**
  * A new opening centred where the wall was hit, clamped to the wall's ends and nudged beside any

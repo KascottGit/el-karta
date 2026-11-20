@@ -1,4 +1,5 @@
-import { checkSpace, type FloorRecord, type Id, type Issue } from '@el-karta/core';
+import type { FloorRecord, Id, Issue } from '@el-karta/core';
+import { floorIssues } from '../validation/floor-issues';
 
 /** Validator codes about openings. */
 export const OPENING_ISSUE_CODES = [
@@ -24,7 +25,7 @@ export function openingIssues(floor: FloorRecord): ReadonlyMap<Id, readonly Open
   const cached = cache.get(floor.data);
   if (cached) return cached;
   const byOpening = new Map<Id, OpeningIssue[]>();
-  for (const issue of checkSpace(floor)) {
+  for (const issue of floorIssues(floor)) {
     if (!isOpeningIssue(issue)) continue;
     for (const id of openingsOf(issue)) {
       if (id === undefined || !(id in floor.data.openings)) continue;

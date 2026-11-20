@@ -1,4 +1,10 @@
-import { combine, putSpaceItem, removeSpaceItem, type Opening } from '@el-karta/core';
+import {
+  combine,
+  putSpaceItem,
+  removeSpaceItem,
+  type IssueSeverity,
+  type Opening,
+} from '@el-karta/core';
 import { FlipHorizontal2, FlipVertical2, TriangleAlert } from 'lucide-react';
 import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +12,7 @@ import { modelStore, useModelStore } from '@/model/store';
 import { Button } from '@/ui/button';
 import { editorStore, useEditorStore } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
+import { issueColors } from '../canvas/theme';
 import { DecimalField } from '../fields/decimal-field';
 import { positive, sharedValue } from '../fields/numbers';
 import { openingIssues, type OpeningIssueCode } from './opening-issues';
@@ -27,7 +34,7 @@ export function OpeningToolPanel() {
       <h2 className="text-sm font-semibold">{title}</h2>
       <p className="hidden text-xs text-muted-foreground md:block">{t('openings.hint')}</p>
       <p className="text-xs text-muted-foreground md:hidden">{t('openings.touchHint')}</p>
-      <p role="status" className="text-sm text-amber-700 empty:hidden">
+      <p role="status" className="text-sm empty:hidden" style={{ color: issueColors.error }}>
         {notice && t(notice)}
       </p>
     </section>
@@ -51,12 +58,14 @@ export function OpeningPropsPanel({ ctx }: { ctx: CanvasContext }) {
   );
   const issues = useMemo(() => {
     if (!floor) return [];
-    const counts = new Map<OpeningIssueCode, number>();
+    const byCode = new Map<OpeningIssueCode, { severity: IssueSeverity; count: number }>();
     for (const opening of openings) {
-      for (const issue of openingIssues(floor).get(opening.id) ?? [])
-        counts.set(issue.code, (counts.get(issue.code) ?? 0) + 1);
+      for (const { code, severity } of openingIssues(floor).get(opening.id) ?? []) {
+        const seen = byCode.get(code);
+        byCode.set(code, { severity, count: (seen?.count ?? 0) + 1 });
+      }
     }
-    return [...counts];
+    return [...byCode];
   }, [floor, openings]);
   const single = openings.length === 1 ? openings[0] : undefined;
   if (!floor || openings.length === 0) return null;
@@ -64,7 +73,9 @@ export function OpeningPropsPanel({ ctx }: { ctx: CanvasContext }) {
   const width = sharedValue(openings.map((o) => o.width));
   const height = sharedValue(openings.map((o) => o.height));
   const sill = sharedValue(openings.map((o) => o.sill));
-  const title = single ? t(`openings.kinds.${single.kind}`) : t('openings.selectedCount', { count: openings.length });
+  const title = single
+    ? t(`openings.kinds.${single.kind}`)
+    : t('openings.selectedCount', { count: openings.length });
 
   const put = (changed: readonly Opening[]) => {
     modelStore
@@ -100,6 +111,7 @@ export function OpeningPropsPanel({ ctx }: { ctx: CanvasContext }) {
       </div>
       <DecimalField
         label={t('openings.width')}
+        unit={t('fields.metres')}
         value={width.value}
         mixed={width.mixed}
         digits={DIGITS}
@@ -111,6 +123,7 @@ export function OpeningPropsPanel({ ctx }: { ctx: CanvasContext }) {
       />
       <DecimalField
         label={t('openings.height')}
+        unit={t('fields.metres')}
         value={height.value}
         mixed={height.mixed}
         digits={DIGITS}
@@ -122,6 +135,7 @@ export function OpeningPropsPanel({ ctx }: { ctx: CanvasContext }) {
       {openings.every((o) => o.kind === 'window') && (
         <DecimalField
           label={t('openings.sill')}
+          unit={t('fields.metres')}
           value={sill.value}
           mixed={sill.mixed}
           digits={DIGITS}
@@ -157,8 +171,12 @@ export function OpeningPropsPanel({ ctx }: { ctx: CanvasContext }) {
       )}
       {issues.length > 0 && (
         <ul className="flex flex-col gap-1 text-sm" aria-label={t('openings.issues')}>
-          {issues.map(([code, count]) => (
-            <li key={code} className="flex items-start gap-2 text-amber-700">
+          {issues.map(([code, { severity, count }]) => (
+            <li
+              key={code}
+              className="flex items-start gap-2"
+              style={{ color: issueColors[severity] }}
+            >
               <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
               <span>
                 {t(`issues.${code}`)}
@@ -174,9 +192,7 @@ export function OpeningPropsPanel({ ctx }: { ctx: CanvasContext }) {
           const ids = new Set(openings.map((o) => o.id));
           modelStore
             .getState()
-            .apply(
-              combine(...openings.map((o) => removeSpaceItem(ctx.floorId, 'openings', o.id))),
-            );
+            .apply(combine(...openings.map((o) => removeSpaceItem(ctx.floorId, 'openings', o.id))));
           const { selection: current, select } = editorStore.getState();
           select(current.filter((s) => !(s.collection === 'openings' && ids.has(s.id))));
         }}

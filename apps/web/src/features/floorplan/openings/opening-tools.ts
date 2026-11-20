@@ -3,7 +3,7 @@ import { AppWindow, DoorOpen, SquareDashed, type LucideIcon } from 'lucide-react
 import { modelStore } from '@/model/store';
 import { editorStore } from '../editor-store';
 import type { CanvasContext, CanvasPointer, MessageKey, Tool } from '../canvas/extension';
-import { snapTolerance } from '../walls/snapping';
+import { snapTolerance } from '../snapping/snapping';
 import { openingsStore } from './openings-store';
 import { OPENING_DEFAULTS, placeOpening, type OpeningKind, type Placement } from './placement';
 
@@ -77,21 +77,21 @@ function openingTool(
 export const doorTool = openingTool('door', {
   label: 'openings.kinds.door',
   icon: DoorOpen,
-  order: 20,
+  order: 30,
   shortcut: 'd',
 });
 
 export const windowTool = openingTool('window', {
   label: 'openings.kinds.window',
   icon: AppWindow,
-  order: 21,
+  order: 31,
   shortcut: 'n',
 });
 
 export const passageTool = openingTool('passage', {
   label: 'openings.kinds.passage',
   icon: SquareDashed,
-  order: 22,
+  order: 32,
   shortcut: 'p',
 });
 
