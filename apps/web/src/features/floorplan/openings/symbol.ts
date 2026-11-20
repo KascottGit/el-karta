@@ -1,0 +1,70 @@
+import {
+  add,
+  EPSILON,
+  leftNormal,
+  normalize,
+  scale,
+  sub,
+  wallLength,
+  type Opening,
+  type Pt,
+  type Wall,
+} from '@el-karta/core';
+
+const ARC_STEPS = 16;
+
+/** Flat point lists in world coordinates, ready for Konva `Line`s. */
+export interface OpeningSymbol {
+  /** The part of the wall the opening takes up, as a closed quad drawn over the wall. */
+  gap: number[];
+  centre: Pt;
+  /** A door's leaf, drawn fully open. */
+  leaf?: number[];
+  /** A door's swing, a quarter circle from the open leaf to the closed position. */
+  arc?: number[];
+  /** A window's two panes along the wall. */
+  panes?: [number[], number[]];
+}
+
+const flat = (points: readonly Pt[]) => points.flatMap((p) => [p.x, p.y]);
+
+/**
+ * How an opening is drawn in its wall. See `doorFacing` in `placement.ts` for what `hinge` and
+ * `swing` mean. Null for a wall without length.
+ */
+export function openingSymbol(wall: Wall, opening: Opening): OpeningSymbol | null {
+  if (wallLength(wall) < EPSILON) return null;
+  const dir = normalize(sub(wall.b, wall.a));
+  const normal = leftNormal(dir);
+  const half = wall.thickness / 2;
+  const start = add(wall.a, scale(dir, opening.offset));
+  const end = add(wall.a, scale(dir, opening.offset + opening.width));
+  const across = (p: Pt, k: number) => add(p, scale(normal, k));
+  const symbol: OpeningSymbol = {
+    gap: flat([across(start, half), across(end, half), across(end, -half), across(start, -half)]),
+    centre: scale(add(start, end), 0.5),
+  };
+  if (opening.kind === 'window') {
+    const k = half / 3;
+    symbol.panes = [
+      flat([across(start, k), across(end, k)]),
+      flat([across(start, -k), across(end, -k)]),
+    ];
+  } else if (opening.kind === 'door') {
+    const atStart = opening.hinge !== 'right';
+    const towardsOther = atStart ? dir : scale(dir, -1);
+    const out = opening.swing === 'out' ? scale(normal, -1) : normal;
+    const pivot = add(atStart ? start : end, scale(out, half));
+    const r = opening.width;
+    const arc: Pt[] = [];
+    for (let i = 0; i <= ARC_STEPS; i++) {
+      const angle = (i / ARC_STEPS) * (Math.PI / 2);
+      arc.push(
+        add(pivot, add(scale(out, r * Math.cos(angle)), scale(towardsOther, r * Math.sin(angle)))),
+      );
+    }
+    symbol.leaf = flat([pivot, add(pivot, scale(out, r))]);
+    symbol.arc = flat(arc);
+  }
+  return symbol;
+}
