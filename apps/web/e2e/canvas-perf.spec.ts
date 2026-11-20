@@ -1,5 +1,12 @@
 import { expect, test, type CDPSession, type Page } from '@playwright/test';
-import { countRenderWindowChanges, EDITOR_STORE, readEditor } from './app-modules';
+import {
+  countRenderWindowChanges,
+  EDITOR_STORE,
+  MODEL_STORE,
+  readEditor,
+  worldToPage,
+  type Pt,
+} from './app-modules';
 import { installFrameProbe, nextFrame, stats } from './frame-probe';
 
 // Timing depends on the machine, so the budgets are only asserted on request (PERF_BUDGET=1);
@@ -8,7 +15,6 @@ const STRICT = Boolean(process.env['PERF_BUDGET']);
 const BUDGET_MS = STRICT ? 16 : 100;
 const SWEEPS = 6;
 const STEP_PX = 12;
-const MODEL_STORE = '/src/model/store.ts';
 /** The Konva layer that holds the model: redrawing it on the large project is the expensive part. */
 const MODEL_LAYER = 'areas+walls+openings';
 
@@ -145,11 +151,6 @@ test('committing a 20-wall polyline on the large project takes one short frame',
   expect(commit.interval.max).toBeLessThan(STRICT ? 50 : 250);
 });
 
-interface Pt {
-  x: number;
-  y: number;
-}
-
 interface FloorSnapshot {
   walls: Record<string, { id: string; a: Pt; b: Pt }>;
   rooms: Record<string, { id: string; polygon: Pt[] }>;
@@ -190,7 +191,7 @@ async function startDrag(page: Page, from: Pt, by: Pt, move: (to: Pt) => Promise
 }
 
 test('tool previews on the large project redraw only what they change', async ({ page }) => {
-  const { box, center } = await openLarge(page);
+  const { center } = await openLarge(page);
   // Zoomed in a little, so that handles and openings are big enough to grab.
   await page.mouse.move(center.x, center.y);
   for (let i = 0; i < 3; i++) {
@@ -199,10 +200,7 @@ test('tool previews on the large project redraw only what they change', async ({
   }
   await page.waitForTimeout(300);
   const { viewport } = await readEditor(page);
-  const toPage = (p: Pt) => ({
-    x: box.x + p.x * viewport.scale + viewport.x,
-    y: box.y + p.y * viewport.scale + viewport.y,
-  });
+  const toPage = await worldToPage(page);
   const hover = (from: Pt) =>
     measure(page, async () => {
       for (let i = 0; i < 60; i++) {
@@ -365,13 +363,10 @@ test.describe('on a phone with the CPU slowed down four times', () => {
   test('dragging a room corner on the large project redraws only the overlays', async ({
     page,
   }) => {
-    const { box, center } = await openLarge(page);
+    const { center } = await openLarge(page);
     const cdp = await page.context().newCDPSession(page);
     const { viewport } = await readEditor(page);
-    const toPage = (p: Pt) => ({
-      x: box.x + p.x * viewport.scale + viewport.x,
-      y: box.y + p.y * viewport.scale + viewport.y,
-    });
+    const toPage = await worldToPage(page);
     const { rooms } = await openFloor(page);
     const near = (p: Pt) => Math.abs(toPage(p).x - center.x) + Math.abs(toPage(p).y - center.y);
     const room = Object.values(rooms).sort((a, b) => near(a.polygon[0]!) - near(b.polygon[0]!))[0]!;

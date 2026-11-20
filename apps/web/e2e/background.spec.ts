@@ -1,55 +1,19 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
-import { readEditor } from './app-modules';
-import { signIn } from './auth';
+import {
+  DIMENSION,
+  fixture,
+  readBackground,
+  TRUE_METRES_PER_PIXEL,
+  unscaledImageToPage,
+} from './background';
+import { openNewProjectEditor } from './editor';
 
-const MODEL_STORE = '/src/model/store.ts';
-const IMAGES = '/src/features/floorplan/background/images.ts';
-const fixture = (name: string) => new URL(`fixtures/${name}`, import.meta.url).pathname;
-
-// plan.png is drawn at 8 mm per pixel: its dimension line runs from (100, 550) to (600, 550), 4 m.
-const DIMENSION = { a: { x: 100, y: 550 }, b: { x: 600, y: 550 }, metres: 4 };
-const TRUE_METRES_PER_PIXEL = 0.008;
-
-interface Pt {
-  x: number;
-  y: number;
-}
-
-interface FloorBackground {
-  background?: { attachmentId: string; pdfPage?: number; offset: Pt; rotation: number };
-  scale?: { source: string; metresPerPixel: number };
-}
-
-/** The open floor's background and scale, and the loaded image's size, read from the app's stores. */
-const readBackground = (page: Page) =>
-  page.evaluate(
-    async ([modelUrl, imagesUrl]) => {
-      const { modelStore } = (await import(/* @vite-ignore */ modelUrl!)) as {
-        modelStore: {
-          getState(): { model: { floors: Record<string, { data: FloorBackground }> } | null };
-        };
-      };
-      const { imageStore } = (await import(/* @vite-ignore */ imagesUrl!)) as {
-        imageStore: {
-          getState(): Record<string, { status: string; size?: { width: number; height: number } }>;
-        };
-      };
-      const floorId = /floors\/([^/?]+)/.exec(location.pathname)?.[1] ?? '';
-      const data = modelStore.getState().model?.floors[floorId]?.data;
-      const image = data?.background && imageStore.getState()[data.background.attachmentId];
-      return { background: data?.background, scale: data?.scale, image };
-    },
-    [MODEL_STORE, IMAGES],
-  );
-
-async function openNewProjectEditor(page: Page, run: string) {
-  await signIn(page, `background-${run}@test.local`);
-  await page.getByLabel('Namn').fill(`E2E-bakgrund ${run}`);
-  await page.getByRole('button', { name: 'Skapa projekt' }).click();
-  await page.getByRole('link', { name: /Plan 1/ }).click();
-  await expect(page.getByTestId('floor-editor-canvas').locator('canvas').first()).toBeVisible();
-}
+const openEditor = (page: Page, run: string) =>
+  openNewProjectEditor(page, {
+    email: `background-${run}@test.local`,
+    project: `E2E-bakgrund ${run}`,
+  });
 
 test('on a phone, a plan image is uploaded, scaled with two taps and a typed length, and kept after reload', async ({
   browser,
@@ -62,7 +26,7 @@ test('on a phone, a plan image is uploaded, scaled with two taps and a typed len
       hasTouch: true,
     })
   ).newPage();
-  await openNewProjectEditor(page, run);
+  await openEditor(page, run);
 
   await page.getByRole('button', { name: 'Bakgrund', exact: true }).tap();
   await page.getByTestId('background-file').setInputFiles(fixture('plan.png'));
@@ -73,13 +37,7 @@ test('on a phone, a plan image is uploaded, scaled with two taps and a typed len
 
   await page.getByRole('button', { name: 'Mät skala' }).tap();
   await expect(page.getByText('Tryck på ena änden')).toBeVisible();
-  const box = (await page.getByTestId('floor-editor-canvas').boundingBox())!;
-  const { viewport } = await readEditor(page);
-  // No scale yet, so the image is shown at the default 1 cm per pixel from the plan origin.
-  const onScreen = (px: Pt) => ({
-    x: box.x + px.x * 0.01 * viewport.scale + viewport.x,
-    y: box.y + px.y * 0.01 * viewport.scale + viewport.y,
-  });
+  const onScreen = await unscaledImageToPage(page);
   const a = onScreen(DIMENSION.a);
   const b = onScreen(DIMENSION.b);
   await page.touchscreen.tap(a.x, a.y);
@@ -112,7 +70,7 @@ test('on a phone, a plan image is uploaded, scaled with two taps and a typed len
 });
 
 test('a page picked from a PDF is stored as a tracing-resolution image', async ({ page }) => {
-  await openNewProjectEditor(page, randomUUID().slice(0, 8));
+  await openEditor(page, randomUUID().slice(0, 8));
 
   await page.getByRole('button', { name: 'Bakgrund', exact: true }).click();
   await page.getByTestId('background-file').setInputFiles(fixture('plan.pdf'));

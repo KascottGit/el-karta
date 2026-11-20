@@ -1,12 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { EDITOR_STORE, readEditor } from './app-modules';
-
-const MODEL_STORE = '/src/model/store.ts';
-
-interface Pt {
-  x: number;
-  y: number;
-}
+import { readOpenFloor, type Pt } from './app-modules';
+import { openSynthetic } from './editor';
 
 interface OpeningSnapshot {
   id: string;
@@ -18,51 +12,18 @@ interface OpeningSnapshot {
 }
 
 /** The walls and openings of the floor open in the editor. */
-const readFloor = (page: Page) =>
-  page.evaluate(
-    async ([modelUrl, editorUrl]) => {
-      const { modelStore } = (await import(/* @vite-ignore */ modelUrl!)) as {
-        modelStore: {
-          getState(): {
-            model: {
-              floors: Record<
-                string,
-                {
-                  data: {
-                    walls: Record<string, { id: string; a: Pt; b: Pt }>;
-                    openings: Record<string, OpeningSnapshot>;
-                  };
-                }
-              >;
-            };
-          };
-        };
-      };
-      const { editorStore } = (await import(/* @vite-ignore */ editorUrl!)) as {
-        editorStore: { getState(): { floorId: string } };
-      };
-      const { data } = modelStore.getState().model.floors[editorStore.getState().floorId]!;
-      return { walls: Object.values(data.walls), openings: Object.values(data.openings) };
-    },
-    [MODEL_STORE, EDITOR_STORE],
-  );
-
-async function openSmall(page: Page) {
-  await page.goto('/dev/synthetic/small');
-  const canvas = page.getByTestId('floor-editor-canvas');
-  await expect(canvas.locator('canvas').first()).toBeVisible();
-  const box = (await canvas.boundingBox())!;
-  const { viewport } = await readEditor(page);
-  return (world: Pt) => ({
-    x: box.x + world.x * viewport.scale + viewport.x,
-    y: box.y + world.y * viewport.scale + viewport.y,
-  });
-}
+const readFloor = async (page: Page) => {
+  const { walls, openings } = await readOpenFloor<{
+    walls: Record<string, { id: string; a: Pt; b: Pt }>;
+    openings: Record<string, OpeningSnapshot>;
+  }>(page, ['walls', 'openings']);
+  return { walls: Object.values(walls), openings: Object.values(openings) };
+};
 
 test('placing a door and a window on a new wall, sliding the door and undoing it', async ({
   page,
 }) => {
-  const toPage = await openSmall(page);
+  const toPage = await openSynthetic(page, 'small');
   const before = await readFloor(page);
 
   // A three-metre wall inside the first room of the small villa.
@@ -130,7 +91,7 @@ test.describe('on a phone', () => {
   test('a finger tap on a wall places a door there, and tapping it shows its panel', async ({
     page,
   }) => {
-    const toPage = await openSmall(page);
+    const toPage = await openSynthetic(page, 'small');
     const canvas = (await page.getByTestId('floor-editor-canvas').boundingBox())!;
     const { walls, openings } = await readFloor(page);
 
