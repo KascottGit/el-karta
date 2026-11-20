@@ -136,9 +136,10 @@ export function ScaleMeasurement() {
       {a && b && mid && (
         <ScreenLabel
           text={t('background.metres', { value: formatDecimal(distance(a, b), 2) })}
-          at={{ x: mid.x, y: mid.y - 16 / scale }}
-          maxWidth={120 / scale}
-          scale={scale}
+          at={mid}
+          offsetYPx={-16}
+          maxWidth={0}
+          minWidthPx={120}
           fill={MEASURE_COLOR}
         />
       )}

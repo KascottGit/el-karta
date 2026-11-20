@@ -118,7 +118,6 @@ const GridLineShape = memo(function GridLineShape({
           center={center}
           radius={radius}
           label={line.label}
-          scale={scale}
           color={color}
           faded={faded}
           handleProps={editable ? handle(gridLineHandle, { axis, index, from: line.pos }) : null}
@@ -132,7 +131,6 @@ function Bubble({
   center,
   radius,
   label,
-  scale,
   color,
   faded,
   handleProps,
@@ -140,7 +138,6 @@ function Bubble({
   center: { x: number; y: number };
   radius: number;
   label: string;
-  scale: number;
   color: string | undefined;
   faded: boolean;
   handleProps: ReturnType<typeof handle> | null;
@@ -163,8 +160,8 @@ function Bubble({
       <ScreenLabel
         text={label}
         at={center}
-        maxWidth={Math.max(LABEL_WIDTH_PX / scale, 2 * radius)}
-        scale={scale}
+        maxWidth={2 * radius}
+        minWidthPx={LABEL_WIDTH_PX}
         fontSize={11}
         fill={color ?? gridColors.label}
       />
