@@ -239,7 +239,7 @@ function BackgroundSettings({
       <div className="grid grid-cols-3 gap-2">
         <DecimalField
           label={t('background.x')}
-          unit={t('background.metresUnit')}
+          unit={t('fields.metres')}
           value={placement.offset.x}
           digits={3}
           signed
@@ -249,7 +249,7 @@ function BackgroundSettings({
         />
         <DecimalField
           label={t('background.y')}
-          unit={t('background.metresUnit')}
+          unit={t('fields.metres')}
           value={placement.offset.y}
           digits={3}
           signed

@@ -131,7 +131,7 @@ function AxisLines({
                   if (pos !== null) edit((g) => moveGridLine(g, axis, index, pos));
                 }}
               />
-              <span className="text-sm text-muted-foreground">{t('grid.metres')}</span>
+              <span className="text-sm text-muted-foreground">{t('fields.metres')}</span>
               <Button
                 size="icon"
                 variant="ghost"

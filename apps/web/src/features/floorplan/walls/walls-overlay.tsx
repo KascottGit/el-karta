@@ -1,7 +1,7 @@
-import { add, distance, scale as scaled, type Pt, type Snap, type Wall } from '@el-karta/core';
+import { add, distance, scale as scaled, type Pt, type Wall } from '@el-karta/core';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Circle, Line, Rect, RegularPolygon } from 'react-konva';
+import { Circle, Line } from 'react-konva';
 import { useModelStore } from '@/model/store';
 import { useEditorStore } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
@@ -17,9 +17,9 @@ import { endKey, jointEnds, wallOutline } from './wall-outline';
 import { WALL_TOOL } from './wall-tool';
 import { WallShape } from './walls-layer';
 import { useWallsStore } from './walls-store';
+import { SnapMarker } from '../snapping/snap-marker';
 
 const HANDLE_PX = 6;
-const MARKER_PX = 6;
 
 /** Everything the walls feature draws above the model: the polyline being drawn, a dragged corner, the snap marker and corner handles. */
 export function WallsOverlay({ ctx }: { ctx: CanvasContext }) {
@@ -27,7 +27,7 @@ export function WallsOverlay({ ctx }: { ctx: CanvasContext }) {
     <>
       <Draft />
       <DragPreview ctx={ctx} />
-      <SnapMarker />
+      <WallSnapMarker />
       <CornerHandles ctx={ctx} />
     </>
   );
@@ -113,49 +113,11 @@ function DragPreview({ ctx }: { ctx: CanvasContext }) {
   ));
 }
 
-function SnapMarker() {
+function WallSnapMarker() {
   const snap = useWallsStore((s) => s.snap);
   const scale = useEditorStore((s) => s.viewport.scale);
-  if (!snap || snap.kind === 'none') return null;
-  return <Marker snap={snap} r={MARKER_PX / scale} />;
-}
-
-function Marker({ snap, r }: { snap: Snap; r: number }) {
-  const { x, y } = snap.point;
-  const common = {
-    stroke: wallColors.snap,
-    strokeWidth: 2,
-    strokeScaleEnabled: false,
-    listening: false,
-  } as const;
-  return (
-    <>
-      {snap.targets.map((target, i) =>
-        target.kind === 'angle' ? (
-          <Line
-            key={i}
-            points={flat([target.from, snap.point])}
-            {...common}
-            strokeWidth={1}
-            dash={[4, 4]}
-          />
-        ) : null,
-      )}
-      {snap.kind === 'endpoint' ? (
-        <Rect x={x - r} y={y - r} width={2 * r} height={2 * r} {...common} />
-      ) : snap.kind === 'midpoint' ? (
-        <RegularPolygon x={x} y={y} sides={3} radius={1.3 * r} {...common} />
-      ) : (
-        <Circle x={x} y={y} radius={r} {...common} />
-      )}
-      {snap.targets.length > 1 && (
-        <Line points={[x - r, y - r, x + r, y + r]} {...common} strokeWidth={1.5} />
-      )}
-      {snap.targets.length > 1 && (
-        <Line points={[x - r, y + r, x + r, y - r]} {...common} strokeWidth={1.5} />
-      )}
-    </>
-  );
+  if (!snap) return null;
+  return <SnapMarker snap={snap} scale={scale} />;
 }
 
 /**

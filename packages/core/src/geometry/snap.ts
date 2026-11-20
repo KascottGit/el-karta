@@ -1,5 +1,5 @@
 import type { FloorData, Id, Pt, Wall } from '../schemas/index.ts';
-import { add, cross, distance, EPSILON, leftNormal, scale, sub } from './vec.ts';
+import { add, cross, distance, dot, EPSILON, leftNormal, scale, sub } from './vec.ts';
 
 type SnapFloor = Pick<FloorData, 'walls' | 'grid'>;
 
@@ -66,7 +66,6 @@ interface Line {
   target(t: number): LineTarget;
 }
 
-const dot = (a: Pt, b: Pt) => a.x * b.x + a.y * b.y;
 const along = (line: Line, t: number) => add(line.origin, scale(line.dir, t));
 const rank = (target: SnapTarget) =>
   LINE_PRIORITY.indexOf(target.kind as (typeof LINE_PRIORITY)[number]);

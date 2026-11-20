@@ -5,6 +5,7 @@ import { editorStore } from '../editor-store';
 import { finishWalls, wallTool, WALL_TOOL } from './wall-tool';
 import { pointer, projectWith, pt, testCtx, wall } from './test-fixtures';
 import { WALL_THICKNESS, wallsStore } from './walls-store';
+import { setSnapping } from '../snapping/snapping';
 
 const existing = wall(pt(0, 0), pt(4, 0), 0.2, 'existing');
 let floorId = '';
@@ -29,9 +30,9 @@ beforeEach(() => {
   modelStore.getState().load(project.model, { discardUnsaved: true });
   editorStore.getState().openFloor(floorId);
   editorStore.getState().setTool(WALL_TOOL);
+  setSnapping(true);
   wallsStore.setState({
     thickness: WALL_THICKNESS.interior,
-    snapping: true,
     drawingFloorId: null,
     snap: null,
     drag: null,
@@ -90,7 +91,7 @@ describe('wall tool', () => {
     expect(wallsStore.getState().snap?.kind).toBe('angle');
     wallTool.onHover!(pointer(pt(4.03, 3), { altKey: true }), testCtx(floorId));
     expect(drawing()?.hover).toEqual(pt(4.03, 3));
-    wallsStore.setState({ snapping: false });
+    setSnapping(false);
     wallTool.onHover!(pointer(pt(4.03, 3)), testCtx(floorId));
     expect(drawing()?.hover).toEqual(pt(4.03, 3));
   });

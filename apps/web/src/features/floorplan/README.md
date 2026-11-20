@@ -41,12 +41,18 @@ A `Tool` gets pointer callbacks with a `CanvasPointer`: `world` (metres), `scree
 
 Preview state:
 
-- A polyline or polygon in progress goes in `editorStore` (`setDrawing({ points, hover })`) and is drawn from a layer on `overlays`. Tool switch, floor switch and Escape clear it. A tool may commit the points in `onDeactivate` instead of discarding them, as the wall tool does on Escape, tool switch and floor switch (it remembers the floor it started on, because a floor switch calls `onDeactivate` with the new floor's context).
+- A polyline or polygon in progress goes in `editorStore` (`setDrawing({ points, hover })`) and is drawn from a layer on `overlays`. Tool switch, floor switch and Escape clear it. A tool may commit the points in `onDeactivate` instead of discarding them, as the wall tool does on Escape, tool switch and floor switch (it remembers the floor it started on, because a floor switch calls `onDeactivate` with the new floor's context). The room and zone tools do the same with a polygon of three or more corners that passes `polygonProblem`; any other unfinished polygon is dropped, with a notice saying why.
 - Any other preview (a snap marker, the wall and offset an opening would land on) goes in a small store in your feature folder, reset in `onDeactivate` and `onLeave`.
 
 Escape first cancels a drag in progress. If `onKeyDown` does not handle it, it then clears the drawing, then the selection, then returns to the select tool.
 
 **Tolerances:** give snap and hit distances in pixels and convert them with `ctx.pxToWorld(px)`, so they feel the same at every zoom. Use a larger value for `p.kind === 'touch'`.
+
+**Snapping:** snap a pointer with `snapPointer(p, ctx, options)` from `snapping/snapping.ts`. It wraps core `snapPoint` (wall ends, midpoints and centrelines, grid lines, angle steps from `from`, extra `points`) with the shared pixel reach `SNAP_PX`, and returns the free point while Alt is held or the snapping toggle (`SnappingToggle`) is off. Draw the result with `SnapMarker` (`snapping/snap-marker.tsx`).
+
+**Validation:** `floorIssues(floor)` (`validation/floor-issues.ts`) validates a floor once per edit and is cached per floor data. Features filter it for their items, as `walls/wall-issues.ts` and `areas/area-issues.ts` do, and draw flagged items in `issueColors` from `canvas/theme.ts`.
+
+**Rooms and zones follow wall centrelines.** A room polygon, whether filled from walls (`fillRoom` in core) or drawn with snapping, runs along the centre lines of the walls around it, so its area includes half the thickness of those walls and neighbouring rooms share their sides. See ADR 0006.
 
 ### Handles (draggable points)
 
@@ -89,7 +95,7 @@ A drag that starts on a handle goes to that handle, whichever tool is active. It
   - `useEditorStore((s) => s.viewport.scale)` is exact, but re-renders the component on every zoom step. Use it for the few nodes whose size matters, such as handles.
   - `useRenderWindow().scale` changes only with the render window, so it is cheap for many nodes, but can be off from the current zoom by up to 1.5×. Labels (`ScreenLabel`, `canvas/screen-label.tsx`) use it. Handles sized with it can differ by up to 1.5× in size and hit area.
 - **Selection:** spread `selectable(collection, id)` on a node, and the select tool picks it through Konva's hit graph. Set `listening={false}` on decoration such as labels. A shape that lies over others (zones over rooms) should hit only on its outline with a `hitFunc`, as `areas/areas-layer.tsx` does. Read `selection` from the editor store to highlight.
-- **Colours:** shared ones (selection, labels, font) are in `canvas/theme.ts`; feature colours live in the feature folder.
+- **Colours:** shared ones (selection, snap marker, issue severities, labels, font) are in `canvas/theme.ts`; feature colours live in the feature folder.
 
 ### Panels and actions
 

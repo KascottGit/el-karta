@@ -4,7 +4,7 @@ import { modelStore } from '@/model/store';
 import { editorStore } from '../editor-store';
 import type { CanvasContext, CanvasPointer, Tool } from '../canvas/extension';
 import { MIN_WALL_LENGTH, putWalls } from './corner';
-import { snapPointer, snapTolerance } from './snapping';
+import { snapPointer, snapTolerance } from '../snapping/snapping';
 import { wallsStore } from './walls-store';
 
 export const WALL_TOOL = 'wall';
