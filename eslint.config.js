@@ -14,6 +14,7 @@ export default defineConfig(
     '**/coverage/',
     'supabase/.temp/',
     'packages/data-supabase/src/database.types.ts',
+    '.claude/worktrees/',
   ]),
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,

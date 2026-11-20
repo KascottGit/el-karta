@@ -1,6 +1,16 @@
 import type { Draft } from 'immer';
+import type { FloorBackground, FloorScale } from '../geometry/background.ts';
 import { indexModel } from '../model.ts';
-import type { Connection, Device, FloorData, FloorRecord, Id, Model } from '../schemas/index.ts';
+import type {
+  Building,
+  Connection,
+  Device,
+  FloorData,
+  FloorRecord,
+  Grid,
+  Id,
+  Model,
+} from '../schemas/index.ts';
 import { EditError, type Edit } from './apply.ts';
 
 type SpaceCollection = 'walls' | 'openings' | 'rooms' | 'zones';
@@ -112,6 +122,125 @@ function deleteConnection(draft: Draft<Model>, base: Model, connectionId: Id) {
   if (doc === 'project') delete draft.project.data.crossFloorConnections[connectionId];
   else if (doc !== undefined) delete floorOf(draft, doc).data.connections[connectionId];
 }
+
+/** Brings the model in line with a floor row just created through the repository. */
+export const addFloor =
+  (floor: FloorRecord): Edit =>
+  (draft, base) => {
+    if (floor.id in base.floors) throw new EditError(`Floor ${floor.id} already exists`);
+    if (!(floor.buildingId in base.project.data.buildings))
+      throw new EditError(`Unknown building ${floor.buildingId}`);
+    draft.floors[floor.id] = floor;
+  };
+
+export const updateFloor =
+  (floorId: Id, changes: Partial<Pick<FloorRecord, 'name' | 'sortOrder'>>): Edit =>
+  (draft) => {
+    Object.assign(floorOf(draft, floorId), changes);
+  };
+
+/** Replaces the floor's grid lines whole; null or a grid without lines removes the grid. */
+export const setGrid =
+  (floorId: Id, grid: Grid | null): Edit =>
+  (draft) => {
+    const { data } = floorOf(draft, floorId);
+    if (grid && (grid.xLines.length > 0 || grid.yLines.length > 0)) data.grid = grid;
+    else if (data.grid) delete data.grid;
+  };
+
+/**
+ * Puts a building's floors in the given order, bottom first: `sortOrder` 0, 1, 2 …, and elevations
+ * restacked from the lowest current one, each floor starting where the one below ends.
+ */
+export const reorderFloors =
+  (floorIds: readonly Id[]): Edit =>
+  (draft) => {
+    const floors = floorIds.map((floorId) => floorOf(draft, floorId));
+    let elevation = Math.min(...floors.map((floor) => floor.data.elevation));
+    floors.forEach((floor, sortOrder) => {
+      if (floor.sortOrder !== sortOrder) floor.sortOrder = sortOrder;
+      if (floor.data.elevation !== elevation) floor.data.elevation = elevation;
+      elevation += floor.data.height;
+    });
+  };
+
+/**
+ * Brings the model in line with a floor row just deleted through the repository: removes the floor,
+ * every cross-floor connection to a port on it, and the other connections' route segments on it
+ * (a route left with no segments becomes unknown). A project always keeps at least one floor.
+ */
+export const removeFloor =
+  (floorId: Id): Edit =>
+  (draft, base) => {
+    const floor = base.floors[floorId];
+    if (!floor) throw new EditError(`Unknown floor ${floorId}`);
+    if (Object.keys(base.floors).length <= 1)
+      throw new EditError('A project must keep at least one floor');
+    const index = indexModel(base);
+    for (const device of Object.values(floor.data.devices)) {
+      for (const port of device.ports) {
+        for (const connectionId of index.connectionsByPort.get(port.id) ?? []) {
+          if (index.connectionDocument.get(connectionId) === 'project')
+            delete draft.project.data.crossFloorConnections[connectionId];
+        }
+      }
+    }
+    for (const connection of Object.values(draft.project.data.crossFloorConnections)) {
+      const route = connection.route?.filter((segment) => segment.floorId !== floorId);
+      if (!route || route.length === connection.route?.length) continue;
+      if (route.length > 0) connection.route = route;
+      else delete connection.route;
+    }
+    delete draft.floors[floorId];
+  };
+
+/**
+ * Sets or (with null) removes the floor's background image placement. Walls and everything else
+ * stay where they are; only the image moves.
+ */
+export const setBackground =
+  (floorId: Id, background: FloorBackground | null): Edit =>
+  (draft) => {
+    const { data } = floorOf(draft, floorId);
+    if (background) data.background = background;
+    else delete data.background;
+  };
+
+/** Sets or (with null) removes the floor's plan scale. Like `setBackground`, it moves only the image. */
+export const setScale =
+  (floorId: Id, scale: FloorScale | null): Edit =>
+  (draft) => {
+    const { data } = floorOf(draft, floorId);
+    if (scale) data.scale = scale;
+    else delete data.scale;
+  };
+
+export const addBuilding =
+  (building: Building): Edit =>
+  (draft, base) => {
+    if (building.id in base.project.data.buildings)
+      throw new EditError(`Building ${building.id} already exists`);
+    draft.project.data.buildings[building.id] = building;
+  };
+
+export const updateBuilding =
+  (buildingId: Id, changes: Partial<Omit<Building, 'id'>>): Edit =>
+  (draft) => {
+    const building = draft.project.data.buildings[buildingId];
+    if (!building) throw new EditError(`Unknown building ${buildingId}`);
+    Object.assign(building, changes);
+  };
+
+/** Only a building without floors can be removed; its floors are deleted first, through the repository. */
+export const removeBuilding =
+  (buildingId: Id): Edit =>
+  (draft, base) => {
+    if (!(buildingId in base.project.data.buildings))
+      throw new EditError(`Unknown building ${buildingId}`);
+    if (Object.values(base.floors).some((floor) => floor.buildingId === buildingId))
+      throw new EditError(`Building ${buildingId} still has floors`);
+    delete draft.project.data.buildings[buildingId];
+  };
 
 /** Runs several edits as one undoable step. */
 export const combine =

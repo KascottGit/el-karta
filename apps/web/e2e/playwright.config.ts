@@ -11,7 +11,7 @@ const status = JSON.parse(
 ) as { API_URL: string; ANON_KEY: string; MAILPIT_URL: string };
 
 process.env['MAILPIT_URL'] = status.MAILPIT_URL;
-const port = 5174;
+const port = Number(process.env['E2E_PORT'] ?? 5174);
 
 export default defineConfig({
   testDir: '.',

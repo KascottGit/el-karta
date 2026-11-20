@@ -64,3 +64,7 @@ Boundaries are enforced by ESLint (`tooling/eslint/boundaries.js`) and tested in
 - Clients and agents always use the signed-in user's session, never the service role key (ADR 0004).
 - `pnpm dev` uses the hosted project from `.env.local`; integration and e2e tests always use the local stack.
 - Never commit `.env.local`, the service role key or AI provider keys. The client only ever gets the anon key.
+
+## Milestone workflow (sub-agents)
+
+Milestones are planned in `docs/milestones/M<n>.md` and built by `implementer` and `reviewer` sub-agents coordinated by an orchestrator session (ADR 0005). As an implementer: do only your task, stay inside its "Touches" list, and finish with the report format in `.claude/agents/implementer.md`. Branches: `m<n>-<slug>` for the milestone, `m<n>/t<k>-<slug>` for tasks.

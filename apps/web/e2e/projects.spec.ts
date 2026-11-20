@@ -1,17 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { expect, test, type Page } from '@playwright/test';
-import { magicLinkFor } from './mailpit';
-
-async function signIn(page: Page, email: string) {
-  await page.goto('/');
-  await expect(page).toHaveURL(/\/sign-in$/);
-  await page.getByLabel('E-post').fill(email);
-  await page.getByRole('button', { name: 'Skicka inloggningslänk' }).click();
-  await expect(page.getByRole('status')).toContainText(email);
-  await page.goto(await magicLinkFor(email));
-  await expect(page.getByRole('heading', { name: 'Projekt', exact: true })).toBeVisible();
-  await expect(page).not.toHaveURL(/code=/);
-}
+import { expect, test } from '@playwright/test';
+import { signIn } from './auth';
 
 test('two people sign in with magic links, and a shared project shows up for the second one', async ({
   browser,
@@ -49,7 +38,7 @@ test('two people sign in with magic links, and a shared project shows up for the
   ).toBeVisible();
   await shareEmail.fill(editorEmail);
   await owner.getByRole('button', { name: 'Dela' }).click();
-  await expect(owner.getByRole('status')).toHaveText('Projektet är delat.');
+  await expect(owner.getByRole('status').filter({ hasText: 'Projektet är delat.' })).toBeVisible();
 
   await editor.reload();
   await editor.getByRole('link', { name: new RegExp(projectName) }).click();

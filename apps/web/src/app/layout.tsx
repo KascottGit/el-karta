@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Link, Outlet } from 'react-router';
 import { supabase } from '@/app/supabase';
 import { useSession } from '@/features/auth/session-context';
+import { whenIdle } from '@/features/floorplan/save/autosave';
+import { repository } from '@/features/projects/queries';
+import { hasUnsavedChanges, modelStore } from '@/model/store';
 import { Button } from '@/ui/button';
 
 export function AppLayout() {
@@ -11,7 +14,19 @@ export function AppLayout() {
   const queryClient = useQueryClient();
 
   const signOut = async () => {
+    // Autosave cannot run once the session is gone, so save what is queued first.
+    while (modelStore.getState().saving) await whenIdle(modelStore);
+    if (hasUnsavedChanges(modelStore.getState())) {
+      await modelStore
+        .getState()
+        .save(repository)
+        .catch(() => undefined);
+    }
+    if (hasUnsavedChanges(modelStore.getState()) && !window.confirm(t('auth.signOutUnsaved'))) {
+      return;
+    }
     await supabase.auth.signOut();
+    modelStore.getState().clear();
     queryClient.clear();
   };
 

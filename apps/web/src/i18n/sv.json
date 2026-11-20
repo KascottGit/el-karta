@@ -5,7 +5,9 @@
   },
   "common": {
     "loading": "Laddar …",
-    "loadFailed": "Kunde inte hämta data. Försök igen."
+    "loadFailed": "Kunde inte hämta data. Försök igen.",
+    "save": "Spara",
+    "cancel": "Avbryt"
   },
   "nav": {
     "projects": "Projekt"
@@ -18,7 +20,8 @@
     "submit": "Skicka inloggningslänk",
     "sent": "Klart! Öppna länken som skickades till {{email}} i den här webbläsaren.",
     "failed": "Det gick inte att skicka länken. Försök igen om en stund.",
-    "signOut": "Logga ut"
+    "signOut": "Logga ut",
+    "signOutUnsaved": "Några ändringar kunde inte sparas och försvinner om du loggar ut. Logga ut ändå?"
   },
   "projectKind": {
     "home": "Bostad",
@@ -42,7 +45,24 @@
     "floors": "Våningar",
     "deviceCount_one": "{{count}} enhet",
     "deviceCount_other": "{{count}} enheter",
-    "notFound": "Projektet finns inte, eller så har du inte tillgång till det."
+    "notFound": "Projektet finns inte, eller så har du inte tillgång till det.",
+    "addFloor": "Lägg till våning",
+    "addBuilding": "Lägg till byggnad",
+    "newFloorName": "Plan {{number}}",
+    "newBuildingName": "Byggnad {{number}}",
+    "rename": "Byt namn på {{name}}",
+    "floorName": "Våningens namn",
+    "buildingName": "Byggnadens namn",
+    "moveUp": "Flytta {{name}} en våning upp",
+    "moveDown": "Flytta {{name}} en våning ned",
+    "deleteFloor": "Ta bort {{name}}",
+    "confirmDeleteFloor": "Ta bort {{name}}? Allt på våningen tas bort, även kopplingar till andra våningar. Det går inte att ångra.",
+    "confirmDelete": "Ta bort",
+    "lastFloor": "Ett projekt måste ha minst en våning.",
+    "removeBuilding": "Ta bort {{name}}",
+    "noFloors": "Inga våningar ännu.",
+    "addFloorFailed": "Det gick inte att lägga till våningen.",
+    "deleteFloorFailed": "Det gick inte att ta bort våningen."
   },
   "share": {
     "title": "Dela projektet",
@@ -54,8 +74,263 @@
     "notOwner": "Bara projektets ägare kan dela det.",
     "failed": "Det gick inte att dela projektet."
   },
+  "canvas": {
+    "toolbar": "Verktyg",
+    "sidePanel": "Egenskaper",
+    "tools": {
+      "select": "Markera"
+    },
+    "undo": "Ångra",
+    "redo": "Gör om",
+    "delete": "Ta bort markerade",
+    "zoomToFit": "Visa hela planen",
+    "issues": "Att kontrollera"
+  },
+  "snapping": {
+    "enabled": "Fäst mot hörn, väggar, rutnät och vinklar"
+  },
+  "areas": {
+    "tools": {
+      "room": "Rita rum",
+      "fillRoom": "Fyll rum mellan väggar",
+      "zone": "Rita zon"
+    },
+    "newRoom": "Rum {{number}}",
+    "newZone": "Zon {{number}}",
+    "room": "Rum",
+    "zone": "Zon",
+    "drawTitle": "Rita rum och zoner",
+    "drawHint": "Tryck för att sätta hörn. Avsluta genom att trycka på första hörnet, dubbeltrycka eller trycka Enter. Backsteg tar bort senaste hörnet. Esc sparar en giltig form och släpper annars den.",
+    "name": "Namn",
+    "type": "Typ av rum",
+    "ceilingHeight": "Takhöjd",
+    "ceilingHeightDefault": "{{height}} (våningens)",
+    "area": "Yta: {{area}} m²",
+    "editHint": "Dra i ett hörn för att flytta det, dra i en mittpunkt för att lägga till ett hörn, och släpp ett hörn på ett grannhörn för att ta bort det.",
+    "notEnclosed": "Väggarna omsluter inte den här punkten. Stäng glipan eller rita rummet.",
+    "roomType": {
+      "kitchen": "Kök",
+      "bathroom": "Badrum",
+      "hallway": "Hall",
+      "bedroom": "Sovrum",
+      "living_room": "Vardagsrum",
+      "laundry": "Tvättstuga",
+      "office": "Kontor",
+      "warehouse": "Lager",
+      "technical_room": "Teknikrum",
+      "other": "Övrigt"
+    }
+  },
+  "grid": {
+    "tool": "Rutnät",
+    "title": "Rutnät",
+    "empty": "Våningen har inget rutnät.",
+    "pointerHint": "Peka på planen för att se rutan.",
+    "pointerCell": "Ruta under pekaren: {{cell}}",
+    "selectionCell": "Ruta i rutnätet: {{cell}}",
+    "outside": "utanför rutnätet",
+    "axis": {
+      "x": "Lodräta linjer (A, B, C …)",
+      "y": "Vågräta linjer (1, 2, 3 …)"
+    },
+    "lineLabel": "Beteckning för linje {{label}}",
+    "linePosition": "Läge i meter för linje {{label}}",
+    "removeLine": "Ta bort linje {{label}}",
+    "addLine": "Lägg till linje",
+    "relabel": "Återställ beteckningar",
+    "remove": "Ta bort rutnätet",
+    "even": {
+      "title": "Jämnt rutnät",
+      "count": "Antal",
+      "spacing": "Avstånd (m)",
+      "start": {
+        "x": "Första x (m)",
+        "y": "Första y (m)"
+      },
+      "create": "Skapa rutnät",
+      "replace": "Ersätt rutnätet",
+      "fitFloor": "Anpassa till våningen"
+    }
+  },
   "notFound": {
     "title": "Sidan finns inte",
     "back": "Till startsidan"
+  },
+  "editor": {
+    "back": "← Till projektet",
+    "floorNotFound": "Våningen finns inte i projektet.",
+    "floor": "Våning",
+    "unknownSize": "Okänd storlek. Välj en av: {{sizes}}"
+  },
+  "save": {
+    "saved": "Sparat",
+    "unsaved": "Osparade ändringar",
+    "saving": "Sparar …",
+    "failed": "Inte sparat",
+    "failedHint": "Ändringarna finns kvar medan sidan är öppen och sparas automatiskt så snart det går.",
+    "retry": "Försök igen",
+    "conflicts": {
+      "button_one": "{{count}} ändring kunde inte sparas",
+      "button_other": "{{count}} ändringar kunde inte sparas",
+      "title": "Ändringar som inte kunde sparas",
+      "explanation": "Någon annan sparade i projektet samtidigt som du. Deras version gäller nu, och ändringarna nedan gick inte att lägga ovanpå den. Gör om dem om de fortfarande behövs.",
+      "change": "Din ändring av {{subjects}} kunde inte sparas eftersom någon annan tog bort det du ändrade.",
+      "remove": "Din borttagning av {{subjects}} kunde inte sparas eftersom någon annan redan hade tagit bort något av det.",
+      "onFloor": "På {{floor}}",
+      "dismiss": "Okej",
+      "dismissAll": "Rensa listan"
+    },
+    "subject": {
+      "wall": "väggen",
+      "opening": "öppningen",
+      "door": "dörren",
+      "window": "fönstret",
+      "passage": "passagen",
+      "room": "rummet",
+      "roomNamed": "rummet ”{{name}}”",
+      "zone": "zonen",
+      "zoneNamed": "zonen ”{{name}}”",
+      "device": "enheten",
+      "deviceNamed": "enheten ”{{name}}”",
+      "connection": "kopplingen",
+      "building": "byggnaden",
+      "buildingNamed": "byggnaden ”{{name}}”",
+      "floor": "våningen",
+      "grid": "rutnätet",
+      "background": "bakgrundsbilden",
+      "scale": "skalan",
+      "project": "projektet",
+      "more_one": "{{count}} sak till",
+      "more_other": "{{count}} saker till"
+    }
+  },
+  "unsavedProject": {
+    "message": "Ändringar i projektet ”{{name}}” har inte kunnat sparas än. Spara dem innan du öppnar ett annat projekt, eller släng dem.",
+    "retry": "Försök spara igen",
+    "discard": "Släng ändringarna"
+  },
+  "walls": {
+    "tool": "Vägg",
+    "newWalls": "Nya väggar",
+    "interior": "Innervägg",
+    "exterior": "Yttervägg",
+    "preset": "{{label}} {{thickness}} m",
+    "hint": "Klicka för att sätta ut hörn. Avsluta med dubbelklick, Enter, Esc eller ett klick på sista punkten. Håll Alt för att inte fästa.",
+    "touchHint": "Tryck för att sätta ut hörn, eller dra från sista punkten och släpp där nästa ska vara. Avsluta genom att trycka på sista punkten igen.",
+    "lengthLabel": "{{length}} m",
+    "properties": "Vägg",
+    "selectedCount": "{{count}} väggar",
+    "length": "Längd",
+    "thickness": "Tjocklek",
+    "height": "Höjd",
+    "heightDefault": "Våningens höjd",
+    "delete": "Ta bort väggen",
+    "deleteMany": "Ta bort {{count}} väggar"
+  },
+  "openings": {
+    "kinds": {
+      "door": "Dörr",
+      "window": "Fönster",
+      "passage": "Passage"
+    },
+    "new": {
+      "door": "Ny dörr",
+      "window": "Nytt fönster",
+      "passage": "Ny passage"
+    },
+    "hint": "Klicka på en vägg för att sätta ut. Dra en dörr, ett fönster eller en passage för att flytta den längs väggen.",
+    "touchHint": "Tryck på en vägg för att sätta ut. Dra en dörr, ett fönster eller en passage för att flytta den längs väggen.",
+    "notOnWall": "Klicka eller tryck på en vägg.",
+    "tooShort": "Väggen är för kort.",
+    "noRoom": "Det finns ingen ledig plats på väggen.",
+    "selectedCount": "{{count}} dörrar, fönster och passager",
+    "kind": "Typ",
+    "width": "Bredd",
+    "height": "Höjd",
+    "sill": "Bröstningshöjd",
+    "flipHinge": "Byt gångjärnssida",
+    "flipSwing": "Byt öppningshåll",
+    "delete": "Ta bort",
+    "deleteMany": "Ta bort {{count}}"
+  },
+  "issues": {
+    "wall": {
+      "zero-length": "Väggen saknar längd."
+    },
+    "opening": {
+      "outside-wall": "Dörren, fönstret eller passagen når utanför väggens ände.",
+      "overlap": "Dörren, fönstret eller passagen överlappar en annan på samma vägg.",
+      "wall-missing": "Väggen som dörren, fönstret eller passagen sitter i finns inte."
+    },
+    "placement": {
+      "offset-beyond-wall": "En enhet sitter bortom väggens ände.",
+      "outside-room_one": "{{count}} takmonterad enhet ligger utanför rummet.",
+      "outside-room_other": "{{count}} takmonterade enheter ligger utanför rummet."
+    },
+    "room": {
+      "polygon-too-few-points": "Rummet behöver minst tre hörn.",
+      "polygon-repeated-point": "Rummet har två hörn på samma ställe.",
+      "polygon-zero-area": "Rummet har ingen yta.",
+      "polygon-self-intersecting": "Rummets kontur korsar sig själv."
+    },
+    "zone": {
+      "polygon-too-few-points": "Zonen behöver minst tre hörn.",
+      "polygon-repeated-point": "Zonen har två hörn på samma ställe.",
+      "polygon-zero-area": "Zonen har ingen yta.",
+      "polygon-self-intersecting": "Zonens kontur korsar sig själv."
+    }
+  },
+  "background": {
+    "tool": "Bakgrund",
+    "scaleTool": "Skala",
+    "title": "Planritning i bakgrunden",
+    "empty": "Ladda upp en planritning att rita av, som bild (PNG, JPEG, WebP) eller PDF.",
+    "chooseFile": "Välj planritning …",
+    "replace": "Byt planritning …",
+    "reading": "Öppnar PDF:en …",
+    "pickPage_one": "PDF:en har {{count}} sida. Välj den som visar våningen.",
+    "pickPage_other": "PDF:en har {{count}} sidor. Välj den som visar våningen.",
+    "page": "Sida {{page}}",
+    "rendering": "Förbereder sida {{page}} …",
+    "uploading": "Laddar upp …",
+    "failed": {
+      "unsupported": "Den filtypen går inte att använda. Välj en PNG-, JPEG-, WebP- eller PDF-fil.",
+      "pdf": "PDF:en gick inte att öppna.",
+      "upload": "Det gick inte att ladda upp filen. Kontrollera anslutningen och att du får redigera projektet."
+    },
+    "pdfPage": "Sida {{page}} ur PDF:en.",
+    "imageLoading": "Hämtar bilden …",
+    "imageFailed": "Bilden gick inte att visa.",
+    "retry": "Försök igen",
+    "opacity": "Synlighet {{percent}} %",
+    "placeHint": "Flytta och vrid bilden med handtagen på ritytan eller med fälten nedan. Väggar och annat du ritat flyttas inte.",
+    "x": "Läge x",
+    "y": "Läge y",
+    "rotation": "Vridning",
+    "rotate90": "Vrid 90°",
+    "remove": "Ta bort bakgrunden",
+    "measure": "Mät skala",
+    "scaleNotSet": "Skalan är inte satt. Mät ett känt avstånd på ritningen så att den blir rätt.",
+    "scaleValue": "Skala: 1 bildpunkt = {{mm}} mm ({{source}}).",
+    "scaleSource": {
+      "user": "uppmätt",
+      "dimension_text": "från måttangivelse",
+      "ai_estimate": "uppskattad"
+    },
+    "measureNeedsBackground": "Ladda upp en planritning först. Skalan mäts på den.",
+    "measureStart": "Tryck på ena änden av ett känt mått, till exempel en vägg med utskrivet mått.",
+    "measureEnd": "Tryck på andra änden av måttet.",
+    "measureAdjust": "Dra i punkterna för att träffa exakt. Zooma in för bättre noggrannhet.",
+    "realLength": "Verklig längd (m)",
+    "realLengthExample": "t.ex. 3,6",
+    "invalidLength": "Ange en längd större än noll, till exempel 3,6.",
+    "setScale": "Sätt skala",
+    "scaleApplied": "Skalan är satt.",
+    "metres": "{{value}} m",
+    "degrees": "°"
+  },
+  "fields": {
+    "mixed": "Olika",
+    "metres": "m"
   }
 }
