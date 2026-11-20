@@ -1,11 +1,5 @@
-import {
-  combine,
-  putSpaceItem,
-  removeSpaceItem,
-  type IssueSeverity,
-  type Opening,
-} from '@el-karta/core';
-import { FlipHorizontal2, FlipVertical2, TriangleAlert } from 'lucide-react';
+import { combine, putSpaceItem, removeSpaceItem, type Opening } from '@el-karta/core';
+import { FlipHorizontal2, FlipVertical2 } from 'lucide-react';
 import { useId, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { modelStore, useModelStore } from '@/model/store';
@@ -15,7 +9,9 @@ import type { CanvasContext } from '../canvas/extension';
 import { issueColors } from '../canvas/theme';
 import { DecimalField } from '../fields/decimal-field';
 import { positive, sharedValue } from '../fields/numbers';
-import { openingIssues, type OpeningIssueCode } from './opening-issues';
+import { IssueList } from '../validation/issue-list';
+import { summarizeIssues } from '../validation/issue-summary';
+import { openingIssues } from './opening-issues';
 import { isOpeningTool } from './opening-tools';
 import { useOpeningsStore } from './openings-store';
 import { flipHinge, flipSwing, OPENING_KINDS, resizeOpenings, withKind } from './placement';
@@ -56,17 +52,11 @@ export function OpeningPropsPanel({ ctx }: { ctx: CanvasContext }) {
         : [],
     [floor, selection],
   );
-  const issues = useMemo(() => {
-    if (!floor) return [];
-    const byCode = new Map<OpeningIssueCode, { severity: IssueSeverity; count: number }>();
-    for (const opening of openings) {
-      for (const { code, severity } of openingIssues(floor).get(opening.id) ?? []) {
-        const seen = byCode.get(code);
-        byCode.set(code, { severity, count: (seen?.count ?? 0) + 1 });
-      }
-    }
-    return [...byCode];
-  }, [floor, openings]);
+  const issues = useMemo(
+    () =>
+      floor ? summarizeIssues(openings.flatMap((o) => openingIssues(floor).get(o.id) ?? [])) : [],
+    [floor, openings],
+  );
   const single = openings.length === 1 ? openings[0] : undefined;
   if (!floor || openings.length === 0) return null;
   const kind = sharedValue(openings.map((o) => o.kind));
@@ -169,23 +159,7 @@ export function OpeningPropsPanel({ ctx }: { ctx: CanvasContext }) {
           </Button>
         </div>
       )}
-      {issues.length > 0 && (
-        <ul className="flex flex-col gap-1 text-sm" aria-label={t('openings.issues')}>
-          {issues.map(([code, { severity, count }]) => (
-            <li
-              key={code}
-              className="flex items-start gap-2"
-              style={{ color: issueColors[severity] }}
-            >
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>
-                {t(`issues.${code}`)}
-                {count > 1 && ` (${String(count)})`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <IssueList issues={issues} />
       <Button
         variant="destructive"
         onClick={() => {

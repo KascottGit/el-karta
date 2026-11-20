@@ -51,6 +51,16 @@ describe('opening symbol', () => {
     expect([passage.leaf, passage.arc, passage.panes]).toEqual([undefined, undefined, undefined]);
   });
 
+  it('clips the gap at the wall end and outlines the rest as an overhang', () => {
+    const partly = openingSymbol(w, { ...door, offset: 4.5 })!;
+    close(partly.gap, [4.5, -0.1, 5, -0.1, 5, 0.1, 4.5, 0.1]);
+    close(partly.overhang, [5, -0.1, 5.5, -0.1, 5.5, 0.1, 5, 0.1]);
+    const beyond = openingSymbol(w, { ...door, offset: 6 })!;
+    expect(beyond.gap).toBeUndefined();
+    close(beyond.overhang, [6, -0.1, 7, -0.1, 7, 0.1, 6, 0.1]);
+    expect(openingSymbol(w, door)!.overhang).toBeUndefined();
+  });
+
   it('is null on a wall without length', () => {
     expect(openingSymbol(wall(pt(1, 1), pt(1, 1)), door)).toBeNull();
   });

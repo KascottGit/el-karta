@@ -1,5 +1,4 @@
 import { combine, removeSpaceItem, wallLength, type Wall } from '@el-karta/core';
-import { TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { modelStore, useModelStore } from '@/model/store';
@@ -9,7 +8,9 @@ import type { CanvasContext } from '../canvas/extension';
 import { DecimalField } from '../fields/decimal-field';
 import { formatDecimal, positive, sharedValue } from '../fields/numbers';
 import { MIN_WALL_LENGTH, putWalls, setLength } from './corner';
-import { wallIssues, type WallIssueCode } from './wall-issues';
+import { IssueList } from '../validation/issue-list';
+import { summarizeIssues } from '../validation/issue-summary';
+import { wallIssues } from './wall-issues';
 import { WALL_THICKNESS, useWallsStore, wallsStore } from './walls-store';
 import { SnappingToggle } from '../snapping/snapping-toggle';
 
@@ -70,15 +71,10 @@ export function WallPropsPanel({ ctx }: { ctx: CanvasContext }) {
         : [],
     [floor, selection],
   );
-  const issues = useMemo(() => {
-    if (!floor) return [];
-    const counts = new Map<WallIssueCode, number>();
-    for (const wall of walls) {
-      for (const issue of wallIssues(floor).get(wall.id) ?? [])
-        counts.set(issue.code, (counts.get(issue.code) ?? 0) + 1);
-    }
-    return [...counts];
-  }, [floor, walls]);
+  const issues = useMemo(
+    () => (floor ? summarizeIssues(walls.flatMap((w) => wallIssues(floor).get(w.id) ?? [])) : []),
+    [floor, walls],
+  );
   const single = walls.length === 1 ? walls[0] : undefined;
   if (!floor || walls.length === 0) return null;
   const thickness = sharedValue(walls.map((w) => w.thickness));
@@ -135,19 +131,7 @@ export function WallPropsPanel({ ctx }: { ctx: CanvasContext }) {
           });
         }}
       />
-      {issues.length > 0 && (
-        <ul className="flex flex-col gap-1 text-sm" aria-label={t('walls.issues')}>
-          {issues.map(([code, count]) => (
-            <li key={code} className="flex items-start gap-2 text-amber-700">
-              <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
-              <span>
-                {t(`issues.${code}`)}
-                {count > 1 && ` (${String(count)})`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <IssueList issues={issues} />
       <Button
         variant="destructive"
         onClick={() => {

@@ -3,7 +3,7 @@ import type Konva from 'konva';
 import { memo, useMemo } from 'react';
 import { Shape } from 'react-konva';
 import { handle, nodeProps, selectable } from '../canvas/hit';
-import { canvasColors } from '../canvas/theme';
+import { canvasColors, issueColors } from '../canvas/theme';
 import { wallColors } from '../walls/colors';
 import { openingSlide } from './opening-handle';
 import { openingSymbol, type OpeningSymbol } from './symbol';
@@ -42,12 +42,21 @@ const drawSymbol =
   (symbol: OpeningSymbol, look: OpeningLook) => (context: Konva.Context, shape: Konva.Shape) => {
     const px = 1 / shape.getAbsoluteScale().x;
     const colors = looks[look];
-    context.beginPath();
-    path(context, symbol.gap);
-    context.closePath();
-    context.setAttr('fillStyle', colors.gap);
-    context.fill();
-    stroke(context, colors.edge, px);
+    if (symbol.gap) {
+      context.beginPath();
+      path(context, symbol.gap);
+      context.closePath();
+      context.setAttr('fillStyle', colors.gap);
+      context.fill();
+      stroke(context, colors.edge, px);
+    }
+    // Beyond the wall's end there is no wall to cut, so the overhang is only outlined.
+    if (symbol.overhang) {
+      context.beginPath();
+      path(context, symbol.overhang);
+      context.closePath();
+      stroke(context, issueColors.error, 2 * px);
+    }
     if (symbol.width < DETAIL_PX * px) return;
     if (symbol.arc) {
       context.beginPath();
@@ -67,12 +76,14 @@ const drawSymbol =
   };
 
 /** Only the gap can be hit, so taps in the room under a door's swing reach the room. */
-const hitGap = (gap: readonly number[]) => (context: Konva.Context, shape: Konva.Shape) => {
-  context.beginPath();
-  path(context, gap);
-  context.closePath();
-  context.fillStrokeShape(shape);
-};
+const hitGap =
+  (gap: readonly number[] | undefined) => (context: Konva.Context, shape: Konva.Shape) => {
+    if (!gap) return;
+    context.beginPath();
+    path(context, gap);
+    context.closePath();
+    context.fillStrokeShape(shape);
+  };
 
 /**
  * A door, window or passage in its wall: a gap over the wall, plus a door's open leaf and swing

@@ -16,7 +16,9 @@ const ARC_STEPS = 16;
 /** Flat point lists in world coordinates, ready for Konva `Line`s. */
 export interface OpeningSymbol {
   /** The part of the wall the opening takes up, as a closed quad drawn over the wall. */
-  gap: number[];
+  gap?: number[];
+  /** The part of an opening beyond the wall's end `b`, which the validator flags. */
+  overhang?: number[];
   centre: Pt;
   width: number;
   /** A door's leaf, drawn fully open. */
@@ -29,23 +31,28 @@ export interface OpeningSymbol {
 
 const flat = (points: readonly Pt[]) => points.flatMap((p) => [p.x, p.y]);
 
-/**
- * How an opening is drawn in its wall. See `doorFacing` in `placement.ts` for what `hinge` and
- * `swing` mean. Null for a wall without length.
- */
+/** How an opening is drawn in its wall; ADR 0006 says what `hinge` and `swing` mean. Null for a wall without length. */
 export function openingSymbol(wall: Wall, opening: Opening): OpeningSymbol | null {
-  if (wallLength(wall) < EPSILON) return null;
+  const length = wallLength(wall);
+  if (length < EPSILON) return null;
   const dir = normalize(sub(wall.b, wall.a));
   const normal = leftNormal(dir);
   const half = wall.thickness / 2;
   const start = add(wall.a, scale(dir, opening.offset));
   const end = add(wall.a, scale(dir, opening.offset + opening.width));
   const across = (p: Pt, k: number) => add(p, scale(normal, k));
+  const span = (from: number, to: number) => {
+    const s = add(wall.a, scale(dir, from));
+    const e = add(wall.a, scale(dir, to));
+    return flat([across(s, half), across(e, half), across(e, -half), across(s, -half)]);
+  };
+  const far = opening.offset + opening.width;
   const symbol: OpeningSymbol = {
-    gap: flat([across(start, half), across(end, half), across(end, -half), across(start, -half)]),
     centre: scale(add(start, end), 0.5),
     width: opening.width,
   };
+  if (opening.offset < length - EPSILON) symbol.gap = span(opening.offset, Math.min(far, length));
+  if (far > length + EPSILON) symbol.overhang = span(Math.max(opening.offset, length), far);
   if (opening.kind === 'window') {
     const k = half / 3;
     symbol.panes = [

@@ -19,7 +19,9 @@ export const Opening = z.object({
   width: z.number().positive(),
   height: z.number().positive(),
   sill: z.number().nonnegative().optional(),
+  /** Which end of the opening the hinge is at; see ADR 0006 for the convention. */
   hinge: z.enum(['left', 'right']).optional(),
+  /** Which side of the wall the door opens to; see ADR 0006 for the convention. */
   swing: z.enum(['in', 'out']).optional(),
   provenance: Provenance,
 });

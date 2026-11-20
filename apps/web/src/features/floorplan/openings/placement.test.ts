@@ -2,7 +2,6 @@ import type { Opening, WallHit } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
 import { pt, wall } from '../walls/test-fixtures';
 import {
-  doorFacing,
   fitOffset,
   flipHinge,
   flipSwing,
@@ -126,7 +125,6 @@ describe('placeOpening', () => {
     const right = placeOpening(floorWith(), 'door', hit(2, 'right'), OPENING_DEFAULTS.door, 'n');
     expect(left.ok && [left.opening.hinge, left.opening.swing]).toEqual(['right', 'in']);
     expect(right.ok && [right.opening.hinge, right.opening.swing]).toEqual(['left', 'out']);
-    expect(doorFacing('left')).toEqual({ hinge: 'right', swing: 'in' });
   });
 
   it('gives a passage no sill, hinge or swing', () => {

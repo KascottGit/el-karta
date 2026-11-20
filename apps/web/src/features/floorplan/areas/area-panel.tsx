@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { useModelStore } from '@/model/store';
 import { Label } from '@/ui/label';
 import type { CanvasContext } from '../canvas/extension';
-import { issueColors } from '../canvas/theme';
 import { useCanvasState } from '../canvas/use-canvas-state';
 import { CommitInput } from '../fields/commit-input';
 import { DecimalField } from '../fields/decimal-field';
 import { formatDecimal, positive } from '../fields/numbers';
 import { SnappingToggle } from '../snapping/snapping-toggle';
+import { IssueList } from '../validation/issue-list';
 import { updateArea, withCeilingHeight, type AreaCollection } from './area-edits';
 import { areaIssues } from './area-issues';
 import { selectedArea } from './selected-area';
@@ -127,15 +127,7 @@ function AreaFields({
       <p className="text-sm">
         {t('areas.area', { area: formatDecimal(Math.abs(signedArea(area.polygon)), 1) })}
       </p>
-      {issues && issues.length > 0 && (
-        <ul className="flex flex-col gap-1 text-sm">
-          {issues.map((issue) => (
-            <li key={issue.code} style={{ color: issueColors[issue.severity] }}>
-              {t(issue.message, { count: issue.count })}
-            </li>
-          ))}
-        </ul>
-      )}
+      <IssueList issues={issues ?? []} />
       <p className="text-xs text-muted-foreground">{t('areas.editHint')}</p>
     </section>
   );

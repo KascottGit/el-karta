@@ -1,4 +1,5 @@
 import {
+  doorFacing,
   EPSILON,
   normalize,
   sub,
@@ -70,14 +71,6 @@ export function fitOffset(
   }
   return best === null ? null : clamp(best, 0, max);
 }
-
-/**
- * A door's hinge and swing for a person tapping from `side` of the wall: the door opens towards
- * them and is hinged on their left, whichever way the wall was drawn. `hinge: 'left'` puts the
- * hinge at the opening's end towards wall end `a`; `swing: 'in'` opens to the wall's left side.
- */
-export const doorFacing = (side: WallHit['side']): Pick<Opening, 'hinge' | 'swing'> =>
-  side === 'left' ? { hinge: 'right', swing: 'in' } : { hinge: 'left', swing: 'out' };
 
 export type Placement =
   { ok: true; opening: Opening } | { ok: false; reason: 'too-short' | 'no-room' };

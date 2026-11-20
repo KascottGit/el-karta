@@ -43,7 +43,7 @@ export function OpeningsLayer({ ctx }: { ctx: CanvasContext }) {
   const selection = useEditorStore((s) => s.selection);
   // The opening being dragged is drawn by the overlay meanwhile.
   const dragged = useOpeningsStore((s) => (s.drag?.floorId === ctx.floorId ? s.drag.id : null));
-  // Walls whose corner is being dragged are drawn without their openings until the drop.
+  // Openings on walls whose corner is being dragged are drawn by the overlay meanwhile.
   const moving = useWallsStore((s) =>
     s.drag?.floorId === ctx.floorId ? s.drag.moving : NOT_MOVING,
   );

@@ -123,3 +123,55 @@ test('placing a door and a window on a new wall, sliding the door and undoing it
   await panel.getByRole('button', { name: 'Byt gångjärnssida' }).click();
   expect((await doorById()).hinge).not.toBe(hinge);
 });
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test('a finger tap on a wall places a door there, and tapping it shows its panel', async ({
+    page,
+  }) => {
+    const toPage = await openSmall(page);
+    const canvas = (await page.getByTestId('floor-editor-canvas').boundingBox())!;
+    const { walls, openings } = await readFloor(page);
+
+    // A spot on a wall in the top of the view, clear of the side panel sheet, where a door fits
+    // without being nudged.
+    const spot = walls
+      .flatMap((wall) => {
+        const length = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
+        return [0.25, 0.5, 0.75].map((f) => {
+          const t = f * length;
+          const at = {
+            x: wall.a.x + ((wall.b.x - wall.a.x) * t) / length,
+            y: wall.a.y + ((wall.b.y - wall.a.y) * t) / length,
+          };
+          return { wall, t, length, screen: toPage(at) };
+        });
+      })
+      .find(
+        ({ wall, t, length, screen }) =>
+          t >= 0.6 &&
+          t <= length - 0.6 &&
+          screen.x > canvas.x + 20 &&
+          screen.x < canvas.x + canvas.width - 20 &&
+          screen.y > canvas.y + 20 &&
+          screen.y < canvas.y + canvas.height * 0.4 &&
+          openings.every(
+            (o) => o.wallId !== wall.id || o.offset >= t + 0.5 || o.offset + o.width <= t - 0.5,
+          ),
+      )!;
+    expect(spot).toBeDefined();
+
+    await page.getByRole('button', { name: 'Dörr', exact: true }).tap();
+    await page.touchscreen.tap(spot.screen.x, spot.screen.y);
+    const door = (await readFloor(page)).openings.find(
+      (o) => o.wallId === spot.wall.id && !openings.some((before) => before.id === o.id),
+    )!;
+    expect(door).toMatchObject({ kind: 'door', width: 0.9 });
+    expect(door.offset).toBeCloseTo(spot.t - 0.45, 1);
+
+    await page.getByRole('button', { name: 'Markera', exact: true }).tap();
+    await page.touchscreen.tap(spot.screen.x, spot.screen.y);
+    await expect(page.getByRole('region', { name: 'Dörr', exact: true })).toBeVisible();
+  });
+});
