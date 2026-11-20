@@ -1,13 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
-import { EDITOR_STORE, readEditor } from './app-modules';
+import { readEditor, readOpenFloor, type Pt } from './app-modules';
+import { openSynthetic } from './editor';
 import { installFrameProbe, nextFrame, stats } from './frame-probe';
-
-const MODEL_STORE = '/src/model/store.ts';
-
-interface Pt {
-  x: number;
-  y: number;
-}
 
 interface WallSnapshot {
   id: string;
@@ -16,37 +10,10 @@ interface WallSnapshot {
 }
 
 /** The walls of the floor open in the editor. */
-const readWalls = (page: Page) =>
-  page.evaluate(
-    async ([modelUrl, editorUrl]) => {
-      const { modelStore } = (await import(/* @vite-ignore */ modelUrl!)) as {
-        modelStore: {
-          getState(): {
-            model: { floors: Record<string, { data: { walls: Record<string, WallSnapshot> } }> };
-          };
-        };
-      };
-      const { editorStore } = (await import(/* @vite-ignore */ editorUrl!)) as {
-        editorStore: { getState(): { floorId: string } };
-      };
-      const floor = modelStore.getState().model.floors[editorStore.getState().floorId]!;
-      return Object.values(floor.data.walls);
-    },
-    [MODEL_STORE, EDITOR_STORE],
+const readWalls = async (page: Page) =>
+  Object.values(
+    (await readOpenFloor<{ walls: Record<string, WallSnapshot> }>(page, ['walls'])).walls,
   );
-
-async function open(page: Page, size: 'small' | 'large') {
-  await page.goto(`/dev/synthetic/${size}`);
-  const canvas = page.getByTestId('floor-editor-canvas');
-  await expect(canvas.locator('canvas').first()).toBeVisible();
-  const box = (await canvas.boundingBox())!;
-  const { viewport } = await readEditor(page);
-  const toPage = (world: Pt) => ({
-    x: box.x + world.x * viewport.scale + viewport.x,
-    y: box.y + world.y * viewport.scale + viewport.y,
-  });
-  return { toPage, scale: viewport.scale };
-}
 
 const added = (before: WallSnapshot[], after: WallSnapshot[]) => {
   const ids = new Set(before.map((w) => w.id));
@@ -63,7 +30,7 @@ const L = [
 ];
 
 test('drawing walls with the mouse, undoing them, and dragging a corner', async ({ page }) => {
-  const { toPage } = await open(page, 'small');
+  const toPage = await openSynthetic(page, 'small');
   const before = await readWalls(page);
   await page.keyboard.press('w');
   await expect(page.getByRole('button', { name: 'Vägg', exact: true })).toHaveAttribute(
@@ -112,7 +79,7 @@ test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
   test('tapping places corners and tapping the last one finishes', async ({ page }) => {
-    const { toPage } = await open(page, 'small');
+    const toPage = await openSynthetic(page, 'small');
     const before = await readWalls(page);
     await page.getByRole('button', { name: 'Vägg', exact: true }).tap();
     for (const p of L) {
@@ -134,7 +101,7 @@ test('drawing 20 walls on the busiest floor of the large project stays within a 
   page,
 }) => {
   await page.addInitScript(installFrameProbe);
-  const { toPage } = await open(page, 'large');
+  const toPage = await openSynthetic(page, 'large');
   const before = await readWalls(page);
   await page.keyboard.press('w');
   await page.evaluate(() => {

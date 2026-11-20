@@ -1,12 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import { EDITOR_STORE, readEditor } from './app-modules';
-
-const MODEL_STORE = '/src/model/store.ts';
-
-interface Pt {
-  x: number;
-  y: number;
-}
+import { readOpenFloor, readSelection, type Pt } from './app-modules';
+import { openSynthetic } from './editor';
 
 interface AreaSnapshot {
   id: string;
@@ -21,45 +15,18 @@ interface AreasSnapshot {
 }
 
 /** The rooms and zones of the floor open in the editor, and the selection. */
-const readAreas = (page: Page) =>
-  page.evaluate(
-    async ([modelUrl, editorUrl]) => {
-      type Areas = Record<string, AreaSnapshot>;
-      const { modelStore } = (await import(/* @vite-ignore */ modelUrl!)) as {
-        modelStore: {
-          getState(): {
-            model: { floors: Record<string, { data: { rooms: Areas; zones: Areas } }> };
-          };
-        };
-      };
-      const { editorStore } = (await import(/* @vite-ignore */ editorUrl!)) as {
-        editorStore: {
-          getState(): { floorId: string; selection: AreasSnapshot['selection'] };
-        };
-      };
-      const { floorId, selection } = editorStore.getState();
-      const { data } = modelStore.getState().model.floors[floorId]!;
-      return {
-        rooms: Object.values(data.rooms),
-        zones: Object.values(data.zones),
-        selection: [...selection],
-      };
-    },
-    [MODEL_STORE, EDITOR_STORE],
-  );
-
-async function openSmall(page: Page) {
-  await page.goto('/dev/synthetic/small');
-  const canvas = page.getByTestId('floor-editor-canvas');
-  await expect(canvas.locator('canvas').first()).toBeVisible();
-  const box = (await canvas.boundingBox())!;
-  const { viewport } = await readEditor(page);
-  const toPage = (world: Pt) => ({
-    x: box.x + world.x * viewport.scale + viewport.x,
-    y: box.y + world.y * viewport.scale + viewport.y,
-  });
-  return { toPage, scale: viewport.scale };
-}
+const readAreas = async (page: Page): Promise<AreasSnapshot> => {
+  type Areas = Record<string, AreaSnapshot>;
+  const { rooms, zones } = await readOpenFloor<{ rooms: Areas; zones: Areas }>(page, [
+    'rooms',
+    'zones',
+  ]);
+  return {
+    rooms: Object.values(rooms),
+    zones: Object.values(zones),
+    selection: await readSelection(page),
+  };
+};
 
 const centre = (polygon: Pt[]) => ({
   x: polygon.reduce((s, p) => s + p.x, 0) / polygon.length,
@@ -73,7 +40,7 @@ const topRoom = (areas: AreasSnapshot) =>
 test('filling a room between walls selects it; dragging a corner is undone in one step', async ({
   page,
 }) => {
-  const { toPage } = await openSmall(page);
+  const toPage = await openSynthetic(page, 'small');
   const before = await readAreas(page);
   const room = topRoom(before);
   const inside = toPage(centre(room.polygon));
@@ -118,7 +85,7 @@ test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 
   test('a zone is drawn with finger taps and closed on its first corner', async ({ page }) => {
-    const { toPage } = await openSmall(page);
+    const toPage = await openSynthetic(page, 'small');
     const before = await readAreas(page);
     const c = centre(topRoom(before).polygon);
     const corners = [

@@ -1,5 +1,13 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { countRenderWindowChanges, EDITOR_STORE, readEditor, readTestHandle } from './app-modules';
+import {
+  countRenderWindowChanges,
+  EDITOR_STORE,
+  MODEL_STORE,
+  readEditor,
+  readTestHandle,
+  worldToPage,
+  type Pt,
+} from './app-modules';
 
 /** Konva draws on the next animation frame, so wait until two screenshots agree. */
 async function settledScreenshot(locator: Locator) {
@@ -20,19 +28,11 @@ async function openSmall(page: Page, query = '') {
 
 /** Opens the editor with the dev test handle and returns its position on the page. */
 async function openWithTestHandle(page: Page) {
-  const { box } = await openSmall(page, '?test-handle');
+  await openSmall(page, '?test-handle');
   const { viewport } = await readEditor(page);
   const { at } = await readTestHandle(page);
-  const toPage = (world: { x: number; y: number }) => ({
-    x: box.x + world.x * viewport.scale + viewport.x,
-    y: box.y + world.y * viewport.scale + viewport.y,
-  });
+  const toPage = await worldToPage(page);
   return { viewport, start: at, handle: toPage(at), toWorld: (dx: number) => dx / viewport.scale };
-}
-
-interface Pt {
-  x: number;
-  y: number;
 }
 
 /** The selected item ids, and a point on the topmost wall of the open floor, clear of its openings. */
@@ -66,7 +66,7 @@ const readTopWall = (page: Page) =>
         middle: { x: top.a.x + 0.15 * (top.b.x - top.a.x), y: top.a.y },
       };
     },
-    ['/src/model/store.ts', EDITOR_STORE] as const,
+    [MODEL_STORE, EDITOR_STORE] as const,
   );
 
 /**
