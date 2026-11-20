@@ -6,6 +6,7 @@ export const sub = (a: Pt, b: Pt): Pt => ({ x: a.x - b.x, y: a.y - b.y });
 export const add = (a: Pt, b: Pt): Pt => ({ x: a.x + b.x, y: a.y + b.y });
 export const scale = (a: Pt, k: number): Pt => ({ x: a.x * k, y: a.y * k });
 export const cross = (a: Pt, b: Pt): number => a.x * b.y - a.y * b.x;
+export const dot = (a: Pt, b: Pt): number => a.x * b.x + a.y * b.y;
 export const length = (a: Pt): number => Math.hypot(a.x, a.y);
 export const distance = (a: Pt, b: Pt): number => length(sub(a, b));
 

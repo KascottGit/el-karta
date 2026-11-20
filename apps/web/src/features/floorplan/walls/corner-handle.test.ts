@@ -3,6 +3,7 @@ import { modelStore } from '@/model/store';
 import { cornerHandle } from './corner-handle';
 import { pointer, projectWith, pt, testCtx, wall } from './test-fixtures';
 import { wallsStore } from './walls-store';
+import { setSnapping } from '../snapping/snapping';
 
 const top = wall(pt(0, 0), pt(4, 0), 0.2, 'top');
 const side = wall(pt(4, 0), pt(4, 3), 0.2, 'side');
@@ -23,7 +24,8 @@ beforeEach(() => {
   const project = projectWith([top, side, other]);
   floorId = project.floorId;
   modelStore.getState().load(project.model, { discardUnsaved: true });
-  wallsStore.setState({ snapping: true, drag: null, snap: null });
+  wallsStore.setState({ drag: null, snap: null });
+  setSnapping(true);
 });
 
 describe('corner handle', () => {
