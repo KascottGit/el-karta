@@ -9,6 +9,8 @@ const BUDGET_MS = STRICT ? 16 : 100;
 const SWEEPS = 6;
 const STEP_PX = 12;
 const MODEL_STORE = '/src/model/store.ts';
+/** The Konva layer that holds the model: redrawing it on the large project is the expensive part. */
+const MODEL_LAYER = 'areas+walls+openings';
 
 async function openLarge(page: Page) {
   await page.addInitScript(installFrameProbe);
@@ -20,14 +22,17 @@ async function openLarge(page: Page) {
   return { box, center: { x: box.x + box.width / 2, y: box.y + box.height / 2 } };
 }
 
-/** Runs `steps` while the frame probe records, and returns the work and interval statistics. */
+/**
+ * Runs `steps` while the frame probe records, and returns the work and interval statistics and how
+ * often each Konva layer was drawn.
+ */
 async function measure(page: Page, steps: () => Promise<void>) {
   await page.evaluate(() => {
     window.frameProbe.start();
   });
   await steps();
   const frames = await page.evaluate(() => window.frameProbe.stop());
-  return { work: stats(frames.work), interval: stats(frames.intervals) };
+  return { work: stats(frames.work), interval: stats(frames.intervals), draws: frames.draws };
 }
 
 async function report(name: string, data: unknown) {
@@ -171,6 +176,19 @@ const openFloor = (page: Page, select: { collection: string; id: string }[] = []
     [MODEL_STORE, EDITOR_STORE, select] as const,
   );
 
+/**
+ * Moves the pointer past the drag threshold in the direction of `by`, which starts the drag and
+ * hides the dragged item on the model layer once, and returns where the pointer is now.
+ */
+async function startDrag(page: Page, from: Pt, by: Pt, move: (to: Pt) => Promise<unknown>) {
+  const length = Math.hypot(by.x, by.y);
+  const to = { x: from.x + (by.x / length) * 10, y: from.y + (by.y / length) * 10 };
+  await move(to);
+  await nextFrame(page);
+  await nextFrame(page);
+  return to;
+}
+
 test('tool previews on the large project redraw only what they change', async ({ page }) => {
   const { box, center } = await openLarge(page);
   // Zoomed in a little, so that handles and openings are big enough to grab.
@@ -192,9 +210,10 @@ test('tool previews on the large project redraw only what they change', async ({
         await nextFrame(page);
       }
     });
-  const drag = async (from: Pt, by: Pt) => {
-    await page.mouse.move(from.x, from.y);
+  const drag = async (start: Pt, by: Pt) => {
+    await page.mouse.move(start.x, start.y);
     await page.mouse.down();
+    const from = await startDrag(page, start, by, (p) => page.mouse.move(p.x, p.y));
     const frames = await measure(page, async () => {
       for (let i = 1; i <= 40; i++) {
         await page.mouse.move(from.x + (by.x * i) / 40, from.y + (by.y * i) / 40);
@@ -223,6 +242,8 @@ test('tool previews on the large project redraw only what they change', async ({
   ] as const) {
     await page.keyboard.press(key);
     for (let i = 0; i < taps; i++) await page.mouse.click(start.x - 30 * (i + 1), start.y);
+    // The tool switch redraws the layers that depend on the tool; that is not the hover's cost.
+    await page.waitForTimeout(300);
     results[name] = await hover(start);
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
@@ -255,14 +276,21 @@ test('tool previews on the large project redraw only what they change', async ({
     y: ((along.b.y - along.a.y) / length) * 0.3 * viewport.scale,
   };
   results['opening slide'] = await drag(toPage(centreOf(opening)), slide);
+  for (const name of ['wall corner drag', 'room corner drag', 'opening slide']) {
+    expect(results[name]!.draws['overlays'], name).toBeGreaterThan(30);
+  }
 
   await report(
     'Tool preview frame times',
-    Object.fromEntries(Object.entries(results).map(([name, r]) => [name, r.work])),
+    Object.fromEntries(
+      Object.entries(results).map(([name, r]) => [name, { ...r.work, draws: r.draws }]),
+    ),
   );
   for (const [name, r] of Object.entries(results)) {
     expect(r.work.frames, name).toBeGreaterThan(20);
     expect(r.work.p95, name).toBeLessThan(BUDGET_MS);
+    // Previews are drawn on the overlays layer, so the model is not redrawn.
+    expect(r.draws[MODEL_LAYER] ?? 0, name).toBe(0);
   }
 });
 
@@ -332,5 +360,50 @@ test.describe('on a phone with the CPU slowed down four times', () => {
     // Usable: well under the 100 ms at which a gesture stops feeling attached to the finger.
     expect(pan.work.p95).toBeLessThan(100);
     expect(zoom.work.p95).toBeLessThan(100);
+  });
+
+  test('dragging a room corner on the large project redraws only the overlays', async ({
+    page,
+  }) => {
+    const { box, center } = await openLarge(page);
+    const cdp = await page.context().newCDPSession(page);
+    const { viewport } = await readEditor(page);
+    const toPage = (p: Pt) => ({
+      x: box.x + p.x * viewport.scale + viewport.x,
+      y: box.y + p.y * viewport.scale + viewport.y,
+    });
+    const { rooms } = await openFloor(page);
+    const near = (p: Pt) => Math.abs(toPage(p).x - center.x) + Math.abs(toPage(p).y - center.y);
+    const room = Object.values(rooms).sort((a, b) => near(a.polygon[0]!) - near(b.polygon[0]!))[0]!;
+    const before = room.polygon;
+    await openFloor(page, [{ collection: 'rooms', id: room.id }]);
+    await page.waitForTimeout(300);
+    // A third of the way towards the opposite corner, so the room stays valid and the drag commits.
+    const [corner, opposite] = [toPage(room.polygon[0]!), toPage(room.polygon[2]!)];
+    const by = { x: (opposite.x - corner.x) / 3, y: (opposite.y - corner.y) / 3 };
+
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+    await touch(cdp, 'touchStart', [corner]);
+    const from = await startDrag(page, corner, by, (p) => touch(cdp, 'touchMove', [p]));
+    const drag = await measure(page, async () => {
+      for (let i = 1; i <= 40; i++) {
+        await touch(cdp, 'touchMove', [
+          { x: from.x + (by.x * i) / 40, y: from.y + (by.y * i) / 40 },
+        ]);
+        await nextFrame(page);
+      }
+    });
+    await touch(cdp, 'touchEnd', []);
+    await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+
+    await report('Phone room corner drag frame times', { ...drag.work, draws: drag.draws });
+
+    const { rooms: after } = await openFloor(page);
+    expect(after[room.id]!.polygon).not.toEqual(before);
+    expect((await readEditor(page)).viewport).toEqual(viewport);
+    expect(drag.work.frames).toBeGreaterThan(20);
+    expect(drag.work.p95).toBeLessThan(STRICT ? 50 : 100);
+    expect(drag.draws['overlays']).toBeGreaterThan(0);
+    expect(drag.draws[MODEL_LAYER] ?? 0).toBe(0);
   });
 });

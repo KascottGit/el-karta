@@ -78,8 +78,11 @@ export const FloorCanvas = memo(function FloorCanvas({
       // Konva's automatic redraw would also redraw the hit graph.
       const autoDraw = Konva.autoDrawEnabled;
       Konva.autoDrawEnabled = false;
-      stage.setAttrs({ x, y, scaleX: scale, scaleY: scale });
-      Konva.autoDrawEnabled = autoDraw;
+      try {
+        stage.setAttrs({ x, y, scaleX: scale, scaleY: scale });
+      } finally {
+        Konva.autoDrawEnabled = autoDraw;
+      }
       invalidateHitGraph(stage);
       frame ||= requestAnimationFrame(drawScene);
     };

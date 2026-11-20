@@ -48,7 +48,9 @@ The 2D editor (`apps/web/src/features/floorplan/`) is a Konva stage that feature
 - **Zoom:** 40 wheel notches from there out to the whole floor and back.
 - **Commit:** pressing Enter to finish a 20-wall polyline.
 - **Tool previews:** hovering with every drawing tool, and dragging a wall corner, a room corner and an opening.
-- **Phone:** a 390×844 touch viewport with the CPU slowed down four times (`Emulation.setCPUThrottlingRate`), pinch-zooming in and out and panning with one finger.
+- **Phone:** a 390×844 touch viewport with the CPU slowed down four times (`Emulation.setCPUThrottlingRate`), pinch-zooming in and out, panning with one finger and dragging a room corner.
+
+Each measurement also counts the scene draws of every Konva layer. The tool previews and the phone room corner drag assert that the model layer (`areas+walls+openings`) is not drawn at all once the drag has started.
 
 "Work" is the main-thread time of a frame's input events and animation frame callbacks, where Konva draws. React's deferred renders run outside it and show up as frame intervals over 17 ms instead. With `PERF_BUDGET=1` the spec asserts a work p95 under 16 ms for pan, zoom and every tool preview, a pan interval p95 under 17 ms and a commit interval under 50 ms. Without it, CI only checks loose bounds. The phone test only checks that it stays usable: a work p95 under 100 ms.
 
@@ -63,14 +65,15 @@ Numbers from M3, p50 / p95 / max in ms, with the frames over 17 ms. They are the
 | Phone pan, interval    | longest 200–217                          | longest 17, 0 over                    |
 | Phone zoom, work       | 11.0–11.4 / 33–34 / 45–46, 16–20 over    | 7.6–7.9 / 12.5–13.2 / 17–18, 0–2 over |
 | Phone zoom, interval   | 10–12 over                               | 0 over                                |
-| Room corner drag       | 8.3–8.7 / 10–10.4 / 10–11.5              | 5.2–5.8 / 5.9–8.4 / 6.3–9.1           |
+| Room corner drag       | 8.3–8.7 / 10–10.4 / 10–11.5              | 1.5–1.6 / 1.9–2.5 / 2.6–2.8           |
+| Phone room corner drag | –                                        | 4.4–4.5 / 6.8–7.1 / 6.8–7.7, 0 over   |
 
 What made the difference:
 
 - **No React work in the urgent render after a render window change.** A layer that reads the deferred window renders twice: first urgently with the old window, then in the background with the new one. Each layer builds its element list in one `useMemo` over its culled items, so the urgent render reuses the old elements. The culler returns the previous array while the same items are visible, so a window change that brings nothing new into view (zooming out over a floor that is already fully shown) changes nothing at all.
-- **Constant-size decoration reads the zoom when Konva draws it.** Room and zone labels (`ScreenLabel`) and issue markers (`IssueMarker`) are Konva `Shape`s whose `sceneFunc` divides by `shape.getAbsoluteScale()`. They no longer take the render window's scale as a prop, so zooming never re-renders them, and labels are now exactly 12 px at every zoom instead of up to 1.5× off.
+- **Constant-size decoration reads the zoom when Konva draws it.** Room and zone labels (`ScreenLabel`), issue markers (`IssueMarker`) and grid line bubbles are Konva `Shape`s whose `sceneFunc` divides by `shape.getAbsoluteScale()`. They no longer take the render window's scale as a prop, so zooming never re-renders them, and labels are now exactly 12 px at every zoom instead of up to 1.5× off. `ScreenLabel` caches text widths, but not while web fonts are still loading, and clears the cache and redraws when they finish.
 - **Panning and zooming draw only the scene.** The view change sets the stage transform with Konva's automatic redraw turned off and redraws each layer's scene on the next frame. The hit graph is marked out of date and redrawn by the next hit test (`invalidateHitGraph` in `canvas/hit.ts`), so no pan or zoom frame pays for it. Before, every view change drew both, and the hit graph was about 45% of Konva's drawing time.
 - **An edit re-renders only what shows the change.** The editor pages subscribed to the whole model, so every edit re-rendered the page, the toolbar and the Konva `Stage`. Re-rendering the stage makes react-konva reconcile every layer, which rebuilt every wall, opening and room element. That was nearly all of the 117 ms commit frame: validation (`floorIssues`), `LiveGraph.update` and the culler took about 1–3 ms each. `FloorEditor` and `FloorCanvas` are now memoized and `FloorEditor` reads only the floor's name. The rest of the commit frame is the layers rebuilding their element lists for the changed walls.
-- **A drag preview re-renders only the dragged item.** A room or zone corner drag re-rendered the whole areas layer on every pointer move; each area now subscribes to the drag of its own id. Konva still redraws the model layer per move, because the dragged room is drawn in place. Wall corner and opening drags are drawn on the overlay layer and do not touch the model layer. The other tools' hover previews already redrew only the overlay layer.
+- **A drag preview is drawn on the overlays layer.** A room or zone corner drag re-rendered the whole areas layer and redrew the model layer on every pointer move. Now, as for wall corners and openings, the dragged item is hidden on the model layer when the drag starts and its preview is drawn on the overlays layer, so the model layer is drawn once per drag instead of once per move. The other tools' hover previews already redrew only the overlays layer.
 
 The render window's 1.5× zoom hysteresis was kept: with the urgent render free and unchanged culls short-circuited, a window change during zoom costs nothing measurable in the work probe.

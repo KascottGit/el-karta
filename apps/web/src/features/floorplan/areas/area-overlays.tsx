@@ -1,18 +1,19 @@
 import type { Id, Pt } from '@el-karta/core';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Circle, Label, Line, Tag, Text } from 'react-konva';
 import { useModelStore } from '@/model/store';
 import { useEditorStore, type Drawing } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
 import { handle } from '../canvas/hit';
-import { canvasFont, issueColors } from '../canvas/theme';
+import { ScreenLabel } from '../canvas/screen-label';
+import { canvasColors, canvasFont, issueColors } from '../canvas/theme';
 import { SnapMarker } from '../snapping/snap-marker';
 import { AREA_COLLECTIONS, type AreaCollection } from './area-edits';
 import { midpointHandle, vertexHandle } from './area-handles';
 import { AREA_DRAWING_TOOLS, fillRoomTool } from './area-tools';
-import { useAreasUi } from './areas-ui-store';
-import { flat } from './bounds';
+import { useAreasUi, type AreasUiState } from './areas-ui-store';
+import { flat, labelPlacement, ZONE_LABEL_OFFSET_PX } from './bounds';
 import { areaColors } from './colors';
 
 const VERTEX_PX = 6;
@@ -20,15 +21,20 @@ const MIDPOINT_PX = 4;
 const NOTICE_MARGIN_PX = 12;
 const NOTICE_MAX_WIDTH_PX = 420;
 
-/** The polygon being drawn, the room the fill tool would make, the snap marker and notices. */
-export function AreaDrafts() {
+/**
+ * The polygon being drawn, the room the fill tool would make, an area being reshaped, the snap
+ * marker and notices.
+ */
+export function AreaDrafts({ ctx }: { ctx: CanvasContext }) {
   const tool = useEditorStore((s) => s.tool);
   const drawing = useEditorStore((s) => s.drawing);
   const scale = useEditorStore((s) => s.viewport.scale);
   const snap = useAreasUi((s) => s.snap);
   const fill = useAreasUi((s) => s.fill);
+  const drag = useAreasUi((s) => s.drag);
   return (
     <>
+      {drag && <ReshapedArea drag={drag} ctx={ctx} />}
       {fill && tool === fillRoomTool.id && (
         <Line
           points={flat(fill)}
@@ -43,6 +49,50 @@ export function AreaDrafts() {
       {drawing && AREA_DRAWING_TOOLS.has(tool) && <DraftPolygon drawing={drawing} scale={scale} />}
       {snap && <SnapMarker snap={snap} scale={scale} />}
       <AreaNotice />
+    </>
+  );
+}
+
+/**
+ * The area a vertex or midpoint drag is reshaping, drawn here instead of on the areas layer so the
+ * drag redraws only the overlays.
+ */
+function ReshapedArea({
+  drag,
+  ctx,
+}: {
+  drag: NonNullable<AreasUiState['drag']>;
+  ctx: CanvasContext;
+}) {
+  const name = useModelStore(
+    (s) => s.model?.floors[ctx.floorId]?.data[drag.collection][drag.id]?.name,
+  );
+  const points = useMemo(() => flat(drag.polygon), [drag.polygon]);
+  const label = useMemo(() => labelPlacement(drag.polygon), [drag.polygon]);
+  const zone = drag.collection === 'zones';
+  return (
+    <>
+      <Line
+        points={points}
+        closed
+        fill={zone ? areaColors.zone : areaColors.roomSelected}
+        stroke={canvasColors.selected}
+        strokeWidth={zone ? 2 : 1}
+        dash={[6, 4]}
+        dashEnabled={zone}
+        strokeScaleEnabled={false}
+        perfectDrawEnabled={false}
+        listening={false}
+      />
+      {name !== undefined && (
+        <ScreenLabel
+          text={name}
+          at={label.at}
+          maxWidth={label.width}
+          offsetYPx={zone ? ZONE_LABEL_OFFSET_PX : 0}
+          fill={zone ? areaColors.zoneStroke : canvasColors.label}
+        />
+      )}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import type { Pt } from '@el-karta/core';
-import type Konva from 'konva';
+import Konva from 'konva';
 import { memo, useMemo } from 'react';
 import { Shape } from 'react-konva';
 import { fitText } from './fit-text';
@@ -11,13 +11,24 @@ const MAX_CACHED = 4000;
 const widths = new Map<string, number>();
 const baselines = new Map<string, number>();
 
+// Metrics measured before the web font loads are the fallback font's, so they are not kept, and
+// labels are measured and drawn again once it has loaded.
+const fonts =
+  typeof document === 'undefined' ? undefined : (document.fonts as FontFaceSet | undefined);
+const fontsReady = () => fonts?.status !== 'loading';
+fonts?.addEventListener('loadingdone', () => {
+  widths.clear();
+  baselines.clear();
+  for (const stage of Konva.stages) stage.batchDraw();
+});
+
 function measure(context: Konva.Context, font: string, text: string): number {
   const key = `${font}\n${text}`;
   let width = widths.get(key);
   if (width === undefined) {
     if (widths.size > MAX_CACHED) widths.clear();
     width = context.measureText(text).width;
-    widths.set(key, width);
+    if (fontsReady()) widths.set(key, width);
   }
   return width;
 }
@@ -28,7 +39,7 @@ function baselineOffset(context: Konva.Context, font: string): number {
   if (offset === undefined) {
     const m = context.measureText('M');
     offset = (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2;
-    baselines.set(font, offset);
+    if (fontsReady()) baselines.set(font, offset);
   }
   return offset;
 }
