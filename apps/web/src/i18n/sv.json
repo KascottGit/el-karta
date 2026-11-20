@@ -83,7 +83,8 @@
     "undo": "Ångra",
     "redo": "Gör om",
     "delete": "Ta bort markerade",
-    "zoomToFit": "Visa hela planen"
+    "zoomToFit": "Visa hela planen",
+    "issues": "Att kontrollera"
   },
   "snapping": {
     "enabled": "Fäst mot hörn, väggar, rutnät och vinklar"
@@ -223,16 +224,43 @@
     "thickness": "Tjocklek",
     "height": "Höjd",
     "heightDefault": "Våningens höjd",
-    "issues": "Att kontrollera",
     "delete": "Ta bort väggen",
     "deleteMany": "Ta bort {{count}} väggar"
+  },
+  "openings": {
+    "kinds": {
+      "door": "Dörr",
+      "window": "Fönster",
+      "passage": "Passage"
+    },
+    "new": {
+      "door": "Ny dörr",
+      "window": "Nytt fönster",
+      "passage": "Ny passage"
+    },
+    "hint": "Klicka på en vägg för att sätta ut. Dra en dörr, ett fönster eller en passage för att flytta den längs väggen.",
+    "touchHint": "Tryck på en vägg för att sätta ut. Dra en dörr, ett fönster eller en passage för att flytta den längs väggen.",
+    "notOnWall": "Klicka eller tryck på en vägg.",
+    "tooShort": "Väggen är för kort.",
+    "noRoom": "Det finns ingen ledig plats på väggen.",
+    "selectedCount": "{{count}} dörrar, fönster och passager",
+    "kind": "Typ",
+    "width": "Bredd",
+    "height": "Höjd",
+    "sill": "Bröstningshöjd",
+    "flipHinge": "Byt gångjärnssida",
+    "flipSwing": "Byt öppningshåll",
+    "delete": "Ta bort",
+    "deleteMany": "Ta bort {{count}}"
   },
   "issues": {
     "wall": {
       "zero-length": "Väggen saknar längd."
     },
     "opening": {
-      "outside-wall": "En dörr, ett fönster eller en öppning når utanför väggens ände."
+      "outside-wall": "Dörren, fönstret eller passagen når utanför väggens ände.",
+      "overlap": "Dörren, fönstret eller passagen överlappar en annan på samma vägg.",
+      "wall-missing": "Väggen som dörren, fönstret eller passagen sitter i finns inte."
     },
     "placement": {
       "offset-beyond-wall": "En enhet sitter bortom väggens ände.",
