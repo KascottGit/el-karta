@@ -18,6 +18,7 @@ export interface OpeningSymbol {
   /** The part of the wall the opening takes up, as a closed quad drawn over the wall. */
   gap: number[];
   centre: Pt;
+  width: number;
   /** A door's leaf, drawn fully open. */
   leaf?: number[];
   /** A door's swing, a quarter circle from the open leaf to the closed position. */
@@ -43,6 +44,7 @@ export function openingSymbol(wall: Wall, opening: Opening): OpeningSymbol | nul
   const symbol: OpeningSymbol = {
     gap: flat([across(start, half), across(end, half), across(end, -half), across(start, -half)]),
     centre: scale(add(start, end), 0.5),
+    width: opening.width,
   };
   if (opening.kind === 'window') {
     const k = half / 3;

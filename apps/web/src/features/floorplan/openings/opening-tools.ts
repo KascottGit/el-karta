@@ -1,5 +1,5 @@
 import { nearestWall, putSpaceItem, type Id } from '@el-karta/core';
-import { AppWindow, DoorOpen, SquareDashed, type LucideIcon } from 'lucide-react';
+import { AppWindow, DoorOpen, Footprints, type LucideIcon } from 'lucide-react';
 import { modelStore } from '@/model/store';
 import { editorStore } from '../editor-store';
 import type { CanvasContext, CanvasPointer, MessageKey, Tool } from '../canvas/extension';
@@ -90,7 +90,7 @@ export const windowTool = openingTool('window', {
 
 export const passageTool = openingTool('passage', {
   label: 'openings.kinds.passage',
-  icon: SquareDashed,
+  icon: Footprints,
   order: 32,
   shortcut: 'p',
 });
