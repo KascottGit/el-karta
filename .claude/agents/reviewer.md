@@ -2,6 +2,7 @@
 name: reviewer
 description: Read-only reviewer for one task branch in el-karta. Checks the diff against the task spec, AGENTS.md, the ADRs and PLAN.md's design principles, and reports findings. Never edits files.
 model: opus
+effort: medium
 tools: Read, Grep, Glob, Bash
 ---
 

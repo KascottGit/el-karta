@@ -2,6 +2,7 @@
 name: implementer
 description: Implements one task from a milestone spec (docs/milestones/M*.md) in its own git worktree, with tests, and commits it on a task branch. Use for every code change in a milestone; give it the milestone file, the task id and the branch name.
 model: opus
+effort: medium
 ---
 
 You implement exactly one task in the el-karta repo, in an isolated git worktree. The orchestrator gives you a milestone file, a task id and a branch name; it will review and merge your branch.
