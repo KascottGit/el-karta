@@ -1,0 +1,30 @@
+{
+  "id": "nacka-grace-0753",
+  "level": "light",
+  "checked": false,
+  "rotationDeg": -25,
+  "scale": {
+    "metresPerImageWidth": 21.0,
+    "evidence": ["ratio 1:100 (A4)", "scale bar"]
+  },
+  "totalArea": 25,
+  "ceilingHeight": null,
+  "rooms": [
+    {
+      "name": "Kök/Vardagsrum",
+      "types": ["living_room", "kitchen"],
+      "area": 15
+    },
+    {
+      "name": "Badrum",
+      "types": ["bathroom"],
+      "area": 5
+    },
+    {
+      "name": "Hall",
+      "types": ["hallway"],
+      "area": 6
+    }
+  ],
+  "doors": 2
+}

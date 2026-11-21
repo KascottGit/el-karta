@@ -5,6 +5,7 @@ import { BackgroundHandles, ScaleMeasurement } from './background-overlay';
 import { BackgroundPanel } from './background-panel';
 import { readyImageSize } from './images';
 import { imageBounds } from './plan-file';
+import { ScaleNotice } from './scale-notice';
 import { ScalePanel } from './scale-panel';
 import {
   BACKGROUND_TOOL,
@@ -48,6 +49,15 @@ export const backgroundExtension: EditorExtension = {
       order: 91,
       visible: (editor) => editor.tool === SCALE_TOOL,
       Component: ScalePanel,
+    },
+    {
+      id: 'scale-notice',
+      order: 1,
+      visible: (editor, { model }) =>
+        editor.tool !== SCALE_TOOL &&
+        editor.floorId !== null &&
+        model?.floors[editor.floorId]?.data.scale?.source === 'ai_estimate',
+      Component: ScaleNotice,
     },
   ],
 };

@@ -5,7 +5,8 @@ import type { CanvasContext } from '../canvas/extension';
 import { uploadAttachment } from './attachments';
 import { backgroundUi, setUploadStep } from './background-store';
 import { showLocalImage } from './images';
-import { openPdf } from './pdf';
+import { openPdf, type PdfFile } from './pdf';
+import { savePdfPageSize, type PdfPageSize } from './pdf-page';
 import { classifyPlanFile } from './plan-file';
 
 // Bumped when a PDF being opened or picked from is abandoned, so a late open is thrown away.
@@ -40,21 +41,23 @@ export async function startPlanUpload(file: File, ctx: CanvasContext) {
 
 /** Renders the chosen page to a PNG and uploads that; the PDF itself is not stored. */
 export async function uploadPdfPage(
-  pdf: { renderPng(page: number): Promise<Blob>; destroy(): void },
+  pdf: Pick<PdfFile, 'renderPng' | 'pageSizeMm' | 'destroy'>,
   page: number,
   ctx: CanvasContext,
 ) {
   setUploadStep({ step: 'rendering', page });
   let png: Blob;
+  let size: PdfPageSize | null;
   try {
     png = await pdf.renderPng(page);
+    size = await pdf.pageSizeMm(page).catch(() => null);
   } catch {
     setUploadStep({ step: 'failed', reason: 'pdf' });
     return;
   } finally {
     pdf.destroy();
   }
-  await uploadPlan(ctx, png, 'png', 'image/png', page);
+  await uploadPlan(ctx, png, 'png', 'image/png', { page, size });
 }
 
 /**
@@ -79,7 +82,7 @@ async function uploadPlan(
   file: Blob,
   extension: string,
   contentType: string,
-  pdfPage?: number,
+  pdf?: { page: number; size: PdfPageSize | null },
 ) {
   const floorId: Id = ctx.floorId;
   const floor = modelStore.getState().model?.floors[floorId];
@@ -100,13 +103,17 @@ async function uploadPlan(
     setUploadStep({ step: 'failed', reason: 'upload' });
     return;
   }
+  // Stored before the image becomes the background, so an import started at once finds it. Without
+  // it a printed ratio only counts as unconfirmed, so a failure is not an error.
+  if (pdf?.size)
+    await savePdfPageSize(floor.projectId, attachmentId, pdf.size).catch(() => undefined);
   await showLocalImage(attachmentId, file).catch(() => undefined);
   if (!modelStore.getState().model?.floors[floorId]) return;
   modelStore.getState().apply(
     combine(
       setBackground(floorId, {
         attachmentId,
-        ...(pdfPage === undefined ? {} : { pdfPage }),
+        ...(pdf === undefined ? {} : { pdfPage: pdf.page }),
         offset: { x: 0, y: 0 },
         rotation: 0,
       }),

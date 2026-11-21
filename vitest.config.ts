@@ -6,10 +6,22 @@ export default defineConfig({
     projects: [
       { test: { name: 'core', root: 'packages/core', include: ['test/**/*.test.ts'] } },
       {
+        test: {
+          name: 'ai-providers',
+          root: 'packages/ai-providers',
+          include: ['test/**/*.test.ts'],
+        },
+      },
+      { test: { name: 'ai-passes', root: 'packages/ai-passes', include: ['test/**/*.test.ts'] } },
+      {
         resolve: { alias: { '@': resolve(import.meta.dirname, 'apps/web/src') } },
         test: { name: 'web', root: 'apps/web', include: ['src/**/*.test.{ts,tsx}'] },
       },
       { test: { name: 'tooling', root: 'tooling', include: ['**/*.test.ts'] } },
+      // Renders a PDF page with pdf.js, which takes a few seconds.
+      {
+        test: { name: 'evals', root: 'evals', include: ['test/**/*.test.ts'], testTimeout: 30_000 },
+      },
       // Needs the local Supabase stack, so it only runs via `pnpm test:integration`.
       ...(process.env['INTEGRATION']
         ? [

@@ -5,7 +5,8 @@ import { editorStore } from '../editor-store';
 import type { CanvasContext, CanvasPointer, MessageKey, Tool } from '../canvas/extension';
 import { snapTolerance } from '../snapping/snapping';
 import { openingsStore } from './openings-store';
-import { OPENING_DEFAULTS, placeOpening, type OpeningKind, type Placement } from './placement';
+import { OPENING_DEFAULTS, type OpeningKind } from '@el-karta/core';
+import { placeOpening, type Placement } from './placement';
 
 const PREVIEW_ID = 'opening-preview';
 

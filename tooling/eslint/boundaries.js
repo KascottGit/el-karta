@@ -10,32 +10,46 @@ const layers = [
     group: [
       '@el-karta/plugin-*',
       '@el-karta/data-*',
-      '@el-karta/ai-passes',
+      '@el-karta/ai-*',
       '@el-karta/agent-tools',
       '**/plugin-*/**',
       '**/data-*/**',
-      '**/ai-passes/**',
+      '**/ai-*/**',
       '**/agent-tools/**',
     ],
     message:
-      'packages/core must not depend on plugins, data adapters, AI passes, agent tools or apps.',
+      'packages/core must not depend on plugins, data adapters, AI passes or providers, agent tools or apps.',
   },
   {
     name: 'plugins',
     files: ['packages/plugin-*/**/*.{ts,tsx,js}'],
-    group: [
-      '@el-karta/plugin-*',
-      '@el-karta/data-*',
-      '@el-karta/ai-passes',
-      '@el-karta/agent-tools',
-    ],
+    group: ['@el-karta/plugin-*', '@el-karta/data-*', '@el-karta/ai-*', '@el-karta/agent-tools'],
     message: 'Plugins may depend on @el-karta/core only.',
   },
   {
     name: 'data',
     files: ['packages/data-*/**/*.{ts,tsx,js}'],
-    group: ['@el-karta/plugin-*', '@el-karta/ai-passes', '@el-karta/agent-tools'],
+    group: ['@el-karta/plugin-*', '@el-karta/ai-*', '@el-karta/agent-tools'],
     message: 'Data adapters may depend on @el-karta/core only.',
+  },
+  {
+    name: 'ai-providers',
+    files: ['packages/ai-providers/**/*.{ts,tsx,js}'],
+    group: ['@el-karta/*'],
+    message: 'AI providers must not depend on other workspace packages.',
+  },
+  {
+    name: 'ai-passes',
+    files: ['packages/ai-passes/**/*.{ts,tsx,js}'],
+    group: ['@el-karta/plugin-*', '@el-karta/data-*', '@el-karta/agent-tools'],
+    message: 'AI passes may depend on @el-karta/core and @el-karta/ai-providers only.',
+  },
+  {
+    name: 'evals',
+    files: ['evals/**/*.{ts,tsx,js}'],
+    group: ['@el-karta/plugin-*', '@el-karta/data-*', '@el-karta/agent-tools'],
+    message:
+      'Evals may depend on @el-karta/core, @el-karta/ai-passes and @el-karta/ai-providers only.',
   },
 ];
 

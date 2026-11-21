@@ -24,6 +24,8 @@ describe('import boundaries', () => {
     "import { App } from '@el-karta/web';",
     "import { x } from '../../plugin-power/src/index.ts';",
     "import { x } from '../../../apps/web/src/main.tsx';",
+    "import { p } from '@el-karta/ai-passes';",
+    "import { p } from '@el-karta/ai-providers';",
   ])('forbids core from: %s', async (source) => {
     expect(await lint('packages/core/src/probe.ts', source)).toEqual(['no-restricted-imports']);
   });
@@ -43,7 +45,38 @@ describe('import boundaries', () => {
     ).toEqual(['no-restricted-imports']);
   });
 
+  it('keeps AI providers free of workspace packages and passes away from data and plugins', async () => {
+    expect(
+      await lint('packages/ai-providers/src/probe.ts', "import { x } from '@el-karta/core';"),
+    ).toEqual(['no-restricted-imports']);
+    expect(
+      await lint('packages/ai-passes/src/probe.ts', "import { d } from '@el-karta/data-supabase';"),
+    ).toEqual(['no-restricted-imports']);
+  });
+
+  it('keeps evals away from apps, data adapters and plugins', async () => {
+    for (const source of [
+      "import { x } from '../../apps/web/src/features/floorplan/background/plan-file.ts';",
+      "import { App } from '@el-karta/web';",
+      "import { d } from '@el-karta/data-supabase';",
+      "import { p } from '@el-karta/plugin-power';",
+    ])
+      expect(await lint('evals/floorplan/probe.ts', source)).toEqual(['no-restricted-imports']);
+    expect(
+      await lint(
+        'evals/floorplan/probe.ts',
+        "import { c } from '@el-karta/core';\nimport { p } from '@el-karta/ai-passes';\nimport { q } from '@el-karta/ai-providers';",
+      ),
+    ).toEqual([]);
+  });
+
   it('allows the intended dependencies', async () => {
+    expect(
+      await lint(
+        'packages/ai-passes/src/probe.ts',
+        "import { c } from '@el-karta/core';\nimport { p } from '@el-karta/ai-providers';",
+      ),
+    ).toEqual([]);
     expect(
       await lint(
         'packages/core/src/probe.ts',

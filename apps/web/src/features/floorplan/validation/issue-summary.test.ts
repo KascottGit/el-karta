@@ -18,4 +18,13 @@ describe('summarizeIssues', () => {
     ]);
     expect(summarizeIssues([])).toEqual([]);
   });
+
+  it('keeps the message parameters of the first issue of a code', () => {
+    expect(
+      summarizeIssues([
+        { code: 'ai.room-merged', severity: 'warning', params: { count: 2 } },
+        { code: 'ai.room-merged', severity: 'warning', params: { count: 3 } },
+      ]),
+    ).toEqual([{ code: 'ai.room-merged', severity: 'warning', count: 2, params: { count: 2 } }]);
+  });
 });

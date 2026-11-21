@@ -13,6 +13,8 @@ import { worldToScreen, zoomAt } from '../canvas/viewport';
 import { backgroundUi } from './background-store';
 import { readyImageSize } from './images';
 import { imageCenter } from './plan-file';
+import { rescaleOffer, type RescaleOffer } from './rescale';
+import { emitScaleMeasured } from './scale-events';
 import { measuredScale, normalizeDegrees, placeBackground, rotatedAboutCenter } from './placement';
 import { cancelUpload } from './upload';
 
@@ -67,19 +69,29 @@ export const scaleTool: Tool = {
 
 /**
  * Sets the floor's scale from the measurement drawn with the scale tool. The view zooms with the
- * image, so it stays steady on screen. Returns false if the measurement cannot be used.
+ * image, so it stays steady on screen. Returns null if the measurement cannot be used, else an
+ * offer to rescale what is drawn on the floor, if anything is.
  */
-export function applyMeasuredScale(ctx: CanvasContext, metres: number): boolean {
+export function applyMeasuredScale(
+  ctx: CanvasContext,
+  metres: number,
+): { rescale: RescaleOffer | null } | null {
   const floor = floorOf(ctx.floorId);
   const { drawing, viewport, setViewport, setDrawing } = editorStore.getState();
   const [a, b] = drawing?.points ?? [];
-  if (!floor || !a || !b) return false;
+  if (!floor || !a || !b) return null;
   const measured = measuredScale(ctx.floorId, floor.data, a, b, metres);
-  if (!measured) return false;
+  if (!measured) return null;
   modelStore.getState().apply(measured.edit);
   setDrawing(null);
   setViewport(zoomAt(viewport, worldToScreen(viewport, measured.pivot), 1 / measured.growth));
-  return true;
+  emitScaleMeasured({
+    floorId: ctx.floorId,
+    scale: { source: 'user', metresPerPixel: measured.metresPerPixel },
+    growth: measured.growth,
+    pivot: measured.pivot,
+  });
+  return { rescale: rescaleOffer(ctx.floorId, floor.data, measured) };
 }
 
 export interface PlacementPayload {

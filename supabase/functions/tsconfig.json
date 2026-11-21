@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": [],
+    "paths": {
+      "@el-karta/core": ["../../packages/core/src/index.ts"],
+      "@el-karta/ai-passes": ["../../packages/ai-passes/src/index.ts"],
+      "@el-karta/ai-providers": ["../../packages/ai-providers/src/index.ts"],
+      "@el-karta/data-supabase": ["../../packages/data-supabase/src/index.ts"],
+      "zod": ["../../packages/data-supabase/node_modules/zod"],
+      "@supabase/supabase-js": ["../../packages/data-supabase/node_modules/@supabase/supabase-js"]
+    }
+  },
+  "include": ["."]
+}

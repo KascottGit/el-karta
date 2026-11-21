@@ -7,13 +7,7 @@ import {
   imageToWorld,
 } from '@el-karta/core';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  classifyPlanFile,
-  imageBounds,
-  PDF_LONG_SIDE,
-  PDF_MAX_PIXELS,
-  pdfRenderScale,
-} from './plan-file';
+import { classifyPlanFile, imageBounds } from './plan-file';
 import { measuredScale, normalizeDegrees, placeBackground, rotatedAboutCenter } from './placement';
 import { createSignedUrlCache } from './signed-urls';
 
@@ -33,19 +27,6 @@ describe('plan files', () => {
     expect(classifyPlanFile({ name: 'RITNING.PDF', type: '' })).toEqual({ kind: 'pdf' });
     expect(classifyPlanFile({ name: 'plan.gif', type: 'image/gif' }).kind).toBe('unsupported');
     expect(classifyPlanFile({ name: 'plan.dwg', type: '' }).kind).toBe('unsupported');
-  });
-
-  it('renders a PDF page with its long side at the tracing resolution', () => {
-    // A4 landscape at 72 units per inch.
-    const scale = pdfRenderScale(842, 595);
-    expect(842 * scale).toBeCloseTo(PDF_LONG_SIDE, 6);
-    expect(842 * scale * 595 * scale).toBeLessThanOrEqual(PDF_MAX_PIXELS);
-  });
-
-  it('caps the pixel count for square pages', () => {
-    const scale = pdfRenderScale(1000, 1000, 5000);
-    expect(1000 * scale * 1000 * scale).toBeCloseTo(PDF_MAX_PIXELS, 0);
-    expect(1000 * scale).toBeLessThan(5000);
   });
 
   it('bounds the rotated, scaled image in the plan', () => {

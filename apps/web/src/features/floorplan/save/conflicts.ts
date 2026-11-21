@@ -1,4 +1,4 @@
-import type { DocumentKey, Model, RejectedChange } from '@el-karta/core';
+import type { DocumentKey, Model, OpeningKind, RejectedChange } from '@el-karta/core';
 import type { StoreApi } from 'zustand';
 import type { ModelState } from '@/model/store';
 
@@ -15,7 +15,6 @@ const ITEM_KINDS = {
 
 type ItemCollection = keyof typeof ITEM_KINDS;
 type ItemKind = (typeof ITEM_KINDS)[ItemCollection];
-type OpeningKind = 'door' | 'window' | 'passage';
 
 /** What a rejected change touched, named as the user knew it before someone else's version replaced it. */
 export type ConflictSubject =

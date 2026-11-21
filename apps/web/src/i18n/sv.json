@@ -84,7 +84,10 @@
     "redo": "Gör om",
     "delete": "Ta bort markerade",
     "zoomToFit": "Visa hela planen",
-    "issues": "Att kontrollera"
+    "issues": "Att kontrollera",
+    "dev": {
+      "exportFacit": "Exportera facit"
+    }
   },
   "snapping": {
     "enabled": "Fäst mot hörn, väggar, rutnät och vinklar"
@@ -278,6 +281,27 @@
       "polygon-repeated-point": "Zonen har två hörn på samma ställe.",
       "polygon-zero-area": "Zonen har ingen yta.",
       "polygon-self-intersecting": "Zonens kontur korsar sig själv."
+    },
+    "scale": {
+      "door-width-implausible": "Dörrarna blir {{width}} m breda med den här skalan. Kontrollera skalan."
+    },
+    "ai": {
+      "room-open": "Väggarna runt rummet sluter inte tätt. Konturen är ungefärlig – kontrollera den.",
+      "room-area-mismatch": "Ritningen anger {{printed}} m², men rummet blir {{computed}} m².",
+      "scale-disagreement": "Måtten på ritningen stämmer inte med varandra ({{agreeing}} stämmer, {{outliers}} avviker). Kontrollera skalan.",
+      "coordinate-out-of-range": "AI:n angav en punkt utanför bilden.",
+      "no-walls": "AI:n hittade inga väggar.",
+      "wall-zero-length": "AI:n angav en vägg utan längd.",
+      "opening-zero-width": "AI:n angav en dörr eller ett fönster utan bredd.",
+      "dimension-invalid": "AI:n läste ett mått som inte går att använda.",
+      "box-missing": "AI:n hittade ingen planritning på sidan.",
+      "box-invalid": "AI:n angav ett ogiltigt område för planritningen.",
+      "scale-unknown": "Skalan är okänd, så måtten är bara platshållare. Mät ett känt avstånd för att få rätt storlek.",
+      "opening-unplaced_one": "{{count}} dörr eller fönster kunde inte placeras på någon vägg.",
+      "opening-unplaced_other": "{{count}} dörrar eller fönster kunde inte placeras på någon vägg.",
+      "scale-unconfirmed": "Skalan bygger på ritningens skalangivelse, men bilden kan vara beskuren. Kontrollera ett mått.",
+      "room-merged_one": "{{count}} rumsnamn hamnade i samma yta och slogs ihop. Kontrollera om en vägg saknas.",
+      "room-merged_other": "{{count}} rumsnamn hamnade i samma yta och slogs ihop. Kontrollera om en vägg saknas."
     }
   },
   "background": {
@@ -327,10 +351,106 @@
     "setScale": "Sätt skala",
     "scaleApplied": "Skalan är satt.",
     "metres": "{{value}} m",
-    "degrees": "°"
+    "degrees": "°",
+    "estimated": {
+      "title": "Uppskattad skala – kontrollera ett mått"
+    },
+    "rescale": {
+      "title": "Skala om ritningen",
+      "question": "Ritningen har fått en ny skala. Ska det som redan är ritat på våningen – väggar, dörrar, fönster, rum och annat – skalas om så att det följer ritningen?",
+      "apply": "Skala om",
+      "keep": "Behåll som det är"
+    }
   },
   "fields": {
     "mixed": "Olika",
     "metres": "m"
+  },
+  "ai": {
+    "import": {
+      "action": "Tolka planritning med AI",
+      "locating": "Letar efter planritningen på sidan …",
+      "reading": "Läser planritningen …",
+      "readingTile": "Läser planritningen, del {{index}} av {{count}} …",
+      "keepEditing": "Du kan fortsätta rita under tiden.",
+      "askScale": "Vet du ett mått?",
+      "askScaleHint": "Ritningen anger ingen skala. Mät ett känt mått, till exempel en vägg eller dörr med utskrivet mått, eller låt AI:n uppskatta skalan från dörrar och inredning.",
+      "measure": "Mät ett mått",
+      "estimate": "Uppskatta åt mig",
+      "measuring": "Mät ett känt mått med skalverktyget. Förslagen skapas när skalan är satt.",
+      "saving": "Sparar förslagen …",
+      "updating": "Skalan ändrades. Förslagen räknas om …",
+      "retry": "Försök igen",
+      "close": "Stäng",
+      "errors": {
+        "rate_limited": "Du har gjort många AI-tolkningar den senaste timmen. Vänta en stund och försök igen.",
+        "provider_busy": "AI-tjänsten är upptagen just nu. Försök igen om en stund.",
+        "too_large": "Planritningen är för stor att skicka till AI:n.",
+        "forbidden": "Du behöver kunna redigera projektet för att tolka planritningar.",
+        "network": "Ingen kontakt med servern. Kontrollera anslutningen och försök igen.",
+        "internal": "Något gick fel vid tolkningen. Försök igen.",
+        "no_output": "AI:n gav inget användbart svar. Försök igen, eller rita av planen för hand.",
+        "empty": "AI:n hittade inget att föreslå på ritningen.",
+        "image": "Planritningen är inte inläst än. Vänta tills den syns och försök igen."
+      }
+    }
+  },
+  "suggestions": {
+    "title": "Förslag",
+    "accept": "Godkänn",
+    "reject": "Avvisa",
+    "tool": "Granska förslag",
+    "remaining_one": "{{count}} förslag att granska.",
+    "remaining_other": "{{count}} förslag att granska.",
+    "none": "Inga förslag att granska.",
+    "loadFailed": "Förslagen kunde inte hämtas.",
+    "hint": "Tryck på ett streckat förslag i planen för att granska det.",
+    "selected": "Markerat förslag",
+    "floorValues": "Våningen",
+    "acceptAndEdit": "Godkänn och redigera",
+    "acceptItem": "Godkänn {{item}}",
+    "rejectItem": "Avvisa {{item}}",
+    "selectItem": "Visa {{item}}",
+    "bulk": "Alla förslag",
+    "acceptAll": "Godkänn alla ({{count}})",
+    "acceptConfident": "Godkänn säkra ({{count}})",
+    "rejectAll": "Avvisa alla ({{count}})",
+    "threshold": "Säkra är förslag med minst",
+    "confidence": "Säkerhet {{percent}} %",
+    "confidenceUnknown": "Säkerhet okänd",
+    "invalid": "Förslaget går inte att läsa och kan bara avvisas.",
+    "group": "{{kind}} ({{count}})",
+    "confirmReject_one": "{{count}} annat förslag bygger på det här och avvisas också.",
+    "confirmReject_other": "{{count}} andra förslag bygger på det här och avvisas också.",
+    "confirmRejectButton": "Avvisa {{count}} förslag",
+    "confirmAccept_one": "Godkänns tillsammans med {{count}} förslag det bygger på.",
+    "confirmAccept_other": "Godkänns tillsammans med {{count}} förslag det bygger på.",
+    "confirmAcceptButton": "Godkänn {{count}} förslag",
+    "review": "Granska",
+    "kinds": {
+      "wall": "Väggar",
+      "opening": "Dörrar och fönster",
+      "room": "Rum",
+      "zone": "Zoner",
+      "scale": "Skala",
+      "floor-height": "Våningshöjd",
+      "other": "Övriga"
+    },
+    "describe": {
+      "wall": "Vägg {{length}} m",
+      "opening": "{{kind}} {{width}} m",
+      "room": "{{name}} ({{type}})",
+      "scale": "Skala: 1 bildpunkt = {{mm}} mm ({{source}})",
+      "floor-height": "Våningshöjd {{height}} m",
+      "other": "Förslag av typen {{kind}}"
+    },
+    "errors": {
+      "requirementRejected": "Förslaget bygger på ett förslag som redan har avvisats och kan inte godkännas.",
+      "requirementMissing": "Förslaget bygger på ett förslag som saknas och kan inte godkännas.",
+      "unreadable": "Förslaget, eller ett förslag det bygger på, är av okänd typ eller går inte att läsa. Det kan bara avvisas.",
+      "invalid": "Förslaget kunde inte läggas in i planen.",
+      "saveAccepted": "Förslagen lades in i planen men kunde inte markeras som godkända. Försök igen – inget läggs in två gånger.",
+      "saveRejected": "Förslagen kunde inte avvisas. Försök igen."
+    }
   }
 }

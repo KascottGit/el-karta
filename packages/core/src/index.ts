@@ -7,5 +7,6 @@ export * from './model.ts';
 export * from './plugin/index.ts';
 export * from './repository/index.ts';
 export * from './schemas/index.ts';
+export * from './suggestions/index.ts';
 export * from './validation/index.ts';
 export * from './project.ts';

@@ -47,8 +47,12 @@ jobs:
       - name: Generated DB types match the migrations
         run: pnpm db:types && git diff --exit-code packages/data-supabase/src/database.types.ts
       - run: pnpm test:db
+      - name: Serve the ai-pass function with the integration tests' fake AI provider
+        run: tooling/scripts/serve-functions.sh packages/data-supabase/test/ai-pass.env
       - run: pnpm test:integration
       - run: pnpm exec playwright install --with-deps chromium
+      - name: Serve the ai-pass function with the e2e fake AI provider
+        run: tooling/scripts/serve-functions.sh apps/web/e2e/fixtures/ai-import.env
       - run: pnpm test:e2e
       - if: failure()
         uses: actions/upload-artifact@v7

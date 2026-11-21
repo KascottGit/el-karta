@@ -6,13 +6,17 @@ export type Database = {
       ai_runs: {
         Row: {
           created_at: string;
+          duration_ms: number | null;
+          error: string | null;
+          floor_id: string | null;
           id: string;
           images: number | null;
           input_tokens: number | null;
           model: string;
+          model_version: string | null;
           output_tokens: number | null;
           pass: string;
-          project_id: string;
+          project_id: string | null;
           provider: string;
           status: string;
           user_id: string;
@@ -21,13 +25,17 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           created_at?: string;
+          duration_ms?: number | null;
+          error?: string | null;
+          floor_id?: string | null;
           id?: string;
           images?: number | null;
           input_tokens?: number | null;
           model: string;
+          model_version?: string | null;
           output_tokens?: number | null;
           pass: string;
-          project_id: string;
+          project_id?: string | null;
           provider: string;
           status: string;
           user_id?: string;
@@ -35,19 +43,30 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          duration_ms?: number | null;
+          error?: string | null;
+          floor_id?: string | null;
           id?: string;
           images?: number | null;
           input_tokens?: number | null;
           model?: string;
+          model_version?: string | null;
           output_tokens?: number | null;
           pass?: string;
-          project_id?: string;
+          project_id?: string | null;
           provider?: string;
           status?: string;
           user_id?: string;
           validation_retries?: number;
         };
         Relationships: [
+          {
+            foreignKeyName: 'ai_runs_floor_fkey';
+            columns: ['floor_id', 'project_id'];
+            isOneToOne: false;
+            referencedRelation: 'floors';
+            referencedColumns: ['id', 'project_id'];
+          },
           {
             foreignKeyName: 'ai_runs_project_id_fkey';
             columns: ['project_id'];
@@ -212,6 +231,83 @@ export type Database = {
         };
         Relationships: [];
       };
+      suggestions: {
+        Row: {
+          confidence: number | null;
+          created_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          floor_id: string;
+          id: string;
+          issues: NonNullable<Json>;
+          kind: string;
+          pass: string;
+          payload: NonNullable<Json>;
+          project_id: string;
+          requires: string[];
+          run_id: string | null;
+          source: string;
+          status: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          confidence?: number | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          floor_id: string;
+          id: string;
+          issues?: NonNullable<Json>;
+          kind: string;
+          pass: string;
+          payload: NonNullable<Json>;
+          project_id: string;
+          requires?: string[];
+          run_id?: string | null;
+          source: string;
+          status?: string;
+        };
+        Update: {
+          confidence?: number | null;
+          created_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          floor_id?: string;
+          id?: string;
+          issues?: NonNullable<Json>;
+          kind?: string;
+          pass?: string;
+          payload?: NonNullable<Json>;
+          project_id?: string;
+          requires?: string[];
+          run_id?: string | null;
+          source?: string;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'suggestions_floor_id_project_id_fkey';
+            columns: ['floor_id', 'project_id'];
+            isOneToOne: false;
+            referencedRelation: 'floors';
+            referencedColumns: ['id', 'project_id'];
+          },
+          {
+            foreignKeyName: 'suggestions_project_id_fkey';
+            columns: ['project_id'];
+            isOneToOne: false;
+            referencedRelation: 'projects';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'suggestions_run_id_project_id_fkey';
+            columns: ['run_id', 'project_id'];
+            isOneToOne: false;
+            referencedRelation: 'ai_runs';
+            referencedColumns: ['id', 'project_id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -220,6 +316,7 @@ export type Database = {
       can_read_project: { Args: { p_project_id: string }; Returns: boolean };
       can_write_project: { Args: { p_project_id: string }; Returns: boolean };
       create_project: { Args: { floors: Json; project: Json }; Returns: string };
+      my_ai_run_count: { Args: { p_since: string }; Returns: number };
       project_role: { Args: { p_project_id: string }; Returns: string };
       share_project: {
         Args: { p_email: string; p_project_id: string; p_role?: string };

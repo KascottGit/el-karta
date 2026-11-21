@@ -1,0 +1,37 @@
+{
+  "id": "gotgatan-78",
+  "level": "light",
+  "checked": false,
+  "rotationDeg": 0,
+  "scale": null,
+  "totalArea": null,
+  "ceilingHeight": null,
+  "rooms": [
+    {
+      "name": "Sovrum 1",
+      "types": ["bedroom"],
+      "area": null
+    },
+    {
+      "name": "Sovrum 2",
+      "types": ["bedroom"],
+      "area": null
+    },
+    {
+      "name": "Rum",
+      "types": ["living_room"],
+      "area": null
+    },
+    {
+      "name": "Hall",
+      "types": ["hallway"],
+      "area": null
+    },
+    {
+      "name": "WC/D",
+      "types": ["bathroom"],
+      "area": null
+    }
+  ],
+  "doors": 4
+}

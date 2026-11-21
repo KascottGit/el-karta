@@ -1,0 +1,61 @@
+{
+  "imagesDir": "../../floorplans",
+  "plans": [
+    {
+      "id": "brannkyrkagatan-118",
+      "file": "0226-0186.pdf",
+      "page": 1,
+      "source": "Stockholmshem typritning",
+      "sha256": "67666fa9e69c2f774a801f0e1fe1b92daf76b405f6b842bbc37df72ce6352f4c"
+    },
+    {
+      "id": "lundagatan-47",
+      "file": "0227-0137.pdf",
+      "page": 1,
+      "source": "Stockholmshem typritning",
+      "sha256": "0442c9bf0baf660778769abeaf543aa3358f0c354b1d3628e763015cfcc85bbf"
+    },
+    {
+      "id": "nacka-grace-0753",
+      "file": "2488115planritning.pdf",
+      "page": 1,
+      "source": "Wallenstam bofaktablad",
+      "sha256": "2a869a5fb7b6ee3656c383b1c31fc4790d89f170d8e52ee51c67f6417d874168"
+    },
+    {
+      "id": "ektorp-5-1109",
+      "file": "2514941byggvesta.pdf",
+      "page": 1,
+      "source": "ByggVesta",
+      "sha256": "3233d9231f854ff52382f5e35eb5651088b2f694cceea23016f9d7c48f3c6624"
+    },
+    {
+      "id": "sickla-sjovag-2",
+      "file": "2519132ritning.pdf",
+      "page": 1,
+      "source": "Stena Fastigheter",
+      "sha256": "02dd8737445e2fec1ff1a05ff89cf137dcb572fdb06614d75b2e7e0e38a8da28"
+    },
+    {
+      "id": "gotgatan-78",
+      "file": "2522620planritning-avvikelser-kan-forekomma.jpg",
+      "page": 1,
+      "source": "estate-agent listing",
+      "sha256": "725511ae3f9c7459f26a77f821e16652377c670604581414b02aa9adc57b78d9"
+    },
+    {
+      "id": "snickeriet-7158",
+      "file": "67067158.pdf",
+      "page": 1,
+      "source": "Svenska Bostäder lägenhetsblad",
+      "sha256": "21f281c2e3766315451374cc9bbb4ea27fdcadbd467a6b1fb4b7b0954bf09043"
+    },
+    {
+      "id": "gisslaren-5234-0044",
+      "file": "LGH 5234 0044.pdf",
+      "page": 1,
+      "source": "Familjebostäder bofaktablad",
+      "sha256": "63fbb7b3e4ea6f546e808aeb41a691ecd64e206ac56712322342fec0d9d5a1aa"
+    }
+  ]
+}

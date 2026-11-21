@@ -16,20 +16,21 @@ Conventions for anyone (human or agent) changing this repo. `PLAN.md` holds the 
 
 ## Commands
 
-| Command                 | What it does                                                                                    |
-| ----------------------- | ----------------------------------------------------------------------------------------------- |
-| `pnpm install`          | Install everything (Node and pnpm versions are pinned in `.nvmrc` and `packageManager`)         |
-| `pnpm dev`              | Web app on http://localhost:5173                                                                |
-| `pnpm build`            | Production build of every app                                                                   |
-| `pnpm test`             | All Vitest projects (`core`, `web`, `tooling`)                                                  |
-| `pnpm typecheck`        | `tsc --noEmit` for every package                                                                |
-| `pnpm lint`             | ESLint (incl. import boundaries) + Prettier check; `pnpm format` fixes formatting               |
-| `pnpm perf`             | Load and tracing timings on the synthetic projects                                              |
-| `pnpm supabase start`   | Local Supabase stack (needs Docker); `pnpm supabase db reset` re-applies migrations             |
-| `pnpm test:db`          | pgTAP tests in `supabase/tests` (RLS) against the local stack                                   |
-| `pnpm test:integration` | `SupabaseRepository` against the local stack, as real signed-up users                           |
-| `pnpm test:e2e`         | Playwright smoke tests; the app runs against the local stack and reads magic links from Mailpit |
-| `pnpm db:types`         | Regenerate `packages/data-supabase/src/database.types.ts` after changing a migration            |
+| Command                            | What it does                                                                                                                                                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm install`                     | Install everything (Node and pnpm versions are pinned in `.nvmrc` and `packageManager`)                                                                                                                                         |
+| `pnpm dev`                         | Web app on http://localhost:5173                                                                                                                                                                                                |
+| `pnpm build`                       | Production build of every app                                                                                                                                                                                                   |
+| `pnpm test`                        | All Vitest projects (`core`, `web`, `tooling`)                                                                                                                                                                                  |
+| `pnpm typecheck`                   | `tsc --noEmit` for every package                                                                                                                                                                                                |
+| `pnpm lint`                        | ESLint (incl. import boundaries) + Prettier check; `pnpm format` fixes formatting                                                                                                                                               |
+| `pnpm perf`                        | Load and tracing timings on the synthetic projects                                                                                                                                                                              |
+| `pnpm supabase start`              | Local Supabase stack (needs Docker); `pnpm supabase db reset` re-applies migrations                                                                                                                                             |
+| `pnpm test:db`                     | pgTAP tests in `supabase/tests` (RLS) against the local stack                                                                                                                                                                   |
+| `pnpm test:integration`            | `SupabaseRepository` and the `ai-pass` function against the local stack, as real signed-up users; serve the function first with `tooling/scripts/serve-functions.sh packages/data-supabase/test/ai-pass.env` (fake AI provider) |
+| `pnpm eval floorplan --model <id>` | Floor-plan evals against `evals/floorplan/facit` (calls the real model; needs `GEMINI_API_KEY`, read from `supabase/functions/.env` if unset). Not run in CI                                                                    |
+| `pnpm test:e2e`                    | Playwright smoke tests; the app runs against the local stack and reads magic links from Mailpit; serve the function with `tooling/scripts/serve-functions.sh apps/web/e2e/fixtures/ai-import.env` first                         |
+| `pnpm db:types`                    | Regenerate `packages/data-supabase/src/database.types.ts` after changing a migration                                                                                                                                            |
 
 Run `pnpm typecheck && pnpm lint && pnpm test` before every commit, plus the three Supabase test commands when touching the database, the repository or auth. CI runs all of them and `pnpm build`, and fails if the generated DB types are out of date.
 
@@ -38,8 +39,11 @@ Run `pnpm typecheck && pnpm lint && pnpm test` before every commit, plus the thr
 - `packages/core`: schemas, geometry, graph and tracing, validators, migrations, plugin interface, repository interface, edit operations, synthetic generator. Plain ESM TypeScript with no Node, browser or Deno APIs; `src` is typechecked without `node` or `dom` types to enforce this. Tests live in `packages/core/test`.
 - `packages/plugin-*`: domain logic. May import `@el-karta/core` only.
 - `packages/data-*`: repository implementations. May import `@el-karta/core` only. `data-supabase` holds `SupabaseRepository` and the generated `Database` types.
+- `packages/ai-providers`: one `AiProvider` interface (Gemini, fake). Imports no workspace package.
+- `packages/ai-passes`: AI pass definitions and the runner (ADR 0007). May import `@el-karta/core` and `@el-karta/ai-providers`.
+- `evals/`: AI eval sets and scoring; plan images stay in the git-ignored `floorplans/`.
 - `apps/web`: the Vite + React app. May import any package.
-- `packages/core` never imports from plugins, data adapters, AI passes, agent tools or apps.
+- `packages/core` never imports from plugins, data adapters, AI passes or providers, agent tools or apps.
 
 Boundaries are enforced by ESLint (`tooling/eslint/boundaries.js`) and tested in `tooling/eslint/boundaries.test.ts`. Workspace packages export TypeScript source directly (`exports: ./src/index.ts`); there is no package build step.
 
@@ -83,7 +87,7 @@ Milestones are planned in `docs/milestones/M<n>.md` from `docs/milestones/TEMPLA
 
 Orchestrator rules (ADR 0005):
 
-- Run at most two sub-agents at a time (the person is on a Pro plan; more exhausts the 5-hour limit). Prefer pairing tasks with disjoint Touches, or a reviewer with an implementer.
+- Run one sub-agent at a time (the person is on a Pro plan; parallel agents exhaust the 5-hour limit). The orchestrator does small checks, fixes and merges itself while it runs.
 - Every milestone plan has a "Shared building blocks" section. The orchestrator builds those modules in T0, before any task that would otherwise invent its own copy.
 - After review fixes, the orchestrator checks the fix diff and runs the suites itself. A second full review only happens when a blocker touched shared infrastructure (`canvas/`, core, store, RLS).
 - One orchestrator session per milestone. The milestone file and its PR carry the handoff; start the next milestone in a fresh session.

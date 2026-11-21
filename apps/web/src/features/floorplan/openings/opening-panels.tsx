@@ -14,7 +14,8 @@ import { summarizeIssues } from '../validation/issue-summary';
 import { openingIssues } from './opening-issues';
 import { isOpeningTool } from './opening-tools';
 import { useOpeningsStore } from './openings-store';
-import { flipHinge, flipSwing, OPENING_KINDS, resizeOpenings, withKind } from './placement';
+import { OPENING_KINDS } from '@el-karta/core';
+import { flipHinge, flipSwing, resizeOpenings, withKind } from './placement';
 
 const DIGITS = 3;
 

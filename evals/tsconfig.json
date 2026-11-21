@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["node"],
+    // Only for pdf.js's render types, which name a DOM canvas.
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["."],
+  "exclude": ["node_modules", "results"]
+}

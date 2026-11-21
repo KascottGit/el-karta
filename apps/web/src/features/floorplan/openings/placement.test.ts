@@ -1,11 +1,10 @@
-import type { Opening, WallHit } from '@el-karta/core';
+import { OPENING_DEFAULTS, type Opening, type WallHit } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
 import { pt, wall } from '../walls/test-fixtures';
 import {
   fitOffset,
   flipHinge,
   flipSwing,
-  OPENING_DEFAULTS,
   placeOpening,
   resizeOpenings,
   slideOpening,

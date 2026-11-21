@@ -1,3 +1,5 @@
+import { suggestionsExtension } from '@/features/suggestions/extension';
+import { aiImportExtension } from './ai-import/extension';
 import { areasExtension } from './areas/extension';
 import { backgroundExtension } from './background/extension';
 import { baseExtension } from './canvas/base-extension';
@@ -15,5 +17,7 @@ export const extensions: readonly EditorExtension[] = [
   openingsExtension,
   backgroundExtension,
   gridExtension,
+  suggestionsExtension,
+  aiImportExtension,
   ...(import.meta.env.DEV ? [devExtension] : []),
 ];
