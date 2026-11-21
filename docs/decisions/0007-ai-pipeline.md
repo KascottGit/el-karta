@@ -12,6 +12,8 @@ Status: accepted (M4)
 - **Runs are logged and limited.** Every run writes `ai_runs` (pass, provider, model, the exact model version that answered, tokens, images, retries, status, duration, error) as the user, and the function refuses a user's runs above a per-hour limit counted from that table. The log outlives deleted floors and projects (their ids become null), so deleting them cannot reset the limit.
 - **Floor-plan coordinates.** The model answers in 0–1000 normalised to the image it was sent (x by width, y by height; wall thickness in thousandths of the width). A tile merge returns its output normalised to the union of the tiles. Walls and rooms `require` the scale suggestion they were measured with, so rejecting the scale means re-interpreting with another scale rather than keeping walls at the wrong size.
 
+- **The model's reading is kept, so a scale can change later.** The browser interprets (the floor's placement and scale are there); the function only runs passes and stores drafts. After a commit the merged reading is saved in Storage at `<projectId>/ai-import/<floorId>.json` with every suggestion committed from it and the placement each was measured at. When the person measures a scale with the scale tool, pending suggestions from that reading are re-interpreted with it and replace the old ones; items already accepted are not suggested again. A scale the person measured always wins: accepting a suggested scale on such a floor changes nothing.
+
 ## Why
 
 PLAN.md principles 6–8: AI suggests and people confirm, the LLM handles meaning and code handles geometry, and guesses are never shown as facts. Keeping providers and passes in plain TypeScript packages lets the same code run in tests, evals, the browser (merge) and the Edge Function.
