@@ -9,7 +9,7 @@ import { ScreenLabel } from '@/features/floorplan/canvas/screen-label';
 import { suggestionStyle } from '@/features/floorplan/canvas/theme';
 import { useRenderWindow } from '@/features/floorplan/canvas/use-render-window';
 import { useModelStore } from '@/model/store';
-import { suggestionKinds } from './actions';
+import { isPending, suggestionKinds } from './actions';
 import { createGhostBuilder, ghostBounds, type Ghost } from './ghosts';
 import { ghostColor, withAlpha } from './ghost-style';
 import { useFloorSuggestions } from './hooks';
@@ -36,9 +36,10 @@ export function SuggestionsLayer({ ctx }: { ctx: CanvasContext }) {
   const walls = useModelStore((s) => s.model?.floors[ctx.floorId]?.data.walls) ?? NO_WALLS;
   const build = useMemo(() => createGhostBuilder(suggestionKinds), []);
   const ghosts = useMemo(() => build(suggestions, walls), [build, suggestions, walls]);
+  const pending = useMemo(() => suggestions.filter(isPending).length, [suggestions]);
   useEffect(() => {
-    publishGhosts(ctx.floorId, ghosts);
-  }, [ctx.floorId, ghosts]);
+    publishGhosts(ctx.floorId, ghosts, pending);
+  }, [ctx.floorId, ghosts, pending]);
 
   const { rect: view } = useRenderWindow();
   const visible = useMemo(

@@ -385,6 +385,10 @@
     "confirmReject_one": "{{count}} annat förslag bygger på det här och avvisas också.",
     "confirmReject_other": "{{count}} andra förslag bygger på det här och avvisas också.",
     "confirmRejectButton": "Avvisa {{count}} förslag",
+    "confirmAccept_one": "Godkänns tillsammans med {{count}} förslag det bygger på.",
+    "confirmAccept_other": "Godkänns tillsammans med {{count}} förslag det bygger på.",
+    "confirmAcceptButton": "Godkänn {{count}} förslag",
+    "review": "Granska",
     "kinds": {
       "wall": "Väggar",
       "opening": "Dörrar och fönster",
@@ -404,6 +408,8 @@
     },
     "errors": {
       "requirementRejected": "Förslaget bygger på ett förslag som redan har avvisats och kan inte godkännas.",
+      "requirementMissing": "Förslaget bygger på ett förslag som saknas och kan inte godkännas.",
+      "unreadable": "Förslaget, eller ett förslag det bygger på, är av okänd typ eller går inte att läsa. Det kan bara avvisas.",
       "invalid": "Förslaget kunde inte läggas in i planen.",
       "saveAccepted": "Förslagen lades in i planen men kunde inte markeras som godkända. Försök igen – inget läggs in två gånger.",
       "saveRejected": "Förslagen kunde inte avvisas. Försök igen."

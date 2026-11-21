@@ -13,11 +13,13 @@ Reviewing what AI passes (and later rules) propose for a floor, before any of it
 
 ## Decisions
 
-- **Accepting** is `acceptSuggestions` from core: the suggestions plus their pending requirements become one `apply(edit)`, so one undo step, then their rows are marked accepted. If marking fails, the edit stays, the rows stay pending and the panel says so; accepting again puts the same items by id, so nothing is duplicated.
-- **Undo does not change rows.** Undoing an accept removes the items from the model but leaves the rows accepted, so their ghosts do not come back. Draw the item again or re-run the pass if that was a mistake.
+- **Acceptable** means pending, of a registered kind, with a payload that fits it, and the same for every pending requirement, with no rejected or missing requirement (`createBlockers`). Only acceptable suggestions get an accept button and go into the bulk accepts and their counts; the others show why and can only be rejected.
+- **Accepting** is `acceptSuggestions` from core: the suggestions plus their pending requirements become one `apply(edit)`, so one undo step, then their rows are marked accepted. When it pulls in requirements, the panel asks first, with the count. If marking fails, the edit stays, the rows stay pending and the panel says so; accepting again puts the same items by id, so nothing is duplicated.
+- **Undo and redo follow the rows.** An accept remembers the history entry it pushed (`accepts` in `suggestionsStore`). When undo moves that entry to the model store's `future`, its rows go back to pending and their ghosts return; when redo moves it back, they are accepted again. Once the entry leaves the history (a new edit after undo, the history limit, another project), it is no longer followed.
 - **"Godkänn och redigera"** accepts one suggestion and selects the item it became with the select tool (`editTarget`). Floor-level values have no item and only offer accept and reject.
 - **Rejecting** a suggestion also rejects the pending suggestions that require it, directly or through others, since they could never be accepted. The panel asks first, with the count.
-- **"Godkänn säkra"** accepts the pending suggestions at or above the threshold (default `suggestionStyle.thresholds.high`, 80 %) whose pending requirements reach it too, so a bulk accept never pulls in a less certain scale or wall. A suggestion without a confidence counts as below every threshold above 0.
+- **"Godkänn säkra"** accepts the acceptable suggestions at or above the threshold (default `suggestionStyle.thresholds.high`, 80 %) whose pending requirements reach it too, so a bulk accept never pulls in a less certain scale or wall. A suggestion without a confidence counts as below every threshold above 0.
+- **Review prompt.** With the select tool, a floor with pending suggestions shows "N förslag att granska" and a button to the review tool. Panels' `visible` sees only the editor and model stores, so the layer, which publishes the pending count, nudges the editor store when the count changes.
 
 ## Dev and e2e
 

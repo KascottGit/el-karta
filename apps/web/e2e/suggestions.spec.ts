@@ -63,9 +63,13 @@ async function showAtTop(page: Page, world: Pt) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 6 };
 }
 
+/** Opens the demo floor and goes to the review from the prompt the select tool shows. */
 async function openReview(page: Page) {
   await openSynthetic(page, 'small', '?suggestions');
-  await page.getByRole('button', { name: 'Granska förslag' }).tap();
+  const prompt = page.getByRole('region', { name: 'Granska förslag' });
+  await expect(prompt.getByText('9 förslag att granska.')).toBeVisible();
+  await prompt.getByRole('button', { name: 'Granska', exact: true }).tap();
+  await expect(prompt).toBeHidden();
   const panel = page.getByRole('region', { name: 'Förslag', exact: true });
   await expect(panel.getByText('9 förslag att granska.')).toBeVisible();
   return panel;
@@ -95,6 +99,12 @@ test.describe('reviewing suggestions on a phone', () => {
     await expect(selected.getByText('Ritningen anger 11 m², men rummet blir 12 m².')).toBeVisible();
 
     await selected.getByRole('button', { name: 'Godkänn och redigera' }).tap();
+    // The room was measured with the suggested scale, so accepting it takes the scale too.
+    const confirm = panel.getByRole('alertdialog');
+    await expect(
+      confirm.getByText('Godkänns tillsammans med 1 förslag det bygger på.'),
+    ).toBeVisible();
+    await confirm.getByRole('button', { name: 'Godkänn 2 förslag' }).tap();
 
     await expect(page.getByRole('region', { name: 'Förslag', exact: true })).toBeHidden();
     const after = await readFloor(page);
@@ -102,17 +112,24 @@ test.describe('reviewing suggestions on a phone', () => {
     expect(added.map(([, room]) => [room.name, room.provenance.status])).toEqual([
       ['Sovrum', 'confirmed'],
     ]);
-    // The room was measured with the suggested scale, so that came with it.
     expect(after.scale?.metresPerPixel).toBe(0.012);
     expect(await history(page)).toBe(steps + 1);
     expect(await readSelection(page)).toEqual([{ collection: 'rooms', id: added[0]![0] }]);
     expect((await readEditor(page)).tool).toBe('select');
+    const prompt = page.getByRole('region', { name: 'Granska förslag' });
+    await expect(prompt.getByText('7 förslag att granska.')).toBeVisible();
 
-    // Undo takes the whole accept back; the suggestion stays decided.
+    // Undo takes the whole accept back, and the suggestions with it: their ghosts return.
     await page.getByRole('button', { name: 'Ångra' }).tap();
-    expect(Object.keys((await readFloor(page)).rooms)).toEqual(Object.keys(before.rooms));
-    await page.getByRole('button', { name: 'Granska förslag' }).tap();
-    await expect(panel.getByText('7 förslag att granska.')).toBeVisible();
+    const undone = await readFloor(page);
+    expect(Object.keys(undone.rooms)).toEqual(Object.keys(before.rooms));
+    expect(undone.scale).toEqual(before.scale);
+    await expect(prompt.getByText('9 förslag att granska.')).toBeVisible();
+    expect(await demoRoom(page)).toEqual(corners);
+
+    // Redo accepts them again.
+    await page.getByRole('button', { name: 'Gör om' }).tap();
+    await expect(prompt.getByText('7 förslag att granska.')).toBeVisible();
   });
 
   test('rejecting the scale asks first and rejects what was measured with it, leaving the floor as it was', async ({

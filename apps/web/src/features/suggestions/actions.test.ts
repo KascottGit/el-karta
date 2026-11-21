@@ -1,9 +1,28 @@
 import { putSpaceItem, type Suggestion } from '@el-karta/core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { floorIssues } from '@/features/floorplan/validation/floor-issues';
 import { modelStore } from '@/model/store';
-import { acceptIds, confidentIds, dependantsOf, editTarget, rejectIds } from './actions';
+import {
+  acceptableIds,
+  acceptIds,
+  confidentIds,
+  dependantsOf,
+  editTarget,
+  rejectIds,
+  requirementsOf,
+} from './actions';
 import { loadDemo } from './fixtures';
+import { suggestionsStore } from './suggestions-store';
+
+function otherWall() {
+  return {
+    id: crypto.randomUUID(),
+    a: { x: 50, y: 50 },
+    b: { x: 52, y: 50 },
+    thickness: 0.1,
+    provenance: { status: 'manual' as const },
+  };
+}
 
 const ids = (list: readonly Suggestion[]) => list.map((s) => s.id);
 const history = () => modelStore.getState().past.length;
@@ -32,11 +51,92 @@ describe('accepting suggestions', () => {
     expect(demo.status(scale!.id)).toBe('accepted');
     expect(demo.cached().find((s) => s.id === wall!.id)?.status).toBe('accepted');
 
-    // Undo takes back the whole edit, and leaves the rows decided (see README).
     modelStore.getState().undo();
     expect(demo.floor().data.walls).toEqual({});
     expect(demo.floor().data.scale).toBeUndefined();
-    expect(demo.status(wall!.id)).toBe('accepted');
+  });
+
+  it('puts the rows back to pending on undo and accepts them again on redo', async () => {
+    const demo = await loadDemo();
+    const [scale] = demo.byKind('scale');
+    const [wall] = demo.byKind('wall');
+    const statuses = () => [wall!.id, scale!.id].map((id) => [demo.status(id), cachedStatus(id)]);
+    const cachedStatus = (id: string) => demo.cached().find((s) => s.id === id)?.status;
+    await acceptIds(demo.deps, demo.floorId, [wall!.id]);
+
+    modelStore.getState().undo();
+    await vi.waitFor(() => {
+      expect(statuses().flat()).toEqual(['pending', 'pending', 'pending', 'pending']);
+    });
+
+    modelStore.getState().redo();
+    expect(demo.floor().data.walls[demo.wall(wall!).id]).toBeDefined();
+    await vi.waitFor(() => {
+      expect(statuses().flat()).toEqual(['accepted', 'accepted', 'accepted', 'accepted']);
+    });
+
+    // After undo, a new edit drops the redo step, so the rows stay pending and are no longer followed.
+    modelStore.getState().undo();
+    await vi.waitFor(() => {
+      expect(demo.status(wall!.id)).toBe('pending');
+    });
+    modelStore.getState().apply(putSpaceItem(demo.floorId, 'walls', otherWall()));
+    expect(suggestionsStore.getState().accepts).toEqual([]);
+    expect(demo.status(wall!.id)).toBe('pending');
+  });
+
+  it('takes the status back when the source refuses the undo', async () => {
+    const demo = await loadDemo();
+    const [height] = demo.byKind('floor-height');
+    await acceptIds(demo.deps, demo.floorId, [height!.id]);
+    demo.source.failNextStatus();
+
+    modelStore.getState().undo();
+    await vi.waitFor(() => {
+      expect(demo.cached().find((s) => s.id === height!.id)?.status).toBe('accepted');
+    });
+    expect(demo.status(height!.id)).toBe('accepted');
+  });
+
+  it('accepts only the acceptable rows in bulk, and says why one is not', async () => {
+    const demo = await loadDemo();
+    const broken = { ...demo.byKind('wall')[0]!, id: crypto.randomUUID(), payload: { a: 1 } };
+    const unknown = { ...demo.byKind('wall')[1]!, id: crypto.randomUUID(), kind: 'device' };
+    const needsBroken = {
+      ...demo.byKind('room')[0]!,
+      id: crypto.randomUUID(),
+      payload: { ...demo.room(demo.byKind('room')[0]!), id: crypto.randomUUID() },
+      requires: [broken.id],
+    };
+    const all = [...demo.suggestions, broken, unknown, needsBroken];
+    demo.queries.setQueryData(['suggestions', demo.source.id, demo.floorId], all);
+
+    const ok = acceptableIds(all);
+    expect(new Set(ok)).toEqual(new Set(ids(demo.suggestions)));
+
+    expect(await acceptIds(demo.deps, demo.floorId, [needsBroken.id])).toEqual({
+      ok: false,
+      error: 'suggestions.errors.unreadable',
+      applied: false,
+    });
+    expect(await acceptIds(demo.deps, demo.floorId, [unknown.id])).toMatchObject({
+      error: 'suggestions.errors.unreadable',
+    });
+    const decision = await acceptIds(demo.deps, demo.floorId, ok);
+    expect(decision.ok).toBe(true);
+    expect(Object.keys(demo.floor().data.walls)).toHaveLength(4);
+    expect(Object.keys(demo.floor().data.rooms)).toHaveLength(1);
+  });
+
+  it('lists the pending requirements an accept pulls in', async () => {
+    const demo = await loadDemo();
+    const door = demo.byKind('opening').find((s) => demo.opening(s).kind === 'door')!;
+    const [scale] = demo.byKind('scale');
+
+    expect(new Set(requirementsOf(demo.suggestions, [door.id]))).toEqual(
+      new Set([...door.requires, scale!.id]),
+    );
+    expect(requirementsOf(demo.suggestions, [scale!.id])).toEqual([]);
   });
 
   it('accepts an opening together with its wall', async () => {

@@ -2,13 +2,14 @@ import type { Id, Pt, Suggestion } from '@el-karta/core';
 import i18n from '@/i18n';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { CanvasContext, CanvasPointer } from '@/features/floorplan/canvas/extension';
+import { DEFAULT_TOOL, editorStore, type EditorState } from '@/features/floorplan/editor-store';
 import { suggestionKinds } from './actions';
 import { demoSource } from './dev-seed';
 import { loadDemo } from './fixtures';
 import { createGhostBuilder, parsePayload } from './ghosts';
 import { createMemorySource } from './source';
 import { onFloor, publishGhosts, suggestionsStore } from './suggestions-store';
-import { suggestionsTool } from './tool';
+import { reviewPromptVisible, suggestionsTool } from './tool';
 import { suggestionView } from './views';
 
 const ctx = (floorId: Id): CanvasContext => ({
@@ -35,7 +36,11 @@ describe('suggestionsTool', () => {
   let corner: Pt;
   beforeEach(async () => {
     demo = await loadDemo();
-    publishGhosts(demo.floorId, createGhostBuilder(suggestionKinds)(demo.suggestions, {}));
+    publishGhosts(
+      demo.floorId,
+      createGhostBuilder(suggestionKinds)(demo.suggestions, {}),
+      demo.suggestions.length,
+    );
     corner = demo.room(demo.byKind('room')[0]!).polygon[0]!;
   });
 
@@ -67,6 +72,25 @@ describe('suggestionsTool', () => {
     expect(suggestionsTool.onKeyDown!(escape, ctx(demo.floorId))).toBe(true);
     expect(selected(demo.floorId)).toBeNull();
     expect(suggestionsTool.onKeyDown!(escape, ctx(demo.floorId))).toBe(false);
+  });
+});
+
+describe('reviewPromptVisible', () => {
+  it('shows with the select tool while the open floor has pending suggestions', async () => {
+    const demo = await loadDemo();
+    const editor = (tool: string, floorId: Id | null = demo.floorId): EditorState => ({
+      ...editorStore.getState(),
+      tool,
+      floorId,
+    });
+    publishGhosts(demo.floorId, {}, 2);
+
+    expect(reviewPromptVisible(editor(DEFAULT_TOOL))).toBe(true);
+    expect(reviewPromptVisible(editor('suggestions'))).toBe(false);
+    expect(reviewPromptVisible(editor('wall'))).toBe(false);
+    expect(reviewPromptVisible(editor(DEFAULT_TOOL, crypto.randomUUID()))).toBe(false);
+    publishGhosts(demo.floorId, {}, 0);
+    expect(reviewPromptVisible(editor(DEFAULT_TOOL))).toBe(false);
   });
 });
 

@@ -1,10 +1,20 @@
 import { Sparkles } from 'lucide-react';
 import type { Tool } from '@/features/floorplan/canvas/extension';
 import { TOUCH_RADIUS } from '@/features/floorplan/canvas/hit';
+import { DEFAULT_TOOL, type EditorState } from '@/features/floorplan/editor-store';
 import { ghostAt } from './ghosts';
 import { onFloor, selectSuggestion, suggestionsStore } from './suggestions-store';
 
 export const SUGGESTIONS_TOOL = 'suggestions';
+
+/**
+ * The review prompt shows with the select tool while the floor has pending suggestions. Not with
+ * drawing tools: it would cover the canvas while drawing, and leaving them needs their `onDeactivate`.
+ */
+export const reviewPromptVisible = (editor: EditorState): boolean =>
+  editor.tool === DEFAULT_TOOL &&
+  editor.floorId !== null &&
+  (onFloor(suggestionsStore.getState().pending, editor.floorId) ?? 0) > 0;
 
 const MOUSE_REACH_PX = 4;
 

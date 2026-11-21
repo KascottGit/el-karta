@@ -1,7 +1,6 @@
 import {
   acceptSuggestions,
   createSuggestionKinds,
-  SuggestionError,
   type Id,
   type Suggestion,
   type SuggestionStatus,
@@ -10,7 +9,9 @@ import type { QueryClient } from '@tanstack/react-query';
 import type { MessageKey } from '@/features/floorplan/canvas/extension';
 import type { SelectionItem } from '@/features/floorplan/canvas/selection';
 import { modelStore } from '@/model/store';
+import { parsePayload } from './ghosts';
 import type { SuggestionSource } from './source';
+import { suggestionsStore, type TrackedAccept } from './suggestions-store';
 import { suggestionView } from './views';
 
 export const suggestionKinds = createSuggestionKinds();
@@ -31,6 +32,66 @@ export type Decision =
 
 export const isPending = (s: Suggestion) => s.status === 'pending';
 
+/**
+ * Why a suggestion cannot be accepted, by its message: a requirement that was rejected or is
+ * missing, or a kind that is not registered or a payload that does not fit it (here or in a
+ * requirement). Null when it, and everything it requires, can be accepted.
+ */
+export function createBlockers(all: readonly Suggestion[]): (s: Suggestion) => MessageKey | null {
+  const byId = new Map(all.map((s) => [s.id, s]));
+  const memo = new Map<Id, MessageKey | null>();
+  const visiting = new Set<Id>();
+  const blocker = (s: Suggestion): MessageKey | null => {
+    if (s.status === 'accepted') return null;
+    if (s.status === 'rejected') return 'suggestions.errors.requirementRejected';
+    const known = memo.get(s.id);
+    if (known !== undefined) return known;
+    if (visiting.has(s.id)) return 'suggestions.errors.unreadable';
+    visiting.add(s.id);
+    let found: MessageKey | null =
+      parsePayload(suggestionKinds, s) === null ? 'suggestions.errors.unreadable' : null;
+    for (const r of s.requires) {
+      if (found) break;
+      const required = byId.get(r);
+      found = required ? blocker(required) : 'suggestions.errors.requirementMissing';
+    }
+    visiting.delete(s.id);
+    memo.set(s.id, found);
+    return found;
+  };
+  return blocker;
+}
+
+/** Pending suggestions that can be accepted with everything they require: what "accept all" takes. */
+export function acceptableIds(all: readonly Suggestion[]): Id[] {
+  const blocker = createBlockers(all);
+  return all.filter((s) => isPending(s) && blocker(s) === null).map((s) => s.id);
+}
+
+/** Transitive closure of `ids` over `requires`, as suggestions; missing ids are left out. */
+function closure(all: readonly Suggestion[], ids: readonly Id[]): Suggestion[] {
+  const byId = new Map(all.map((s) => [s.id, s]));
+  const seen = new Set<Id>();
+  const out: Suggestion[] = [];
+  const visit = (id: Id) => {
+    const s = byId.get(id);
+    if (!s || seen.has(id)) return;
+    seen.add(id);
+    out.push(s);
+    for (const r of s.requires) visit(r);
+  };
+  for (const id of ids) visit(id);
+  return out;
+}
+
+/** The pending suggestions accepting `ids` pulls in besides them. */
+export function requirementsOf(all: readonly Suggestion[], ids: readonly Id[]): Id[] {
+  const asked = new Set(ids);
+  return closure(all, ids)
+    .filter((s) => isPending(s) && !asked.has(s.id))
+    .map((s) => s.id);
+}
+
 /** Pending suggestions that require any of `ids`, directly or through others, since they could never be accepted without them. */
 export function dependantsOf(all: readonly Suggestion[], ids: readonly Id[]): Id[] {
   const out = new Set(ids);
@@ -49,28 +110,19 @@ export function dependantsOf(all: readonly Suggestion[], ids: readonly Id[]): Id
 }
 
 /**
- * Pending suggestions with a confidence of at least `threshold` whose pending requirements also
- * reach it, so a bulk accept never pulls in a less certain scale or wall along with them.
+ * Acceptable pending suggestions with a confidence of at least `threshold` whose pending
+ * requirements also reach it, so a bulk accept never pulls in a less certain scale or wall.
  */
 export function confidentIds(all: readonly Suggestion[], threshold: number): Id[] {
-  const byId = new Map(all.map((s) => [s.id, s]));
-  const memo = new Map<Id, boolean>();
-  const confident = (s: Suggestion, seen: Set<Id>): boolean => {
-    if (!isPending(s)) return s.status === 'accepted';
-    const known = memo.get(s.id);
-    if (known !== undefined) return known;
-    if (seen.has(s.id)) return false;
-    seen.add(s.id);
-    const ok =
-      (s.confidence ?? 0) >= threshold &&
-      s.requires.every((r) => {
-        const required = byId.get(r);
-        return required !== undefined && confident(required, seen);
-      });
-    memo.set(s.id, ok);
-    return ok;
-  };
-  return all.filter((s) => isPending(s) && confident(s, new Set())).map((s) => s.id);
+  const blocker = createBlockers(all);
+  return all
+    .filter(
+      (s) =>
+        isPending(s) &&
+        blocker(s) === null &&
+        closure(all, [s.id]).every((r) => !isPending(r) || (r.confidence ?? 0) >= threshold),
+    )
+    .map((s) => s.id);
 }
 
 function setCached(
@@ -84,8 +136,14 @@ function setCached(
   );
 }
 
-/** Records a decision, showing it at once and taking it back if the source refuses it. */
-async function record(deps: SuggestionDeps, floorId: Id, ids: Id[], status: SuggestionStatus) {
+/** Records a decision, showing it at once and going back to `previous` if the source refuses it. */
+async function record(
+  deps: SuggestionDeps,
+  floorId: Id,
+  ids: readonly Id[],
+  status: SuggestionStatus,
+  previous: SuggestionStatus = 'pending',
+) {
   const set = new Set(ids);
   await deps.queries.cancelQueries({ queryKey: suggestionsKey(deps.source.id, floorId) });
   setCached(deps, floorId, set, status);
@@ -93,7 +151,7 @@ async function record(deps: SuggestionDeps, floorId: Id, ids: Id[], status: Sugg
     await deps.source.setStatus(ids, status);
     return true;
   } catch {
-    setCached(deps, floorId, set, 'pending');
+    setCached(deps, floorId, set, previous);
     return false;
   }
 }
@@ -101,11 +159,45 @@ async function record(deps: SuggestionDeps, floorId: Id, ids: Id[], status: Sugg
 const cached = ({ source, queries }: SuggestionDeps, floorId: Id) =>
   queries.getQueryData<Suggestion[]>(suggestionsKey(source.id, floorId)) ?? [];
 
+let watching = false;
+
+/**
+ * Follows the model store's history: when an accept's entry is undone (it moves from `past` to
+ * `future`) its rows go back to pending, so the ghosts return; when it is redone they are accepted
+ * again. An entry that leaves the history otherwise (a new edit after undo, the history limit,
+ * another project) is forgotten.
+ */
+function watchHistory() {
+  if (watching) return;
+  watching = true;
+  modelStore.subscribe((s, prev) => {
+    if (s.past === prev.past && s.future === prev.future) return;
+    const { accepts } = suggestionsStore.getState();
+    if (accepts.length === 0) return;
+    const kept: TrackedAccept[] = [];
+    for (const a of accepts) {
+      const inPast = s.past.includes(a.entry);
+      const inFuture = s.future.includes(a.entry);
+      if (inFuture && prev.past.includes(a.entry)) {
+        void record(a.deps, a.floorId, a.ids, 'pending', 'accepted');
+      } else if (inPast && prev.future.includes(a.entry)) {
+        void record(a.deps, a.floorId, a.ids, 'accepted', 'pending');
+      }
+      if (inPast || inFuture) kept.push(a);
+    }
+    if (kept.length !== accepts.length) suggestionsStore.setState({ accepts: kept });
+  });
+}
+
+const untrack = (accept: TrackedAccept) => {
+  suggestionsStore.setState((s) => ({ accepts: s.accepts.filter((a) => a !== accept) }));
+};
+
 /**
  * Accepts `ids` and everything they require as one model edit (one undo step), then marks those
- * rows accepted. If marking fails the edit stays and the rows stay pending; accepting them again
- * puts the same items by id, so nothing is duplicated. Undoing the edit leaves the rows
- * accepted (see README).
+ * rows accepted. Undo and redo of that step set the rows pending and accepted again
+ * (`watchHistory`). If marking fails the edit stays and the rows stay pending; accepting them
+ * again puts the same items by id, so nothing is duplicated.
  */
 export async function acceptIds(
   deps: SuggestionDeps,
@@ -113,25 +205,35 @@ export async function acceptIds(
   ids: readonly Id[],
 ): Promise<Decision> {
   if (ids.length === 0) return { ok: true, ids: [] };
+  const all = cached(deps, floorId);
+  const blocker = createBlockers(all);
+  for (const id of ids) {
+    const s = all.find((x) => x.id === id);
+    const error = s ? blocker(s) : 'suggestions.errors.requirementMissing';
+    if (error) return { ok: false, error, applied: false };
+  }
+
   let accepted: Suggestion[];
+  let tracked: TrackedAccept | null = null;
   try {
-    const plan = acceptSuggestions(suggestionKinds, cached(deps, floorId), ids);
-    modelStore.getState().apply(plan.edit);
+    const plan = acceptSuggestions(suggestionKinds, all, ids);
+    const model = modelStore.getState();
+    const last = model.past.at(-1);
+    model.apply(plan.edit);
     accepted = plan.accepted;
-  } catch (error) {
-    return {
-      ok: false,
-      error:
-        error instanceof SuggestionError
-          ? 'suggestions.errors.requirementRejected'
-          : 'suggestions.errors.invalid',
-      applied: false,
-    };
+    const entry = modelStore.getState().past.at(-1);
+    if (entry && entry !== last) {
+      watchHistory();
+      tracked = { entry, floorId, ids: accepted.map((s) => s.id), deps };
+      suggestionsStore.setState((s) => ({ accepts: [...s.accepts, tracked!] }));
+    }
+  } catch {
+    return { ok: false, error: 'suggestions.errors.invalid', applied: false };
   }
   const acceptedIds = accepted.map((s) => s.id);
-  return (await record(deps, floorId, acceptedIds, 'accepted'))
-    ? { ok: true, ids: acceptedIds }
-    : { ok: false, error: 'suggestions.errors.saveAccepted', applied: true };
+  if (await record(deps, floorId, acceptedIds, 'accepted')) return { ok: true, ids: acceptedIds };
+  if (tracked) untrack(tracked);
+  return { ok: false, error: 'suggestions.errors.saveAccepted', applied: true };
 }
 
 /** Rejects `ids` and the pending suggestions that require them. The model is not touched. */

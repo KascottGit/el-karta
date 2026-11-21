@@ -2,7 +2,7 @@ import type { Id, Suggestion, SuggestionIssue } from '@el-karta/core';
 import { Check, Pencil, X } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { CanvasContext } from '@/features/floorplan/canvas/extension';
+import type { CanvasContext, MessageKey } from '@/features/floorplan/canvas/extension';
 import { suggestionStyle } from '@/features/floorplan/canvas/theme';
 import { DecimalField } from '@/features/floorplan/fields/decimal-field';
 import { formatDecimal } from '@/features/floorplan/fields/numbers';
@@ -10,10 +10,13 @@ import { IssueList } from '@/features/floorplan/validation/issue-list';
 import { summarizeIssues } from '@/features/floorplan/validation/issue-summary';
 import { Button } from '@/ui/button';
 import {
+  acceptableIds,
   confidentIds,
+  createBlockers,
   dependantsOf,
   editTarget,
   isPending,
+  requirementsOf,
   suggestionKinds,
   type Decision,
 } from './actions';
@@ -27,6 +30,16 @@ interface Row {
   view: SuggestionView;
   /** Null when the payload does not fit its kind's schema. */
   payload: unknown;
+  /** Why it cannot be accepted, if it cannot. */
+  blocked: MessageKey | null;
+}
+
+/** A decision that takes more suggestions than the one asked for, waiting for the person's yes. */
+interface Confirm {
+  action: 'accept' | 'edit' | 'reject';
+  suggestion: Suggestion;
+  /** How many more suggestions it takes. */
+  extra: number;
 }
 
 const percent = (confidence: number) => formatDecimal(confidence * 100, 0);
@@ -53,18 +66,19 @@ export function SuggestionsPanel({ ctx }: { ctx: CanvasContext }) {
   const notice = useSuggestions((s) => onFloor(s.notice, ctx.floorId));
   const actions = useSuggestionActions(ctx.floorId);
   const [threshold, setThreshold] = useState<number>(suggestionStyle.thresholds.high);
-  const [confirm, setConfirm] = useState<{ ids: Id[]; dependants: number } | null>(null);
+  const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const rows = useMemo<Row[]>(
-    () =>
-      suggestions.filter(isPending).map((suggestion) => ({
-        suggestion,
-        view: suggestionView(suggestion.kind),
-        payload: parsePayload(suggestionKinds, suggestion),
-      })),
-    [suggestions],
-  );
+  const rows = useMemo<Row[]>(() => {
+    const blocker = createBlockers(suggestions);
+    return suggestions.filter(isPending).map((suggestion) => ({
+      suggestion,
+      view: suggestionView(suggestion.kind),
+      payload: parsePayload(suggestionKinds, suggestion),
+      blocked: blocker(suggestion),
+    }));
+  }, [suggestions]);
+  const acceptable = useMemo(() => acceptableIds(suggestions), [suggestions]);
   const confident = useMemo(() => confidentIds(suggestions, threshold), [suggestions, threshold]);
   const groups = useMemo(() => {
     const byKind = new Map<string, Row[]>();
@@ -86,24 +100,37 @@ export function SuggestionsPanel({ ctx }: { ctx: CanvasContext }) {
       setBusy(false);
     });
   };
-  const reject = (ids: Id[]) => {
-    const dependants = dependantsOf(suggestions, ids).length;
-    if (dependants > 0) setConfirm({ ids, dependants });
-    else run(() => actions.reject(ids));
+  const decide = ({ action, suggestion }: Pick<Confirm, 'action' | 'suggestion'>) => {
+    run(() =>
+      action === 'accept'
+        ? actions.accept([suggestion.id])
+        : action === 'edit'
+          ? actions.acceptAndEdit(suggestion)
+          : actions.reject([suggestion.id]),
+    );
+  };
+  /** Asks first when the decision takes other suggestions along. */
+  const ask = (action: Confirm['action'], suggestion: Suggestion) => {
+    const others =
+      action === 'reject'
+        ? dependantsOf(suggestions, [suggestion.id])
+        : requirementsOf(suggestions, [suggestion.id]);
+    if (others.length > 0) setConfirm({ action, suggestion, extra: others.length });
+    else decide({ action, suggestion });
   };
   const item = {
     busy,
     onSelect: (id: Id) => {
       selectSuggestion(ctx.floorId, id);
     },
-    onAccept: (id: Id) => {
-      run(() => actions.accept([id]));
+    onAccept: (s: Suggestion) => {
+      ask('accept', s);
     },
-    onReject: (id: Id) => {
-      reject([id]);
+    onReject: (s: Suggestion) => {
+      ask('reject', s);
     },
     onEdit: (s: Suggestion) => {
-      run(() => actions.acceptAndEdit(s));
+      ask('edit', s);
     },
   };
   const pendingIds = rows.map((r) => r.suggestion.id);
@@ -132,21 +159,31 @@ export function SuggestionsPanel({ ctx }: { ctx: CanvasContext }) {
       {confirm && (
         <div
           role="alertdialog"
-          aria-label={t('suggestions.reject')}
+          aria-label={t(confirm.action === 'reject' ? 'suggestions.reject' : 'suggestions.accept')}
           className="flex flex-col gap-2 rounded-md border p-2"
         >
-          <p className="text-sm">{t('suggestions.confirmReject', { count: confirm.dependants })}</p>
+          <p className="text-sm">
+            {t(
+              confirm.action === 'reject'
+                ? 'suggestions.confirmReject'
+                : 'suggestions.confirmAccept',
+              { count: confirm.extra },
+            )}
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button
-              variant="destructive"
+              variant={confirm.action === 'reject' ? 'destructive' : 'default'}
+              disabled={busy}
               onClick={() => {
-                const { ids } = confirm;
-                run(() => actions.reject(ids));
+                decide(confirm);
               }}
             >
-              {t('suggestions.confirmRejectButton', {
-                count: confirm.ids.length + confirm.dependants,
-              })}
+              {t(
+                confirm.action === 'reject'
+                  ? 'suggestions.confirmRejectButton'
+                  : 'suggestions.confirmAcceptButton',
+                { count: confirm.extra + 1 },
+              )}
             </Button>
             <Button
               variant="outline"
@@ -181,12 +218,12 @@ export function SuggestionsPanel({ ctx }: { ctx: CanvasContext }) {
         <div className="flex flex-col gap-2" role="group" aria-label={t('suggestions.bulk')}>
           <div className="flex flex-wrap gap-2">
             <Button
-              disabled={busy}
+              disabled={busy || acceptable.length === 0}
               onClick={() => {
-                run(() => actions.accept(pendingIds));
+                run(() => actions.accept(acceptable));
               }}
             >
-              {t('suggestions.acceptAll', { count: pendingIds.length })}
+              {t('suggestions.acceptAll', { count: acceptable.length })}
             </Button>
             <Button
               variant="outline"
@@ -253,12 +290,12 @@ function SuggestionItem({
   detailed?: boolean;
   busy: boolean;
   onSelect: (id: Id) => void;
-  onAccept: (id: Id) => void;
-  onReject: (id: Id) => void;
+  onAccept: (s: Suggestion) => void;
+  onReject: (s: Suggestion) => void;
   onEdit: (s: Suggestion) => void;
 }) {
   const { t } = useTranslation();
-  const { suggestion, view, payload } = row;
+  const { suggestion, view, payload, blocked } = row;
   const text = payload === null ? t('suggestions.invalid') : view.describe(payload, t);
   const issues = useMemo(
     () =>
@@ -270,7 +307,7 @@ function SuggestionItem({
       ),
     [suggestion.issues],
   );
-  const editable = payload !== null && editTarget(suggestion) !== null;
+  const editable = blocked === null && editTarget(suggestion) !== null;
 
   return (
     <div className="flex flex-col gap-1">
@@ -296,14 +333,15 @@ function SuggestionItem({
         </span>
       </div>
       <IssueList issues={issues} />
+      {blocked && payload !== null && <p className="text-sm text-muted-foreground">{t(blocked)}</p>}
       <div className="flex flex-wrap gap-1">
-        {payload !== null && (
+        {blocked === null && (
           <Button
             size="sm"
             disabled={busy}
             aria-label={t('suggestions.acceptItem', { item: text })}
             onClick={() => {
-              onAccept(suggestion.id);
+              onAccept(suggestion);
             }}
           >
             <Check aria-hidden />
@@ -329,7 +367,7 @@ function SuggestionItem({
           disabled={busy}
           aria-label={t('suggestions.rejectItem', { item: text })}
           onClick={() => {
-            onReject(suggestion.id);
+            onReject(suggestion);
           }}
         >
           <X aria-hidden />

@@ -1,10 +1,11 @@
 import type { EditorExtension } from '@/features/floorplan/canvas/extension';
 import { union } from '@/features/floorplan/canvas/rect';
 import { ghostBounds } from './ghosts';
+import { ReviewPrompt } from './review-prompt';
 import { onFloor, suggestionsStore } from './suggestions-store';
 import { SuggestionsLayer } from './suggestions-layer';
 import { SuggestionsPanel } from './suggestions-panel';
-import { SUGGESTIONS_TOOL, suggestionsTool } from './tool';
+import { reviewPromptVisible, SUGGESTIONS_TOOL, suggestionsTool } from './tool';
 
 /** Pending AI suggestions, ghosted on the plan, and the panel to accept or reject them (ADR 0007). */
 export const suggestionsExtension: EditorExtension = {
@@ -32,5 +33,6 @@ export const suggestionsExtension: EditorExtension = {
       visible: (editor) => editor.tool === SUGGESTIONS_TOOL,
       Component: SuggestionsPanel,
     },
+    { id: 'suggestions-prompt', order: 4, visible: reviewPromptVisible, Component: ReviewPrompt },
   ],
 };
