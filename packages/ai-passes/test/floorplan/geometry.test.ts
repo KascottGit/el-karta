@@ -7,6 +7,7 @@ import {
   type Pt,
   type Room,
   type Wall,
+  type SuggestionDraft,
 } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
 import {
@@ -14,7 +15,6 @@ import {
   joinDoubleOpenings,
   placeDetectedOpening,
   type PlannedOpening,
-  type SuggestionDraft,
 } from '../../src/index.ts';
 import { idSource, optionsFor, output, testPlan } from './fixtures.ts';
 

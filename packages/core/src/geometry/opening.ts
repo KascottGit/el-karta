@@ -1,5 +1,21 @@
 import type { Opening } from '../schemas/index.ts';
 
+export type OpeningKind = Opening['kind'];
+export const OPENING_KINDS: readonly OpeningKind[] = ['door', 'window', 'passage'];
+
+export interface OpeningSize {
+  width: number;
+  height: number;
+  sill?: number;
+}
+
+/** Sizes a new opening gets when nothing better is known, whether drawn by hand or detected. */
+export const OPENING_DEFAULTS: Readonly<Record<OpeningKind, OpeningSize>> = {
+  door: { width: 0.9, height: 2.1 },
+  window: { width: 1.2, height: 1.2, sill: 0.9 },
+  passage: { width: 0.9, height: 2.1 },
+};
+
 export interface DoorFacing {
   hinge: NonNullable<Opening['hinge']>;
   swing: NonNullable<Opening['swing']>;

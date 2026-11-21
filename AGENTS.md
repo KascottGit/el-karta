@@ -16,20 +16,20 @@ Conventions for anyone (human or agent) changing this repo. `PLAN.md` holds the 
 
 ## Commands
 
-| Command                 | What it does                                                                                    |
-| ----------------------- | ----------------------------------------------------------------------------------------------- |
-| `pnpm install`          | Install everything (Node and pnpm versions are pinned in `.nvmrc` and `packageManager`)         |
-| `pnpm dev`              | Web app on http://localhost:5173                                                                |
-| `pnpm build`            | Production build of every app                                                                   |
-| `pnpm test`             | All Vitest projects (`core`, `web`, `tooling`)                                                  |
-| `pnpm typecheck`        | `tsc --noEmit` for every package                                                                |
-| `pnpm lint`             | ESLint (incl. import boundaries) + Prettier check; `pnpm format` fixes formatting               |
-| `pnpm perf`             | Load and tracing timings on the synthetic projects                                              |
-| `pnpm supabase start`   | Local Supabase stack (needs Docker); `pnpm supabase db reset` re-applies migrations             |
-| `pnpm test:db`          | pgTAP tests in `supabase/tests` (RLS) against the local stack                                   |
-| `pnpm test:integration` | `SupabaseRepository` against the local stack, as real signed-up users                           |
-| `pnpm test:e2e`         | Playwright smoke tests; the app runs against the local stack and reads magic links from Mailpit |
-| `pnpm db:types`         | Regenerate `packages/data-supabase/src/database.types.ts` after changing a migration            |
+| Command                 | What it does                                                                                                                                                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm install`          | Install everything (Node and pnpm versions are pinned in `.nvmrc` and `packageManager`)                                                                                                                                               |
+| `pnpm dev`              | Web app on http://localhost:5173                                                                                                                                                                                                      |
+| `pnpm build`            | Production build of every app                                                                                                                                                                                                         |
+| `pnpm test`             | All Vitest projects (`core`, `web`, `tooling`)                                                                                                                                                                                        |
+| `pnpm typecheck`        | `tsc --noEmit` for every package                                                                                                                                                                                                      |
+| `pnpm lint`             | ESLint (incl. import boundaries) + Prettier check; `pnpm format` fixes formatting                                                                                                                                                     |
+| `pnpm perf`             | Load and tracing timings on the synthetic projects                                                                                                                                                                                    |
+| `pnpm supabase start`   | Local Supabase stack (needs Docker); `pnpm supabase db reset` re-applies migrations                                                                                                                                                   |
+| `pnpm test:db`          | pgTAP tests in `supabase/tests` (RLS) against the local stack                                                                                                                                                                         |
+| `pnpm test:integration` | `SupabaseRepository` and the `ai-pass` function against the local stack, as real signed-up users; serve the function first with `pnpm supabase functions serve --env-file packages/data-supabase/test/ai-pass.env` (fake AI provider) |
+| `pnpm test:e2e`         | Playwright smoke tests; the app runs against the local stack and reads magic links from Mailpit                                                                                                                                       |
+| `pnpm db:types`         | Regenerate `packages/data-supabase/src/database.types.ts` after changing a migration                                                                                                                                                  |
 
 Run `pnpm typecheck && pnpm lint && pnpm test` before every commit, plus the three Supabase test commands when touching the database, the repository or auth. CI runs all of them and `pnpm build`, and fails if the generated DB types are out of date.
 

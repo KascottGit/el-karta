@@ -1,4 +1,4 @@
-import { Id, Suggestion, type Issue } from '@el-karta/core';
+import { Id, SuggestionDraft, type Issue } from '@el-karta/core';
 import { z } from 'zod';
 
 /**
@@ -27,17 +27,6 @@ export const AiRunRequest = z.object({
     .optional(),
 });
 export type AiRunRequest = z.infer<typeof AiRunRequest>;
-
-/** A suggestion before it is stored; the function adds project, floor, run, pass, source and status. */
-export const SuggestionDraft = Suggestion.pick({
-  id: true,
-  kind: true,
-  payload: true,
-  confidence: true,
-  issues: true,
-  requires: true,
-});
-export type SuggestionDraft = z.infer<typeof SuggestionDraft>;
 
 /**
  * Stores a pass's merged output as pending suggestions. `runIds` are the runs it came from; a

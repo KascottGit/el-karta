@@ -8,6 +8,7 @@ import {
   leftNormal,
   nearestWall,
   normalize,
+  OPENING_DEFAULTS,
   scale,
   signedArea,
   sub,
@@ -29,13 +30,6 @@ export const OPENING_REACH = 0.3;
 
 /** Openings of one kind on one wall this close together are one opening (double doors). */
 const DOUBLE_GAP = 0.15;
-
-/** Same sizes as the editor's defaults for new openings. */
-export const OPENING_SIZE = {
-  door: { height: 2.1 },
-  window: { height: 1.2, sill: 0.9 },
-  passage: { height: 2.1 },
-} as const;
 
 /** A room whose walls do not close gets a square this many metres wide without a box from the model. */
 const OPEN_ROOM_SIDE = 2;
@@ -121,7 +115,7 @@ export function placeDetectedOpening(
   if (width < EPSILON) return null;
   const start = Math.min(ta, tb);
   const offset = clamp(start, 0, hit.length - width);
-  const size = OPENING_SIZE[o.kind];
+  const size = OPENING_DEFAULTS[o.kind];
   const planned: PlannedOpening = {
     wallId: hit.wallId,
     kind: o.kind,
@@ -132,7 +126,7 @@ export function placeDetectedOpening(
     distance: hit.distance,
     clamped: Math.abs(offset - start) + (Math.abs(tb - ta) - width),
   };
-  if ('sill' in size) planned.sill = size.sill;
+  if (size.sill !== undefined) planned.sill = size.sill;
   if (o.kind === 'door') {
     if (o.hinge && !o.double) {
       planned.hinge = (o.hinge === 'a') === ta <= tb ? 'left' : 'right';

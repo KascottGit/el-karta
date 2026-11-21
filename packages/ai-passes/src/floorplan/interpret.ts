@@ -7,7 +7,8 @@ import type {
   SuggestionIssue,
   Wall,
 } from '@el-karta/core';
-import type { SuggestionDraft, Tile } from '../pass.ts';
+import type { SuggestionDraft } from '@el-karta/core';
+import type { Tile } from '../pass.ts';
 import { clampNorm, mapFloorplan, outputToPixels } from './frame.ts';
 import { planGeometry } from './geometry.ts';
 import {

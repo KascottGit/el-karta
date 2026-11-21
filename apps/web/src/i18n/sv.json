@@ -284,7 +284,6 @@
     },
     "ai": {
       "room-open": "Väggarna runt rummet sluter inte tätt. Konturen är ungefärlig – kontrollera den.",
-      "room-merged": "{{count}} rumsnamn hamnade i samma yta och slogs ihop. Kontrollera om en vägg saknas.",
       "room-area-mismatch": "Ritningen anger {{printed}} m², men rummet blir {{computed}} m².",
       "scale-disagreement": "Måtten på ritningen stämmer inte med varandra ({{agreeing}} stämmer, {{outliers}} avviker). Kontrollera skalan.",
       "coordinate-out-of-range": "AI:n angav en punkt utanför bilden.",
@@ -293,7 +292,13 @@
       "opening-zero-width": "AI:n angav en dörr eller ett fönster utan bredd.",
       "dimension-invalid": "AI:n läste ett mått som inte går att använda.",
       "box-missing": "AI:n hittade ingen planritning på sidan.",
-      "box-invalid": "AI:n angav ett ogiltigt område för planritningen."
+      "box-invalid": "AI:n angav ett ogiltigt område för planritningen.",
+      "scale-unknown": "Skalan är okänd, så måtten är bara platshållare. Mät ett känt avstånd för att få rätt storlek.",
+      "opening-unplaced_one": "{{count}} dörr eller fönster kunde inte placeras på någon vägg.",
+      "opening-unplaced_other": "{{count}} dörrar eller fönster kunde inte placeras på någon vägg.",
+      "scale-unconfirmed": "Skalan bygger på ritningens skalangivelse, men bilden kan vara beskuren. Kontrollera ett mått.",
+      "room-merged_one": "{{count}} rumsnamn hamnade i samma yta och slogs ihop. Kontrollera om en vägg saknas.",
+      "room-merged_other": "{{count}} rumsnamn hamnade i samma yta och slogs ihop. Kontrollera om en vägg saknas."
     }
   },
   "background": {

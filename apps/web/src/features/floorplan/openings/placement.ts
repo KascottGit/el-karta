@@ -2,32 +2,20 @@ import {
   doorFacing,
   EPSILON,
   normalize,
+  OPENING_DEFAULTS,
   sub,
   wallLength,
   type FloorData,
   type Id,
   type Opening,
+  type OpeningKind,
+  type OpeningSize,
   type Pt,
   type Wall,
   type WallHit,
 } from '@el-karta/core';
 
-export type OpeningKind = Opening['kind'];
-export const OPENING_KINDS: readonly OpeningKind[] = ['door', 'window', 'passage'];
-
-export interface OpeningSize {
-  width: number;
-  height: number;
-  sill?: number;
-}
-
-const WINDOW_SILL = 0.9;
-
-export const OPENING_DEFAULTS: Readonly<Record<OpeningKind, OpeningSize>> = {
-  door: { width: 0.9, height: 2.1 },
-  window: { width: 1.2, height: 1.2, sill: WINDOW_SILL },
-  passage: { width: 0.9, height: 2.1 },
-};
+const WINDOW_SILL = OPENING_DEFAULTS.window.sill ?? 0.9;
 
 type OpeningsOf = Pick<FloorData, 'walls' | 'openings'>;
 type Span = Pick<Opening, 'offset' | 'width'>;

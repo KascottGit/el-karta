@@ -3,5 +3,6 @@
  * exact `modelVersion` each run reports.
  */
 export const defaultModels: Readonly<Record<string, string>> = {
+  'floorplan-locate': 'gemini-flash-latest',
   floorplan: 'gemini-flash-latest',
 };

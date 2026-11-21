@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { generateProject, type Model } from '@el-karta/core';
+import { generateProject, type Model, type SuggestionDraft } from '@el-karta/core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import {
   AI_PASS_FUNCTION,
@@ -8,7 +8,6 @@ import {
   RepositoryError,
   SuggestionRepository,
   SupabaseRepository,
-  type SuggestionDraft,
 } from '../src/index.ts';
 import { readCapped } from '../../../supabase/functions/ai-pass/body.ts';
 import { localStack, signedInUser } from './local-supabase.ts';

@@ -1,5 +1,5 @@
 import type { AiProvider, ImageInput, Usage } from '@el-karta/ai-providers';
-import type { Id, Issue, Suggestion } from '@el-karta/core';
+import type { Id, Issue, SuggestionDraft } from '@el-karta/core';
 import type { z } from 'zod';
 
 export interface Prompt {
@@ -20,12 +20,6 @@ export interface TileOutput<Out> {
   tile: Tile;
   output: Out;
 }
-
-/** A suggestion before it is stored; the store adds project, floor, run, pass, source and status. */
-export type SuggestionDraft = Pick<
-  Suggestion,
-  'id' | 'kind' | 'payload' | 'confidence' | 'issues' | 'requires'
->;
 
 /**
  * One AI feature (PLAN.md "AI pipeline"). `In` is everything the pass needs, already reduced by the

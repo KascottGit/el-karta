@@ -33,3 +33,14 @@ export const Suggestion = z.object({
   status: SuggestionStatus,
 });
 export type Suggestion = z.infer<typeof Suggestion>;
+
+/** A suggestion before it is stored; the store adds project, floor, run, pass, source and status. */
+export const SuggestionDraft = Suggestion.pick({
+  id: true,
+  kind: true,
+  payload: true,
+  confidence: true,
+  issues: true,
+  requires: true,
+});
+export type SuggestionDraft = z.infer<typeof SuggestionDraft>;
