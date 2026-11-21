@@ -86,7 +86,7 @@ Milestones are planned in `docs/milestones/M<n>.md` from `docs/milestones/TEMPLA
 
 Orchestrator rules (ADR 0005):
 
-- Run at most two sub-agents at a time (the person is on a Pro plan; more exhausts the 5-hour limit). Prefer pairing tasks with disjoint Touches, or a reviewer with an implementer.
+- Run one sub-agent at a time (the person is on a Pro plan; parallel agents exhaust the 5-hour limit). The orchestrator does small checks, fixes and merges itself while it runs.
 - Every milestone plan has a "Shared building blocks" section. The orchestrator builds those modules in T0, before any task that would otherwise invent its own copy.
 - After review fixes, the orchestrator checks the fix diff and runs the suites itself. A second full review only happens when a blocker touched shared infrastructure (`canvas/`, core, store, RLS).
 - One orchestrator session per milestone. The milestone file and its PR carry the handoff; start the next milestone in a fresh session.
