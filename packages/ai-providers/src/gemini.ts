@@ -9,11 +9,20 @@ export interface GeminiOptions {
   fetch?: HttpOptions['fetch'];
   /** Waits between retries; tests pass one that resolves at once. */
   sleep?: (ms: number) => Promise<void>;
+  /** Per attempt; an overloaded model can otherwise hold a request open for many minutes. */
+  timeoutMs?: number;
 }
 
 const maxAttempts = 3;
 const baseDelayMs = 1000;
 const retryableStatuses = new Set([429, 503]);
+const defaultTimeoutMs = 120_000;
+
+const isTimeout = (error: unknown) =>
+  error instanceof Error &&
+  (error.name === 'AbortError' ||
+    error.name === 'TimeoutError' ||
+    /timed? ?out|abort/i.test(error.message));
 
 const defaultSleep = (ms: number) =>
   new Promise<void>((resolve) => {
@@ -25,7 +34,10 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
   const ai = new GoogleGenAI({
     apiKey: options.apiKey,
     apiVersion: 'v1beta',
-    ...(options.fetch ? { httpOptions: { fetch: options.fetch } } : {}),
+    httpOptions: {
+      timeout: options.timeoutMs ?? defaultTimeoutMs,
+      ...(options.fetch ? { fetch: options.fetch } : {}),
+    },
   });
   const sleep = options.sleep ?? defaultSleep;
 
@@ -43,12 +55,17 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
         });
       } catch (error) {
         const status = error instanceof ApiError ? error.status : undefined;
-        const retryable = status !== undefined && retryableStatuses.has(status);
+        const timedOut = status === undefined && isTimeout(error);
+        const retryable = timedOut || (status !== undefined && retryableStatuses.has(status));
         if (retryable && attempt < maxAttempts) {
           await sleep(baseDelayMs * 2 ** (attempt - 1));
           continue;
         }
-        const message = error instanceof Error ? error.message : String(error);
+        const message = timedOut
+          ? `Gemini did not answer within ${(options.timeoutMs ?? defaultTimeoutMs) / 1000} s`
+          : error instanceof Error
+            ? error.message
+            : String(error);
         throw new ProviderError(status === 429 ? 'rate_limited' : 'error', message, {
           cause: error,
         });

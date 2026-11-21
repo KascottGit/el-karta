@@ -140,3 +140,33 @@ describe('createGeminiProvider', () => {
     });
   });
 });
+
+describe('createGeminiProvider timeouts', () => {
+  it('gives up on a request that never answers, retrying it like an overloaded model', async () => {
+    let attempts = 0;
+    const hanging = (_input: string | URL | Request, init?: RequestInit) => {
+      attempts++;
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          reject(Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }));
+        });
+      });
+    };
+    const provider = createGeminiProvider({
+      apiKey: 'key',
+      fetch: hanging,
+      timeoutMs: 20,
+      sleep: () => Promise.resolve(),
+    });
+    await expect(
+      provider.generateStructured({
+        model: 'm',
+        system: 's',
+        messages: [{ role: 'user', text: 'hi' }],
+        images: [],
+        jsonSchema: {},
+      }),
+    ).rejects.toMatchObject({ kind: 'error', message: expect.stringMatching(/within 0.02 s/) });
+    expect(attempts).toBe(3);
+  });
+});
