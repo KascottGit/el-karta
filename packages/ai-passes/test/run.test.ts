@@ -65,7 +65,7 @@ describe('runPass', () => {
     expect(request.system).toBe('system');
     expect(request.messages).toEqual([{ role: 'user', text: 'Find walls.' }]);
     expect(request.images).toHaveLength(1);
-    expect(request.jsonSchema).toEqual(z.toJSONSchema(Output));
+    expect(request.jsonSchema).toEqual(z.toJSONSchema(Output, { io: 'input' }));
   });
 
   it('retries once with the issues and returns the fixed answer', async () => {
@@ -136,6 +136,29 @@ describe('runPass', () => {
       validationRetries: 1,
     });
     expect(result.error).toMatch(/not valid JSON/);
+  });
+
+  it('keeps the first parsed answer when the retry is unparseable', async () => {
+    const provider = createFakeProvider([tooLong, 'nope']);
+    const result = await runPass(pass, input, { provider, model: 'm' });
+
+    expect(provider.calls).toHaveLength(2);
+    expect(result).toMatchObject({ status: 'invalid', output: tooLong, validationRetries: 1 });
+    expect(result.issues.map((issue) => issue.code)).toEqual(['test.too-long']);
+    expect(result.error).toMatch(/not valid JSON/);
+  });
+
+  it('describes the input side of the output schema', async () => {
+    const WithDefault = z.object({ walls: z.array(z.string()).default([]) });
+    const provider = createFakeProvider([{}]);
+    const result = await runPass(
+      { ...pass, outputSchema: WithDefault, validate: () => [] } as unknown as typeof pass,
+      input,
+      { provider, model: 'm' },
+    );
+
+    expect(result.output).toEqual({ walls: [] });
+    expect(provider.calls[0]!.jsonSchema['required']).toBeUndefined();
   });
 
   it('reports rate limits and provider errors', async () => {

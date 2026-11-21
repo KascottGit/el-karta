@@ -57,7 +57,11 @@ export async function runPass<In, Out, Opts>(
   try {
     const prompt = pass.prompt(input);
     images = prompt.images.length;
-    const jsonSchema = z.toJSONSchema(pass.outputSchema) as Record<string, unknown>;
+    // The model writes what the schema parses, so defaults and transforms are not yet applied.
+    const jsonSchema = z.toJSONSchema(pass.outputSchema, { io: 'input' }) as Record<
+      string,
+      unknown
+    >;
     const messages: Message[] = [{ role: 'user', text: prompt.text }];
 
     const call = async () => {
@@ -81,8 +85,17 @@ export async function runPass<In, Out, Opts>(
         { role: 'model', text: response.text },
         { role: 'user', text: feedback(attempt) },
       );
+      const first = attempt;
       response = await call();
       attempt = check(pass, input, response);
+      if (!attempt.ok && first.ok) {
+        return finish({
+          status: 'invalid',
+          output: first.output,
+          issues: first.issues,
+          error: attempt.problem,
+        });
+      }
     }
 
     if (!attempt.ok) {
