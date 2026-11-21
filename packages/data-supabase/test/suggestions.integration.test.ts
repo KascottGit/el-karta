@@ -10,6 +10,7 @@ import {
   SupabaseRepository,
   type SuggestionDraft,
 } from '../src/index.ts';
+import { readCapped } from '../../../supabase/functions/ai-pass/body.ts';
 import { localStack, signedInUser } from './local-supabase.ts';
 
 // The function must be served with this file: `pnpm supabase functions serve --env-file <it>`.
@@ -165,11 +166,34 @@ describe('ai-pass function and SuggestionRepository (local Supabase, AI_PROVIDER
       },
       body,
       duplex: 'half',
-    } as RequestInit);
+    });
     expect(response.status).toBe(413);
     expect(await response.json()).toEqual({
       error: { code: 'too_large', message: expect.any(String) as unknown },
     });
+  });
+
+  // The local gateway buffers the body and adds a Content-Length, so the reader is tested directly.
+  it('stops reading a streamed body as soon as it passes the cap', async () => {
+    let pulls = 0;
+    let cancelled = false;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls++;
+        controller.enqueue(new Uint8Array(1000));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    expect(await readCapped(endless, 4500)).toBeNull();
+    expect(cancelled).toBe(true);
+    expect(pulls).toBeLessThan(10);
+
+    const small = new Request('http://x', { method: 'POST', body: '{"a":1}' });
+    const bytes = await readCapped(small.body, 7);
+    expect(new TextDecoder().decode(bytes!)).toBe('{"a":1}');
+    expect(await readCapped(null, 0)).toEqual(new Uint8Array(0));
   });
 
   it('refuses a request without a signed-in user', async () => {

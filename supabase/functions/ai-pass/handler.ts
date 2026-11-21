@@ -15,6 +15,7 @@ import {
   type ElKartaClient,
 } from '@el-karta/data-supabase';
 import { z } from 'zod';
+import { readCapped } from './body.ts';
 
 type Json = Database['public']['Tables']['suggestions']['Insert']['payload'];
 
@@ -100,41 +101,17 @@ function parseRunsPerHour(raw: string | undefined): number {
 async function readBody(request: Request): Promise<AiPassRequest> {
   const declared = Number(request.headers.get('Content-Length') ?? 0);
   if (declared > AI_PASS_MAX_BODY_BYTES) throw tooLarge();
-  const text = await readCapped(request);
+  const bytes = await readCapped(request.body, AI_PASS_MAX_BODY_BYTES);
+  if (!bytes) throw tooLarge();
   let raw: unknown;
   try {
-    raw = JSON.parse(text);
+    raw = JSON.parse(new TextDecoder().decode(bytes));
   } catch {
     throw new Refusal('bad_request', 'The body is not JSON');
   }
   const parsed = AiPassRequest.safeParse(raw);
   if (!parsed.success) throw new Refusal('bad_request', z.prettifyError(parsed.error));
   return parsed.data;
-}
-
-// Content-Length is optional (chunked uploads), so the cap is enforced while reading.
-async function readCapped(request: Request): Promise<string> {
-  if (!request.body) return '';
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > AI_PASS_MAX_BODY_BYTES) {
-      await reader.cancel();
-      throw tooLarge();
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(bytes);
 }
 
 const tooLarge = () =>
