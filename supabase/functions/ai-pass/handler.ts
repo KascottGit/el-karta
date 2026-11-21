@@ -63,7 +63,7 @@ const refuse = (code: AiPassErrorCode, message: string) =>
 
 /** The `ai-pass` Edge Function (ADR 0007). Every database call runs as the caller under RLS. */
 export function createAiPassHandler(deps: AiPassDeps): (request: Request) => Promise<Response> {
-  const runsPerHour = Number(deps.env['AI_RUNS_PER_HOUR'] ?? DEFAULT_AI_RUNS_PER_HOUR);
+  const runsPerHour = parseRunsPerHour(deps.env['AI_RUNS_PER_HOUR']);
 
   return async (request) => {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
@@ -86,25 +86,55 @@ export function createAiPassHandler(deps: AiPassDeps): (request: Request) => Pro
     } catch (error) {
       if (error instanceof Refusal) return refuse(error.code, error.message);
       console.error(error);
-      return refuse('internal', error instanceof Error ? error.message : String(error));
+      return refuse('internal', 'Internal error');
     }
   };
+}
+
+/** Falls back to the default unless the value is a positive integer, so a typo cannot lift the limit. */
+function parseRunsPerHour(raw: string | undefined): number {
+  const value = Number(raw);
+  return Number.isInteger(value) && value > 0 ? value : DEFAULT_AI_RUNS_PER_HOUR;
 }
 
 async function readBody(request: Request): Promise<AiPassRequest> {
   const declared = Number(request.headers.get('Content-Length') ?? 0);
   if (declared > AI_PASS_MAX_BODY_BYTES) throw tooLarge();
-  const bytes = new Uint8Array(await request.arrayBuffer());
-  if (bytes.byteLength > AI_PASS_MAX_BODY_BYTES) throw tooLarge();
+  const text = await readCapped(request);
   let raw: unknown;
   try {
-    raw = JSON.parse(new TextDecoder().decode(bytes));
+    raw = JSON.parse(text);
   } catch {
     throw new Refusal('bad_request', 'The body is not JSON');
   }
   const parsed = AiPassRequest.safeParse(raw);
   if (!parsed.success) throw new Refusal('bad_request', z.prettifyError(parsed.error));
   return parsed.data;
+}
+
+// Content-Length is optional (chunked uploads), so the cap is enforced while reading.
+async function readCapped(request: Request): Promise<string> {
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > AI_PASS_MAX_BODY_BYTES) {
+      await reader.cancel();
+      throw tooLarge();
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
 }
 
 const tooLarge = () =>

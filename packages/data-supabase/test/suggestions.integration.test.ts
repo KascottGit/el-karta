@@ -140,6 +140,38 @@ describe('ai-pass function and SuggestionRepository (local Supabase, AI_PROVIDER
     ).rejects.toEqual(refusal('forbidden'));
   });
 
+  it('refuses an oversized body that comes without a Content-Length', async () => {
+    const { owner, projectId, floorId } = await sharedFloor();
+    const { data } = await owner.client.auth.getSession();
+    const { url, anonKey } = localStack();
+    const encoder = new TextEncoder();
+    const head = JSON.stringify({ action: 'run', pass, projectId, floorId, model, input: {} });
+    const chunk = encoder.encode(' '.repeat(1024 * 1024));
+    let sent = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent === 0) controller.enqueue(encoder.encode(head));
+        if (sent > 6) controller.close();
+        else controller.enqueue(chunk);
+        sent++;
+      },
+    });
+    const response = await fetch(`${url}/functions/v1/${AI_PASS_FUNCTION}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${data.session!.access_token}`,
+        apikey: anonKey,
+        'Content-Type': 'application/json',
+      },
+      body,
+      duplex: 'half',
+    } as RequestInit);
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({
+      error: { code: 'too_large', message: expect.any(String) as unknown },
+    });
+  });
+
   it('refuses a request without a signed-in user', async () => {
     const { url, anonKey } = localStack();
     const response = await fetch(`${url}/functions/v1/${AI_PASS_FUNCTION}`, {

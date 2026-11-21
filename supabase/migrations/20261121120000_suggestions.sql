@@ -4,13 +4,19 @@
 -- at a floor of another project.
 alter table public.floors add constraint floors_id_project_id_key unique (id, project_id);
 
+-- The run log outlives its floor and project, so deleting them cannot reset the rate limit. A run
+-- without a project is invisible through RLS but still counted by `my_ai_run_count`.
 alter table public.ai_runs
+  alter column project_id drop not null,
+  drop constraint ai_runs_project_id_fkey,
+  add constraint ai_runs_project_id_fkey foreign key (project_id)
+    references public.projects on delete set null,
   add column floor_id uuid,
   add column duration_ms int,
   add column error text,
   add column model_version text,
   add constraint ai_runs_floor_fkey foreign key (floor_id, project_id)
-    references public.floors (id, project_id) on delete cascade,
+    references public.floors (id, project_id) on delete set null (floor_id),
   add constraint ai_runs_id_project_id_key unique (id, project_id);
 create index ai_runs_user_id_created_at_idx on public.ai_runs (user_id, created_at);
 
@@ -60,7 +66,10 @@ alter table public.suggestions enable row level security;
 create policy "members read suggestions" on public.suggestions for select to authenticated
   using (public.can_read_project(project_id));
 create policy "writers insert suggestions" on public.suggestions for insert to authenticated
-  with check (public.can_write_project(project_id) and status = 'pending' and decided_by is null);
+  with check (
+    public.can_write_project(project_id) and status = 'pending'
+    and decided_at is null and decided_by is null
+  );
 create policy "writers decide suggestions" on public.suggestions for update to authenticated
   using (public.can_write_project(project_id)) with check (public.can_write_project(project_id));
 

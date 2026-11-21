@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(29);
 
 -- Owner A, editor B, viewer V, outsider C; A's project P with floor F, C's project Q with floor G.
 insert into auth.users (id, email, aud, role) values
@@ -88,6 +88,12 @@ select throws_ok(
              'f0000000-0000-4000-8000-000000000011', 'floorplan', 'wall', 'ai:floorplan:m', '{}', 'accepted') $$,
   '42501', null, 'a suggestion is always stored as pending'
 );
+select throws_ok(
+  $$ insert into public.suggestions (id, project_id, floor_id, pass, kind, source, payload, decided_at)
+     values ('5a000000-0000-4000-8000-000000000046', 'e0000000-0000-4000-8000-000000000010',
+             'f0000000-0000-4000-8000-000000000011', 'floorplan', 'wall', 'ai:floorplan:m', '{}', now()) $$,
+  '42501', null, 'a suggestion cannot be stored as already decided'
+);
 select results_eq(
   $$ update public.suggestions set status = 'accepted' where id = '5a000000-0000-4000-8000-000000000040' returning status $$,
   $$ values ('accepted'::text) $$,
@@ -113,12 +119,29 @@ select throws_ok(
 );
 select is_empty($$ delete from public.suggestions returning id $$, 'suggestions are not deleted one by one');
 select is(public.my_ai_run_count(now() - interval '1 hour'), 0, 'the editor has no runs of their own');
+insert into public.ai_runs (project_id, pass, provider, model, status)
+  values ('e0000000-0000-4000-8000-000000000010', 'floorplan', 'fake', 'm', 'ok');
 
--- Deleting the floor removes its suggestions and runs.
+-- A removed member's runs still count against their limit.
+select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
+delete from public.project_members where user_id = 'b0000000-0000-4000-8000-000000000002';
+select set_config('request.jwt.claims', '{"sub":"b0000000-0000-4000-8000-000000000002","role":"authenticated"}', true);
+select is((select count(*) from public.ai_runs)::int, 0, 'a removed member no longer sees the runs');
+select is(public.my_ai_run_count(now() - interval '1 hour'), 1, 'a removed member''s run still counts');
+
+-- Deleting the floor removes its suggestions; runs outlive the floor and the project.
 select set_config('request.jwt.claims', '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated"}', true);
 delete from public.floors where id = 'f0000000-0000-4000-8000-000000000011';
 select is((select count(*) from public.suggestions)::int, 0, 'deleting a floor removes its suggestions');
-select is((select count(*) from public.ai_runs)::int, 0, 'deleting a floor removes its runs');
+select results_eq(
+  $$ select floor_id from public.ai_runs where id = '99000000-0000-4000-8000-000000000030' $$,
+  $$ values (null::uuid) $$,
+  'a run outlives its floor'
+);
+select is(public.my_ai_run_count(now() - interval '1 hour'), 1, 'deleting a floor does not reset the limit');
+delete from public.projects where id = 'e0000000-0000-4000-8000-000000000010';
+select is((select count(*) from public.ai_runs)::int, 0, 'runs of a deleted project are hidden');
+select is(public.my_ai_run_count(now() - interval '1 hour'), 1, 'deleting a project does not reset the limit');
 
 select * from finish();
 rollback;

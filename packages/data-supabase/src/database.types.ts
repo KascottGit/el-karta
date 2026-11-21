@@ -16,7 +16,7 @@ export type Database = {
           model_version: string | null;
           output_tokens: number | null;
           pass: string;
-          project_id: string;
+          project_id: string | null;
           provider: string;
           status: string;
           user_id: string;
@@ -35,7 +35,7 @@ export type Database = {
           model_version?: string | null;
           output_tokens?: number | null;
           pass: string;
-          project_id: string;
+          project_id?: string | null;
           provider: string;
           status: string;
           user_id?: string;
@@ -53,7 +53,7 @@ export type Database = {
           model_version?: string | null;
           output_tokens?: number | null;
           pass?: string;
-          project_id?: string;
+          project_id?: string | null;
           provider?: string;
           status?: string;
           user_id?: string;
