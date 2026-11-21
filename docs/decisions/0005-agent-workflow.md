@@ -22,3 +22,14 @@ Development from M3 on runs as one orchestrator session plus two sub-agent types
 ## Why
 
 Each sub-agent starts without the conversation's context, so the repo itself (AGENTS.md, ADRs, the milestone spec) has to carry everything it needs, which also keeps the codebase agent-friendly. A separate reviewer catches what the author misses. Tasks with disjoint "Touches" lists run in parallel; tightly coupled UI work stays sequential.
+
+## Amendment after M3: token efficiency
+
+M3 hit the usage limit several times, mostly from four parallel Opus agents, and from fix rounds that resumed agents whose context had grown to 250k+ tokens after the default 5-minute prompt cache had expired. From M4 on:
+
+- **Cache and concurrency.** Sub-agents use a 1-hour prompt cache (`subagentPromptCacheTtl` in `.claude/settings.json`), so resuming an agent for review fixes reads its context from cache. One agent runs at a time by default.
+- **Plan shared code up front.** Most review findings were duplicates built in parallel: numeric fields, snapping, issue lists, i18n sections. Milestone plans (`docs/milestones/TEMPLATE.md`) now have a "Shared building blocks" section, built in T0.
+- **Pre-finish checklist.** Implementers run a checklist for the other recurring findings: touch e2e, documented conventions, tests that fail when a mechanism is removed.
+- **Read less.** Agents read AGENTS.md (which now carries the design principles) and the task's named docs, not all of PLAN.md.
+- **Re-review only when needed.** After fixes, the orchestrator verifies the diff itself. A second full review only happens when a blocker touched shared infrastructure.
+- **Session per milestone.** One orchestrator session per milestone; the next milestone starts fresh from the milestone file and the PR.
