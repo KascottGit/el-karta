@@ -15,7 +15,7 @@ export interface GeminiOptions {
 
 const maxAttempts = 3;
 const baseDelayMs = 1000;
-const retryableStatuses = new Set([429, 503]);
+const retryableStatuses = new Set([429, 503, 504]);
 const defaultTimeoutMs = 120_000;
 
 const isTimeout = (error: unknown) =>
