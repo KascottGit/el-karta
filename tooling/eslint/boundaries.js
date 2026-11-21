@@ -44,6 +44,13 @@ const layers = [
     group: ['@el-karta/plugin-*', '@el-karta/data-*', '@el-karta/agent-tools'],
     message: 'AI passes may depend on @el-karta/core and @el-karta/ai-providers only.',
   },
+  {
+    name: 'evals',
+    files: ['evals/**/*.{ts,tsx,js}'],
+    group: ['@el-karta/plugin-*', '@el-karta/data-*', '@el-karta/agent-tools'],
+    message:
+      'Evals may depend on @el-karta/core, @el-karta/ai-passes and @el-karta/ai-providers only.',
+  },
 ];
 
 /** @type {import("eslint").Linter.Config[]} */

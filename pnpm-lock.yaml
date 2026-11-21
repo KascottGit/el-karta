@@ -217,12 +217,18 @@ importers:
 
   apps/web:
     dependencies:
+      '@el-karta/ai-passes':
+        specifier: workspace:*
+        version: link:../../packages/ai-passes
       '@el-karta/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@el-karta/data-supabase':
         specifier: workspace:*
         version: link:../../packages/data-supabase
+      '@el-karta/evals':
+        specifier: workspace:*
+        version: link:../../evals
       '@fontsource-variable/geist':
         specifier: ^5.3.0
         version: 5.3.0
@@ -317,6 +323,31 @@ importers:
       workbox-window:
         specifier: ^7.4.1
         version: 7.4.1
+
+  evals:
+    dependencies:
+      '@el-karta/ai-passes':
+        specifier: workspace:*
+        version: link:../packages/ai-passes
+      '@el-karta/ai-providers':
+        specifier: workspace:*
+        version: link:../packages/ai-providers
+      '@el-karta/core':
+        specifier: workspace:*
+        version: link:../packages/core
+      zod:
+        specifier: ^4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@napi-rs/canvas':
+        specifier: ^1.0.13
+        version: 1.1.1
+      pdfjs-dist:
+        specifier: ^6.5.438
+        version: 6.5.438
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
 
   packages/ai-passes:
     dependencies:
@@ -6002,7 +6033,6 @@ snapshots:
       '@napi-rs/canvas-linux-x64-musl': 1.1.1
       '@napi-rs/canvas-win32-arm64-msvc': 1.1.1
       '@napi-rs/canvas-win32-x64-msvc': 1.1.1
-    optional: true
 
   '@napi-rs/wasm-runtime@1.2.6(@emnapi/core@2.0.0-beta.2)(@emnapi/runtime@2.0.0-beta.2)':
     dependencies:

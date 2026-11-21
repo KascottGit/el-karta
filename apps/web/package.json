@@ -10,8 +10,10 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e"
   },
   "dependencies": {
+    "@el-karta/ai-passes": "workspace:*",
     "@el-karta/core": "workspace:*",
     "@el-karta/data-supabase": "workspace:*",
+    "@el-karta/evals": "workspace:*",
     "@fontsource-variable/geist": "^5.3.0",
     "@hookform/resolvers": "^7.0.7",
     "@supabase/supabase-js": "^2.119.0",

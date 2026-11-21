@@ -84,7 +84,10 @@
     "redo": "Gör om",
     "delete": "Ta bort markerade",
     "zoomToFit": "Visa hela planen",
-    "issues": "Att kontrollera"
+    "issues": "Att kontrollera",
+    "dev": {
+      "exportFacit": "Exportera facit"
+    }
   },
   "snapping": {
     "enabled": "Fäst mot hörn, väggar, rutnät och vinklar"
