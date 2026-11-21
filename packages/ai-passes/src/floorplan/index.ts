@@ -3,6 +3,7 @@ export * from './geometry.ts';
 export * from './interpret.ts';
 export * from './merge.ts';
 export * from './passes.ts';
+export * from './read.ts';
 export * from './render.ts';
 export * from './scale.ts';
 export * from './schema.ts';

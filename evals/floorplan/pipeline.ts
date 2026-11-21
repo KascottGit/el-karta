@@ -2,31 +2,21 @@ import {
   floorplanLocatePass,
   floorplanPass,
   interpretFloorplan,
-  mergeFloorplanTiles,
-  planCropBox,
-  planTiles,
+  readFloorplan,
   runPass,
-  tilesBounds,
   type FloorplanInterpretation,
   type FloorplanOutput,
   type LocateOutput,
+  type PlanImage,
   type RunResult,
   type RunStatus,
   type Tile,
 } from '@el-karta/ai-passes';
-import type { AiProvider, ImageInput, Usage } from '@el-karta/ai-providers';
+import type { AiProvider, Usage } from '@el-karta/ai-providers';
 import { DEFAULT_METRES_PER_PIXEL } from '@el-karta/core';
 import type { EvalMode } from './score.ts';
 
-/** A plan page as the app holds it: the full background image, and parts of it encoded on demand. */
-export interface PlanImage {
-  width: number;
-  height: number;
-  /** Width of the PDF page in millimetres, when the image is a rendered PDF page. */
-  pdfPageWidthMm?: number | undefined;
-  /** The `region` of the image (in its pixels) as an image to send. */
-  encode(region: Tile): Promise<ImageInput>;
-}
+export type { PlanImage };
 
 export interface PipelineOptions {
   provider: AiProvider;
@@ -113,36 +103,23 @@ export async function runFloorplanPipeline(
     return { pass, frame, result: run };
   };
 
-  const whole: Tile = { x: 0, y: 0, ...size };
-  const locate = await runPass(
-    floorplanLocatePass,
-    { image: await image.encode(whole) },
-    { provider, model },
-  );
-  result.locate = record(floorplanLocatePass.id, whole, locate);
-  if (!locate.output) return result;
+  const reading = await readFloorplan(image, {
+    locate: async (input, frame) => {
+      const run = await runPass(floorplanLocatePass, input, { provider, model });
+      result.locate = record(floorplanLocatePass.id, frame, run);
+      return run.output;
+    },
+    floorplan: async (input) => {
+      const run = await runPass(floorplanPass, input, { provider, model });
+      result.tiles.push(record(floorplanPass.id, input.frame, run));
+      return run.output;
+    },
+  });
+  result.crop = reading.crop;
+  if (!reading.output || !reading.frame) return result;
 
-  const crop = planCropBox(locate.output, size);
-  result.crop = crop;
-  const tiles = planTiles(crop.width, crop.height).map((t) => ({
-    ...t,
-    x: t.x + crop.x,
-    y: t.y + crop.y,
-  }));
-  for (const tile of tiles) {
-    const run = await runPass(
-      floorplanPass,
-      { image: await image.encode(tile), frame: tile, tile: tiles.length > 1 },
-      { provider, model },
-    );
-    result.tiles.push(record(floorplanPass.id, tile, run));
-    if (!run.output) return result;
-  }
-
-  const parts = result.tiles.map((t) => ({ tile: t.frame, output: t.result.output! }));
-  const merged = parts.length === 1 ? parts[0]!.output : mergeFloorplanTiles(parts);
-  const output = mode === 'estimate' ? stripPrintedScale(merged) : merged;
-  const frame = tilesBounds(tiles);
+  const frame = reading.frame;
+  const output = mode === 'estimate' ? stripPrintedScale(reading.output) : reading.output;
   result.output = output;
   result.frame = frame;
   result.interpretation = interpretFloorplan(

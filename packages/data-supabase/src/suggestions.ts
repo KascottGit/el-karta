@@ -1,5 +1,5 @@
 import { Suggestion, type Id, type SuggestionStatus } from '@el-karta/core';
-import { FunctionsHttpError } from '@supabase/supabase-js';
+import { FunctionsHttpError, type FunctionInvokeOptions } from '@supabase/supabase-js';
 import {
   AI_PASS_FUNCTION,
   AiPassErrorBody,
@@ -90,16 +90,23 @@ export class SuggestionRepository {
     }
   }
 
-  runPass(request: Omit<AiRunRequest, 'action'>): Promise<AiRunResponse> {
-    return this.invoke<AiRunResponse>({ action: 'run', ...request });
+  /** `signal` aborts the request; the run may still finish and be logged on the server. */
+  runPass(
+    request: Omit<AiRunRequest, 'action'>,
+    options: Pick<FunctionInvokeOptions, 'signal'> = {},
+  ): Promise<AiRunResponse> {
+    return this.invoke<AiRunResponse>({ action: 'run', ...request }, options);
   }
 
   commitSuggestions(request: Omit<AiCommitRequest, 'action'>): Promise<AiCommitResponse> {
     return this.invoke<AiCommitResponse>({ action: 'commit', ...request });
   }
 
-  private async invoke<T>(body: AiPassRequest): Promise<T> {
-    const result = await this.client.functions.invoke<T>(AI_PASS_FUNCTION, { body });
+  private async invoke<T>(
+    body: AiPassRequest,
+    options: Pick<FunctionInvokeOptions, 'signal'> = {},
+  ): Promise<T> {
+    const result = await this.client.functions.invoke<T>(AI_PASS_FUNCTION, { ...options, body });
     if (!result.error) return result.data as T;
     const error: unknown = result.error;
     if (error instanceof FunctionsHttpError) {

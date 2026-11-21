@@ -351,14 +351,49 @@
     "setScale": "Sätt skala",
     "scaleApplied": "Skalan är satt.",
     "metres": "{{value}} m",
-    "degrees": "°"
+    "degrees": "°",
+    "estimated": {
+      "title": "Uppskattad skala – kontrollera ett mått"
+    },
+    "rescale": {
+      "title": "Skala om ritningen",
+      "question": "Ritningen har fått en ny skala. Ska det som redan är ritat på våningen – väggar, dörrar, fönster, rum och annat – skalas om så att det följer ritningen?",
+      "apply": "Skala om",
+      "keep": "Behåll som det är"
+    }
   },
   "fields": {
     "mixed": "Olika",
     "metres": "m"
   },
   "ai": {
-    "import": "Tolka planritning med AI"
+    "import": {
+      "action": "Tolka planritning med AI",
+      "locating": "Letar efter planritningen på sidan …",
+      "reading": "Läser planritningen …",
+      "readingTile": "Läser planritningen, del {{index}} av {{count}} …",
+      "keepEditing": "Du kan fortsätta rita under tiden.",
+      "askScale": "Vet du ett mått?",
+      "askScaleHint": "Ritningen anger ingen skala. Mät ett känt mått, till exempel en vägg eller dörr med utskrivet mått, eller låt AI:n uppskatta skalan från dörrar och inredning.",
+      "measure": "Mät ett mått",
+      "estimate": "Uppskatta åt mig",
+      "measuring": "Mät ett känt mått med skalverktyget. Förslagen skapas när skalan är satt.",
+      "saving": "Sparar förslagen …",
+      "updating": "Skalan ändrades. Förslagen räknas om …",
+      "retry": "Försök igen",
+      "close": "Stäng",
+      "errors": {
+        "rate_limited": "Du har gjort många AI-tolkningar den senaste timmen. Vänta en stund och försök igen.",
+        "provider_busy": "AI-tjänsten är upptagen just nu. Försök igen om en stund.",
+        "too_large": "Planritningen är för stor att skicka till AI:n.",
+        "forbidden": "Du behöver kunna redigera projektet för att tolka planritningar.",
+        "network": "Ingen kontakt med servern. Kontrollera anslutningen och försök igen.",
+        "internal": "Något gick fel vid tolkningen. Försök igen.",
+        "no_output": "AI:n gav inget användbart svar. Försök igen, eller rita av planen för hand.",
+        "empty": "AI:n hittade inget att föreslå på ritningen.",
+        "image": "Planritningen är inte inläst än. Vänta tills den syns och försök igen."
+      }
+    }
   },
   "suggestions": {
     "title": "Förslag",
