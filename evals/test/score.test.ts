@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { FullFacit, LightFacit } from '../floorplan/facit.ts';
 import {
+  failedRunScores,
   matchRooms,
   readingFromDrafts,
   scoreFloorplan,
@@ -24,16 +25,21 @@ const facit = (partial: Partial<LightFacit> = {}): LightFacit => ({
   ...partial,
 });
 
-const square = { a: { x: 0, y: 0 }, b: { x: 5, y: 0 } };
+// The facit's image is 20 m wide; a reading's geometry is in image widths.
+const widths = (metres: number) => metres / 20;
+const squareWidths = (m2: number) => m2 / 400;
 const reading = (partial: Partial<PlanReading> = {}): PlanReading => ({
   rooms: [
-    { name: 'Vardagsrum', type: 'living_room', area: 20 },
-    { name: 'wc / d', type: 'bathroom', area: 4 },
-    { name: 'Hall/Kokvrå', type: 'kitchen', area: 6 },
+    { name: 'Vardagsrum', type: 'living_room', area: squareWidths(20) },
+    { name: 'wc / d', type: 'bathroom', area: squareWidths(4) },
+    { name: 'Hall/Kokvrå', type: 'kitchen', area: squareWidths(6) },
   ],
   doors: 2,
   windows: 0,
-  walls: [square, { a: { x: 5, y: 0 }, b: { x: 5, y: 4 } }],
+  walls: [
+    { a: { x: 0, y: 0 }, b: { x: widths(5), y: 0 } },
+    { a: { x: widths(5), y: 0 }, b: { x: widths(5), y: widths(4) } },
+  ],
   metresPerImageWidth: 20,
   ...partial,
 });
@@ -110,9 +116,19 @@ describe('scoreFloorplan', () => {
   });
 
   it('averages the area error of matched rooms that have both areas', () => {
-    const rooms = reading().rooms.map((r) => (r.name === 'Vardagsrum' ? { ...r, area: 22 } : r));
+    const rooms = reading().rooms.map((r) =>
+      r.name === 'Vardagsrum' ? { ...r, area: squareWidths(22) } : r,
+    );
     // Vardagsrum 10 % off, WC/D exact, Hall/Kokvrå has no facit area.
     expect(scoreFloorplan(facit(), reading({ rooms }), 'printed').roomAreaError).toBeCloseTo(0.05);
+    // Printed areas in m² need the facit's scale to compare.
+    expect(scoreFloorplan(facit({ scale: null }), reading(), 'printed').roomAreaError).toBeNull();
+  });
+
+  it('scores geometry independently of the scale the run found', () => {
+    const scores = scoreFloorplan(facit(), reading({ metresPerImageWidth: 30 }), 'printed');
+    expect(scores.scaleError).toBeCloseTo(0.5);
+    expect(scores.roomAreaError).toBeCloseTo(0, 9);
   });
 
   it('scores total wall length against a full facit', () => {
@@ -122,13 +138,22 @@ describe('scoreFloorplan', () => {
       scale: { metresPerImageWidth: 20, evidence: [] },
       image: { width: 1000, height: 800 },
       rooms: [],
-      walls: [{ ...square, thickness: 0.2 }],
+      walls: [{ a: { x: 0, y: 0 }, b: { x: 5, y: 0 }, thickness: 0.2 }],
       openings: [],
       windows: 0,
     };
     expect(scoreFloorplan(full, reading(), 'printed').wallLengthError).toBeCloseTo(9 / 5 - 1);
     const unscaled = reading({ metresPerImageWidth: null });
-    expect(scoreFloorplan(full, unscaled, 'printed').wallLengthError).toBeNull();
+    expect(scoreFloorplan(full, unscaled, 'printed').wallLengthError).toBeCloseTo(9 / 5 - 1);
+    expect(scoreFloorplan(facit(), reading(), 'printed').wallLengthError).toBeNull();
+  });
+});
+
+describe('failedRunScores', () => {
+  it('counts a failed estimate-mode run on a plan with a known scale as a missed estimate', () => {
+    expect(failedRunScores(facit(), 'estimate').estimateWithin10).toBe(false);
+    expect(failedRunScores(facit(), 'printed').estimateWithin10).toBeNull();
+    expect(failedRunScores(facit({ scale: null }), 'estimate').estimateWithin10).toBeNull();
   });
 });
 
@@ -188,7 +213,7 @@ describe('readingFromDrafts', () => {
     requires: [],
   });
 
-  it('counts rooms, doors and windows, and measures closed rooms only when scaled', () => {
+  it('counts rooms, doors and windows, and measures closed rooms in image widths', () => {
     const drafts = [
       room(),
       room([{ code: 'ai.room-open', severity: 'warning' }]),
@@ -197,9 +222,14 @@ describe('readingFromDrafts', () => {
       opening('window'),
       opening('passage'),
     ];
-    const scaled = readingFromDrafts(drafts, 20);
-    expect(scaled.rooms.map((r) => r.area)).toEqual([6, null]);
-    expect(scaled).toMatchObject({ doors: 2, windows: 1 });
-    expect(readingFromDrafts(drafts, null).rooms.map((r) => r.area)).toEqual([null, null]);
+    // 6 m² measured at 20 m per image width.
+    const scaled = readingFromDrafts(drafts, { found: 20, geometry: 20 });
+    expect(scaled.rooms[0]!.area).toBeCloseTo(6 / 400, 12);
+    expect(scaled.rooms[1]!.area).toBeNull();
+    expect(scaled).toMatchObject({ doors: 2, windows: 1, metresPerImageWidth: 20 });
+    // Without a found scale the geometry is at the placeholder scale, still convertible.
+    const unscaled = readingFromDrafts(drafts, { found: null, geometry: 10 });
+    expect(unscaled.rooms[0]!.area).toBeCloseTo(6 / 100, 12);
+    expect(unscaled.metresPerImageWidth).toBeNull();
   });
 });

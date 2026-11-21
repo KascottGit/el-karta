@@ -1,5 +1,5 @@
 import { planCropBox } from '@el-karta/ai-passes';
-import { createFakeProvider } from '@el-karta/ai-providers';
+import { createFakeProvider, ProviderError } from '@el-karta/ai-providers';
 import { createHash } from 'node:crypto';
 import { mkdtemp, readdir, readFile, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -182,6 +182,21 @@ describe('runFloorplanEval', () => {
       estimateWithin10: true,
     });
     expect(Math.abs(row!.scaleError as number)).toBeLessThan(0.01);
+  });
+
+  it('records a failed estimate-mode run as an estimate that missed', async () => {
+    await setUp(a4Pdf());
+    const [row] = await run([new ProviderError('error', 'boom')], 'estimate').rows;
+    expect(row).toMatchObject({
+      status: 'error',
+      estimateWithin10: false,
+      roomsExpected: 3,
+      doorsExpected: 2,
+    });
+    expect(row!.roomsFound).toBeUndefined();
+    const csv = (await readFile(join(resultsDir, 'floorplan.csv'), 'utf8')).trim().split('\n');
+    const columns = FLOORPLAN_COLUMNS as readonly string[];
+    expect(csv[1]!.split(',')[columns.indexOf('estimateWithin10')]).toBe('false');
   });
 
   it('refuses to run when a plan file does not match its checksum', async () => {

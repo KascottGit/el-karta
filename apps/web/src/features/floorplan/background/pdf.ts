@@ -1,4 +1,4 @@
-import { pdfRenderScale } from './plan-file';
+import { pdfRenderScale } from '@el-karta/ai-passes';
 
 /** An opened PDF whose pages can be rendered to images. Call `destroy` when done. */
 export interface PdfFile {

@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e"
   },
   "dependencies": {
+    "@el-karta/ai-passes": "workspace:*",
     "@el-karta/core": "workspace:*",
     "@el-karta/data-supabase": "workspace:*",
     "@el-karta/evals": "workspace:*",

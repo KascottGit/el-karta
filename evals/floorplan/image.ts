@@ -1,38 +1,12 @@
+import { pdfRenderScale } from '@el-karta/ai-passes';
+import { createCanvas, loadImage, type Canvas } from '@napi-rs/canvas';
 import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { pdfRenderScale } from '../../apps/web/src/features/floorplan/background/plan-file.ts';
 import type { PlanImage } from './pipeline.ts';
-
-/** The part of `@napi-rs/canvas` used here; it is pdf.js's own Node canvas (see `loadCanvas`). */
-interface NodeCanvas {
-  width: number;
-  height: number;
-  getContext(type: '2d'): {
-    drawImage(image: NodeCanvas | NodeImage, dx: number, dy: number): void;
-  };
-  toBuffer(mime: 'image/png'): Buffer;
-}
-interface NodeImage {
-  width: number;
-  height: number;
-}
-interface NodeCanvasModule {
-  createCanvas: (width: number, height: number) => NodeCanvas;
-  loadImage: (source: Buffer) => Promise<NodeImage>;
-}
 
 const PDFJS = 'pdfjs-dist/legacy/build/pdf.mjs';
 const POINTS_PER_MM = 72 / 25.4;
-
-/**
- * pdf.js renders through `@napi-rs/canvas` in Node (its optional dependency); loading the same
- * package from pdf.js's location adds no dependency and keeps both on one canvas implementation.
- */
-function loadCanvas(): NodeCanvasModule {
-  return createRequire(import.meta.resolve(PDFJS))('@napi-rs/canvas') as NodeCanvasModule;
-}
 
 async function renderPdfPage(data: Uint8Array, pageNumber: number) {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -44,10 +18,7 @@ async function renderPdfPage(data: Uint8Array, pageNumber: number) {
     const page = await doc.getPage(pageNumber);
     const unit = page.getViewport({ scale: 1 });
     const viewport = page.getViewport({ scale: pdfRenderScale(unit.width, unit.height) });
-    const canvas = loadCanvas().createCanvas(
-      Math.round(viewport.width),
-      Math.round(viewport.height),
-    );
+    const canvas = createCanvas(Math.round(viewport.width), Math.round(viewport.height));
     // Same call as the app's `openPdf`; pdf.js's types expect a DOM canvas.
     await page.render({ canvas: canvas as unknown as HTMLCanvasElement, viewport }).promise;
     page.cleanup();
@@ -57,8 +28,7 @@ async function renderPdfPage(data: Uint8Array, pageNumber: number) {
   }
 }
 
-async function decodeImage(data: Buffer) {
-  const { createCanvas, loadImage } = loadCanvas();
+async function decodeImage(data: Buffer): Promise<Canvas> {
   const image = await loadImage(data);
   const canvas = createCanvas(image.width, image.height);
   canvas.getContext('2d').drawImage(image, 0, 0);
@@ -75,7 +45,6 @@ export async function loadPlanImage(path: string, page: number): Promise<PlanIma
   const { canvas, pageWidthMm } = pdf
     ? await renderPdfPage(new Uint8Array(data), page)
     : { canvas: await decodeImage(data), pageWidthMm: undefined };
-  const { createCanvas } = loadCanvas();
   return {
     width: canvas.width,
     height: canvas.height,

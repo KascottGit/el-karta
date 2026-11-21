@@ -1,7 +1,7 @@
 import { createProviderFromEnv } from '@el-karta/ai-providers';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { parseArgs } from 'node:util';
+import { parseArgs, parseEnv } from 'node:util';
 import { runFloorplanEval } from './floorplan/run.ts';
 
 const USAGE = `Usage: pnpm eval floorplan --model <id> [--estimate-scale] [--plans a,b] [--images <dir>]
@@ -11,6 +11,16 @@ evals/results/floorplan.csv; raw model outputs go to evals/results/raw/ (git-ign
 
 /** Where the person keeps the Gemini key for the local Edge Function (git-ignored). */
 const FUNCTIONS_ENV = resolve(import.meta.dirname, '../supabase/functions/.env');
+
+/**
+ * The shell's environment, plus `GEMINI_API_KEY` from `FUNCTIONS_ENV` when the shell has none.
+ * Only that key is taken, so the local function's other settings (such as `AI_PROVIDER`) stay out.
+ */
+function providerEnv(): Record<string, string | undefined> {
+  if (process.env['GEMINI_API_KEY'] || !existsSync(FUNCTIONS_ENV)) return process.env;
+  const key = parseEnv(readFileSync(FUNCTIONS_ENV, 'utf8'))['GEMINI_API_KEY'];
+  return key ? { ...process.env, GEMINI_API_KEY: key } : process.env;
+}
 
 const say = (line: string) => process.stdout.write(`${line}\n`);
 
@@ -32,9 +42,7 @@ async function main(args: string[]) {
     return values.help ? 0 : 1;
   }
   // The provider reads the key itself; it is never printed or written to the results.
-  if (!process.env['GEMINI_API_KEY'] && existsSync(FUNCTIONS_ENV))
-    process.loadEnvFile(FUNCTIONS_ENV);
-  const provider = createProviderFromEnv(process.env);
+  const provider = createProviderFromEnv(providerEnv());
   const rows = await runFloorplanEval({
     provider,
     model: values.model,

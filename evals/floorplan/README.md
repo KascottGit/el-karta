@@ -8,11 +8,11 @@
 GEMINI_API_KEY=… pnpm eval floorplan --model gemini-flash-latest [--estimate-scale] [--plans gotgatan-78,lundagatan-47] [--images ../floorplans]
 ```
 
-The key comes from `GEMINI_API_KEY` in the shell. When that is not set, the runner loads `supabase/functions/.env` (the ignored file the local Edge Function uses) with `process.loadEnvFile`, if the file exists.
+The key comes from `GEMINI_API_KEY` in the shell. When that is not set, the runner reads `supabase/functions/.env` (the ignored file the local Edge Function uses), if it exists, and takes only `GEMINI_API_KEY` from it; its other settings, such as `AI_PROVIDER`, are ignored.
 
 The runner (`run.ts`, `pipeline.ts`) does what the app's import does, in Node:
 
-1. Renders the PDF page with pdf.js at the app's resolution (`pdfRenderScale` from the web app, 4000 px on the long side) and takes the PDF page width in mm; an image file is used at its own size.
+1. Renders the PDF page with pdf.js at the app's resolution (`pdfRenderScale` from `@el-karta/ai-passes`, which the app uses too: 4000 px on the long side) and takes the PDF page width in mm; an image file is used at its own size.
 2. Calls `floorplan-locate` on the whole page, crops to `planCropBox`, cuts the crop into `planTiles` if it is still large, calls `floorplan` per tile and merges with `mergeFloorplanTiles`.
 3. Runs `interpretFloorplan` with the background placed at the plan origin, unturned, so the result is in the image frame below.
 
@@ -31,11 +31,13 @@ Each run appends one row per plan to `evals/results/floorplan.csv` (committed) a
 | `typeAccuracy`             | Share of matched rooms whose type is one of the facit's `types`.                                             |
 | `doorsExpected/Found`      | Door count.                                                                                                  |
 | `scaleError`               | Found `metresPerImageWidth` over the facit's, minus 1; empty when either has none.                           |
-| `estimateWithin10`         | Estimate mode, plans with a facit scale: the estimate is within 10 %.                                        |
+| `estimateWithin10`         | Estimate mode, plans with a facit scale: the estimate is within 10 %. A run that failed counts as `false`.   |
 | `rotationErrorDeg`         | Smallest angle between the found and the facit main wall direction, modulo 90°.                              |
-| `roomAreaError`            | Mean absolute relative area error of matched rooms where both have an area.                                  |
-| `wallLengthError`          | Full facit only: total wall length over the facit's, minus 1.                                                |
+| `roomAreaError`            | Mean absolute relative area error of matched rooms where both have an area, in square image widths.          |
+| `wallLengthError`          | Full facit only: total wall length over the facit's, in image widths, minus 1.                               |
 | `status`, `scaleStatus`, … | Worst call status, how the scale was found, tokens, calls (incl. retries), duration and the first error.     |
+
+Geometry is compared in image widths (lengths divided by the metres per image width they were measured at, areas by its square), so `roomAreaError` and `wallLengthError` measure the walls and rooms only and a wrong scale shows up in `scaleError` alone. A light facit's printed areas are in m², so `roomAreaError` needs its `scale`; it is empty on plans without one.
 
 ## Facit format
 

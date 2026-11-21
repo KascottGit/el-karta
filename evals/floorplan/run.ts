@@ -1,4 +1,5 @@
 import type { AiProvider } from '@el-karta/ai-providers';
+import { DEFAULT_METRES_PER_PIXEL } from '@el-karta/core';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
@@ -6,7 +7,7 @@ import { appendCsv, type CsvValue } from '../csv.ts';
 import { Facit, Manifest, metresPerImageWidth, type ManifestPlan } from './facit.ts';
 import { loadPlanImage } from './image.ts';
 import { runFloorplanPipeline, type PlanImage } from './pipeline.ts';
-import { readingFromDrafts, scoreFloorplan, type EvalMode } from './score.ts';
+import { failedRunScores, readingFromDrafts, scoreFloorplan, type EvalMode } from './score.ts';
 
 const here = import.meta.dirname;
 
@@ -122,8 +123,15 @@ export async function runFloorplanEval(options: FloorplanEvalOptions): Promise<F
         ? metresPerImageWidth(scale.scale.metresPerPixel, image.width)
         : null;
     const scores = interpretation
-      ? scoreFloorplan(facit, readingFromDrafts(interpretation.drafts, found), options.mode)
-      : null;
+      ? scoreFloorplan(
+          facit,
+          readingFromDrafts(interpretation.drafts, {
+            found,
+            geometry: found ?? metresPerImageWidth(DEFAULT_METRES_PER_PIXEL, image.width),
+          }),
+          options.mode,
+        )
+      : failedRunScores(facit, options.mode);
 
     const row: FloorplanRow = {
       date: date.toISOString(),
@@ -133,8 +141,6 @@ export async function runFloorplanEval(options: FloorplanEvalOptions): Promise<F
       mode: options.mode,
       status: result.status,
       scaleStatus: scale?.status,
-      roomsExpected: facit.rooms.length,
-      doorsExpected: facit.doors,
       ...scores,
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
