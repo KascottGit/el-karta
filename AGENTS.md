@@ -38,8 +38,11 @@ Run `pnpm typecheck && pnpm lint && pnpm test` before every commit, plus the thr
 - `packages/core`: schemas, geometry, graph and tracing, validators, migrations, plugin interface, repository interface, edit operations, synthetic generator. Plain ESM TypeScript with no Node, browser or Deno APIs; `src` is typechecked without `node` or `dom` types to enforce this. Tests live in `packages/core/test`.
 - `packages/plugin-*`: domain logic. May import `@el-karta/core` only.
 - `packages/data-*`: repository implementations. May import `@el-karta/core` only. `data-supabase` holds `SupabaseRepository` and the generated `Database` types.
+- `packages/ai-providers`: one `AiProvider` interface (Gemini, fake). Imports no workspace package.
+- `packages/ai-passes`: AI pass definitions and the runner (ADR 0007). May import `@el-karta/core` and `@el-karta/ai-providers`.
+- `evals/`: AI eval sets and scoring; plan images stay in the git-ignored `floorplans/`.
 - `apps/web`: the Vite + React app. May import any package.
-- `packages/core` never imports from plugins, data adapters, AI passes, agent tools or apps.
+- `packages/core` never imports from plugins, data adapters, AI passes or providers, agent tools or apps.
 
 Boundaries are enforced by ESLint (`tooling/eslint/boundaries.js`) and tested in `tooling/eslint/boundaries.test.ts`. Workspace packages export TypeScript source directly (`exports: ./src/index.ts`); there is no package build step.
 
