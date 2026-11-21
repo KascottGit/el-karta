@@ -14,8 +14,8 @@ Development from M3 on runs as one orchestrator session plus two sub-agent types
 
 - `.claude/settings.json`:
   - allows the routine pnpm, git and gh read commands;
-  - asks the person before `git push`, PR create/merge, dependency changes and any Supabase start, stop, reset, link or remote command;
-  - denies reading `.env` files.
+  - asks the person only before merging a PR; the orchestrator pushes and opens PRs, adds approved dependencies and runs Supabase commands without asking (changed after M3 at the person's request);
+  - denies reading `.env` files, including `supabase/functions/.env` with the AI provider key.
 - A `SubagentStop` hook (`.claude/hooks/implementer-checks.sh`) runs typecheck, lint and unit tests in the implementer's worktree and blocks it from finishing while they fail (once; the second time it lets the agent stop and report).
 - The local Supabase stack is shared by all worktrees: only the orchestrator starts or resets it, and parallel e2e runs use different `E2E_PORT`s.
 

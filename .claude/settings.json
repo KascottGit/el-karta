@@ -35,7 +35,14 @@
       "Bash(gh run list *)"
     ],
     "ask": ["Bash(gh pr merge*)"],
-    "deny": ["Read(./.env)", "Read(./.env.local)", "Read(./.env.*.local)", "Bash(cat .env*)"]
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./.env.*.local)",
+      "Read(./supabase/functions/.env)",
+      "Bash(cat .env*)",
+      "Bash(cat supabase/functions/.env*)"
+    ]
   },
   "worktree": {
     "baseRef": "head"
