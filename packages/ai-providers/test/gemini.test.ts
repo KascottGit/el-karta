@@ -158,15 +158,18 @@ describe('createGeminiProvider timeouts', () => {
       timeoutMs: 20,
       sleep: () => Promise.resolve(),
     });
-    await expect(
-      provider.generateStructured({
+    const error = await provider
+      .generateStructured({
         model: 'm',
         system: 's',
         messages: [{ role: 'user', text: 'hi' }],
         images: [],
         jsonSchema: {},
-      }),
-    ).rejects.toMatchObject({ kind: 'error', message: expect.stringMatching(/within 0.02 s/) });
+      })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProviderError);
+    expect((error as ProviderError).kind).toBe('error');
+    expect((error as ProviderError).message).toMatch(/within 0.02 s/);
     expect(attempts).toBe(3);
   });
 });
