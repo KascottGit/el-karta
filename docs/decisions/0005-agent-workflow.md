@@ -27,7 +27,7 @@ Each sub-agent starts without the conversation's context, so the repo itself (AG
 
 M3 hit the usage limit several times, mostly from four parallel Opus agents, and from fix rounds that resumed agents whose context had grown to 250k+ tokens after the default 5-minute prompt cache had expired. From M4 on:
 
-- **Cache and concurrency.** Sub-agents use a 1-hour prompt cache (`subagentPromptCacheTtl` in `.claude/settings.json`), so resuming an agent for review fixes reads its context from cache. At most two agents run at a time (Pro plan); four parallel Opus agents exhausted the 5-hour limit in about 2–3 hours.
+- **Cache and concurrency.** Sub-agents use a 1-hour prompt cache (`subagentPromptCacheTtl` in `.claude/settings.json`), so resuming an agent for review fixes reads its context from cache. One agent runs at a time (Pro plan; changed from two during M4); four parallel Opus agents exhausted the 5-hour limit in about 2–3 hours.
 - **Plan shared code up front.** Most review findings were duplicates built in parallel: numeric fields, snapping, issue lists, i18n sections. Milestone plans (`docs/milestones/TEMPLATE.md`) now have a "Shared building blocks" section, built in T0.
 - **Pre-finish checklist.** Implementers run a checklist for the other recurring findings: touch e2e, documented conventions, tests that fail when a mechanism is removed.
 - **Read less.** Agents read AGENTS.md (which now carries the design principles) and the task's named docs, not all of PLAN.md.
