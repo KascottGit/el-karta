@@ -17,3 +17,6 @@ playwright-report/
 
 # Test floor plans (third-party images; the repo is public)
 floorplans/
+
+# Raw model outputs from `pnpm eval` (may quote third-party plans)
+evals/results/raw/

@@ -15,6 +15,7 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "perf": "pnpm --filter @el-karta/core perf",
+    "eval": "pnpm --filter @el-karta/evals exec tsx run.ts",
     "supabase": "supabase",
     "db:types": "supabase gen types --local --schema public > packages/data-supabase/src/database.types.ts && prettier --write packages/data-supabase/src/database.types.ts",
     "test:db": "supabase test db",

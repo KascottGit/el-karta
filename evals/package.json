@@ -1,0 +1,23 @@
+{
+  "name": "@el-karta/evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "eval": "tsx run.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@el-karta/ai-passes": "workspace:*",
+    "@el-karta/ai-providers": "workspace:*",
+    "@el-karta/core": "workspace:*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "^6.5.438",
+    "tsx": "^4.23.15"
+  }
+}
