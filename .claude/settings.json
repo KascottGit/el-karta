@@ -66,5 +66,10 @@
         ]
       }
     ]
-  }
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "subagentPromptCacheTtl": "1h"
 }

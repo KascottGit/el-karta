@@ -2,6 +2,18 @@
 
 Conventions for anyone (human or agent) changing this repo. `PLAN.md` holds the product plan and milestones; decisions live in `docs/decisions/`.
 
+## Design principles (short form of PLAN.md)
+
+1. Tried and tested over clever: use established libraries; custom code only with a short ADR saying why.
+2. Built to be extended: new domains, views, AI passes and agent tools are plugins or registrations, not core edits.
+3. Generalize on the second use: refactor the existing feature into a shared one instead of copying it.
+4. Maintainable: strict types, small modules, one way to do each thing; Zod schemas and generated DB types are the source of truth.
+5. Agents first: minimal comments (only a non-obvious why); conventions here and decisions in ADRs; rules enforced by tooling.
+6. AI suggests, people confirm: AI output is validated, shown as a suggestion, and only becomes data when accepted; everything records its provenance.
+7. The LLM handles meaning; deterministic code handles geometry.
+8. Detect first, suggest second: what was seen beats rule-based guesses, and guesses are never shown as facts.
+9. Honest data: an unknown cable route must never look like a known one.
+
 ## Commands
 
 | Command                 | What it does                                                                                    |
@@ -67,4 +79,12 @@ Boundaries are enforced by ESLint (`tooling/eslint/boundaries.js`) and tested in
 
 ## Milestone workflow (sub-agents)
 
-Milestones are planned in `docs/milestones/M<n>.md` and built by `implementer` and `reviewer` sub-agents coordinated by an orchestrator session (ADR 0005). As an implementer: do only your task, stay inside its "Touches" list, and finish with the report format in `.claude/agents/implementer.md`. Branches: `m<n>-<slug>` for the milestone, `m<n>/t<k>-<slug>` for tasks.
+Milestones are planned in `docs/milestones/M<n>.md` from `docs/milestones/TEMPLATE.md` and built by `implementer` and `reviewer` sub-agents coordinated by an orchestrator session (ADR 0005). As an implementer: do only your task, stay inside its "Touches" list, and finish with the report format in `.claude/agents/implementer.md`. Branches: `m<n>-<slug>` for the milestone, `m<n>/t<k>-<slug>` for tasks.
+
+Orchestrator rules (ADR 0005):
+
+- Run at most two sub-agents at a time (the person is on a Pro plan; more exhausts the 5-hour limit). Prefer pairing tasks with disjoint Touches, or a reviewer with an implementer.
+- Every milestone plan has a "Shared building blocks" section. The orchestrator builds those modules in T0, before any task that would otherwise invent its own copy.
+- After review fixes, the orchestrator checks the fix diff and runs the suites itself. A second full review only happens when a blocker touched shared infrastructure (`canvas/`, core, store, RLS).
+- One orchestrator session per milestone. The milestone file and its PR carry the handoff; start the next milestone in a fresh session.
+- Keep status updates short.
