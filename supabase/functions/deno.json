@@ -1,0 +1,13 @@
+{
+  "imports": {
+    "@el-karta/core": "../../packages/core/src/index.ts",
+    "@el-karta/ai-passes": "../../packages/ai-passes/src/index.ts",
+    "@el-karta/ai-providers": "../../packages/ai-providers/src/index.ts",
+    "@el-karta/data-supabase": "../../packages/data-supabase/src/index.ts",
+    "zod": "npm:zod@4.6.7",
+    "immer": "npm:immer@11.2.10",
+    "graphology": "npm:graphology@0.26.0",
+    "@google/genai": "npm:@google/genai@3.6.1",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.119.0"
+  }
+}
