@@ -1,0 +1,40 @@
+{
+  "id": "snickeriet-7158",
+  "level": "light",
+  "checked": false,
+  "rotationDeg": 0,
+  "scale": {
+    "metresPerImageWidth": 20.9,
+    "evidence": ["scale bar 0–5 m, measured ±3 %"]
+  },
+  "totalArea": 45,
+  "ceilingHeight": null,
+  "rooms": [
+    {
+      "name": "Kök",
+      "types": ["kitchen"],
+      "area": null
+    },
+    {
+      "name": "Hall",
+      "types": ["hallway"],
+      "area": null
+    },
+    {
+      "name": "Dusch",
+      "types": ["bathroom"],
+      "area": null
+    },
+    {
+      "name": "Rum 1",
+      "types": ["bedroom", "living_room"],
+      "area": 12
+    },
+    {
+      "name": "Rum 2",
+      "types": ["bedroom", "living_room"],
+      "area": 12
+    }
+  ],
+  "doors": 4
+}

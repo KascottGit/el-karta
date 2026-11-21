@@ -1,0 +1,35 @@
+{
+  "id": "brannkyrkagatan-118",
+  "level": "light",
+  "checked": false,
+  "rotationDeg": 0,
+  "scale": {
+    "metresPerImageWidth": 21.0,
+    "evidence": ["ratio 1:100 on A4", "scale bar 0–5 m"]
+  },
+  "totalArea": 23,
+  "ceilingHeight": null,
+  "rooms": [
+    {
+      "name": "Vardagsrum",
+      "types": ["living_room"],
+      "area": null
+    },
+    {
+      "name": "Hall/Kokvrå",
+      "types": ["hallway", "kitchen"],
+      "area": null
+    },
+    {
+      "name": "WC",
+      "types": ["bathroom"],
+      "area": null
+    },
+    {
+      "name": "Klk",
+      "types": ["other"],
+      "area": null
+    }
+  ],
+  "doors": 3
+}

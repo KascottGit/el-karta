@@ -1,0 +1,45 @@
+{
+  "id": "sickla-sjovag-2",
+  "level": "light",
+  "checked": false,
+  "rotationDeg": 0,
+  "scale": {
+    "metresPerImageWidth": 18.2,
+    "evidence": ["scale bar 0–5 m, measured ±3 %"]
+  },
+  "totalArea": 54,
+  "ceilingHeight": null,
+  "rooms": [
+    {
+      "name": "Kök",
+      "types": ["kitchen"],
+      "area": null
+    },
+    {
+      "name": "Vardagsrum",
+      "types": ["living_room"],
+      "area": null
+    },
+    {
+      "name": "Sovrum",
+      "types": ["bedroom"],
+      "area": null
+    },
+    {
+      "name": "Hall",
+      "types": ["hallway"],
+      "area": null
+    },
+    {
+      "name": "Wc/dusch",
+      "types": ["bathroom"],
+      "area": null
+    },
+    {
+      "name": null,
+      "types": ["other"],
+      "area": null
+    }
+  ],
+  "doors": 4
+}

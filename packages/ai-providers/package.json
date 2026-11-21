@@ -1,0 +1,15 @@
+{
+  "name": "@el-karta/ai-providers",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test"
+  },
+  "dependencies": {
+    "@google/genai": "^3.6.1"
+  }
+}

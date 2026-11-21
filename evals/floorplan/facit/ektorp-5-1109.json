@@ -1,0 +1,30 @@
+{
+  "id": "ektorp-5-1109",
+  "level": "light",
+  "checked": false,
+  "rotationDeg": 0,
+  "scale": {
+    "metresPerImageWidth": 21.0,
+    "evidence": ["ratio 1:100 on A4", "scale bar 0–10 m", "dimension text 2 000 and 900 (mm)"]
+  },
+  "totalArea": 25,
+  "ceilingHeight": null,
+  "rooms": [
+    {
+      "name": null,
+      "types": ["living_room"],
+      "area": null
+    },
+    {
+      "name": null,
+      "types": ["bathroom"],
+      "area": null
+    },
+    {
+      "name": null,
+      "types": ["hallway"],
+      "area": null
+    }
+  ],
+  "doors": 2
+}

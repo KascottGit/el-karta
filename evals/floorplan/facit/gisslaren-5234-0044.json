@@ -1,0 +1,35 @@
+{
+  "id": "gisslaren-5234-0044",
+  "level": "light",
+  "checked": false,
+  "rotationDeg": 0,
+  "scale": {
+    "metresPerImageWidth": 16.6,
+    "evidence": ["scale bar 0–5 m, measured ±3 %"]
+  },
+  "totalArea": 28,
+  "ceilingHeight": 2.55,
+  "rooms": [
+    {
+      "name": "Rum",
+      "types": ["living_room"],
+      "area": 19
+    },
+    {
+      "name": "Hall",
+      "types": ["hallway"],
+      "area": 5
+    },
+    {
+      "name": "Dusch",
+      "types": ["bathroom"],
+      "area": 3.5
+    },
+    {
+      "name": "Balkong",
+      "types": ["other"],
+      "area": 1
+    }
+  ],
+  "doors": 3
+}

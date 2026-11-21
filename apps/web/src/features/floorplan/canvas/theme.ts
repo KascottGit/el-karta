@@ -17,4 +17,16 @@ export const issueColors: Readonly<Record<IssueSeverity, string>> = {
   warning: '#f59e0b',
 };
 
+/**
+ * How suggested items (AI or rules) are drawn, so they never look like confirmed data: translucent,
+ * dashed, and coloured by confidence.
+ */
+export const suggestionStyle = {
+  opacity: 0.55,
+  dash: [6, 4],
+  stroke: { high: '#7c3aed', medium: '#a855f7', low: '#d946ef' },
+  /** Confidence at or above `high` counts as high; below `medium` as low. */
+  thresholds: { high: 0.8, medium: 0.5 },
+} as const;
+
 export const canvasFont = '"Geist Variable", system-ui, sans-serif';

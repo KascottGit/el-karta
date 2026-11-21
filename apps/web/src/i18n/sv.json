@@ -278,6 +278,9 @@
       "polygon-repeated-point": "Zonen har två hörn på samma ställe.",
       "polygon-zero-area": "Zonen har ingen yta.",
       "polygon-self-intersecting": "Zonens kontur korsar sig själv."
+    },
+    "scale": {
+      "door-width-implausible": "Dörrarna blir {{width}} m breda med den här skalan. Kontrollera skalan."
     }
   },
   "background": {
@@ -332,5 +335,13 @@
   "fields": {
     "mixed": "Olika",
     "metres": "m"
+  },
+  "ai": {
+    "import": "Tolka planritning med AI"
+  },
+  "suggestions": {
+    "title": "Förslag",
+    "accept": "Godkänn",
+    "reject": "Avvisa"
   }
 }

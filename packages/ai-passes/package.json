@@ -1,0 +1,17 @@
+{
+  "name": "@el-karta/ai-passes",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test"
+  },
+  "dependencies": {
+    "@el-karta/ai-providers": "workspace:*",
+    "@el-karta/core": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

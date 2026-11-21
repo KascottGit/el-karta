@@ -1,0 +1,35 @@
+{
+  "id": "lundagatan-47",
+  "level": "light",
+  "checked": false,
+  "rotationDeg": 0,
+  "scale": {
+    "metresPerImageWidth": 21.0,
+    "evidence": ["ratio 1:100 on A4", "scale bar 0–5 m"]
+  },
+  "totalArea": 28,
+  "ceilingHeight": null,
+  "rooms": [
+    {
+      "name": "Vardagsrum",
+      "types": ["living_room"],
+      "area": null
+    },
+    {
+      "name": "Kokvrå",
+      "types": ["kitchen"],
+      "area": null
+    },
+    {
+      "name": "Hall",
+      "types": ["hallway"],
+      "area": null
+    },
+    {
+      "name": "WC/D",
+      "types": ["bathroom"],
+      "area": null
+    }
+  ],
+  "doors": 2
+}
