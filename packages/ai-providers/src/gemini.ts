@@ -21,8 +21,10 @@ const defaultSleep = (ms: number) =>
   });
 
 export function createGeminiProvider(options: GeminiOptions): AiProvider {
+  // The `-latest` model aliases and `responseJsonSchema` are only served on v1beta.
   const ai = new GoogleGenAI({
     apiKey: options.apiKey,
+    apiVersion: 'v1beta',
     ...(options.fetch ? { httpOptions: { fetch: options.fetch } } : {}),
   });
   const sleep = options.sleep ?? defaultSleep;
