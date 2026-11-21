@@ -16,7 +16,10 @@ import {
   type FloorData,
   type FloorRecord,
   type Id,
+  type Issue,
+  type Suggestion,
   type SuggestionDraft,
+  type SuggestionIssue,
 } from '@el-karta/core';
 import type { AiRunResponse } from '@el-karta/data-supabase';
 import type { QueryClient } from '@tanstack/react-query';
@@ -24,7 +27,7 @@ import type { z } from 'zod';
 import type { SuggestionSource } from '@/features/suggestions/source';
 import type { ProjectJson } from '../background/project-json';
 import type { AiImportBackend } from './backend';
-import { withoutAccepted } from './dedupe';
+import { withoutAccepted, type AcceptedItem } from './dedupe';
 import { abortable, ImportError } from './errors';
 import { loadReading, saveReading, type PlanReading, type StoredReading } from './reading';
 
@@ -53,9 +56,16 @@ function outputOf<T>(response: AiRunResponse, schema: z.ZodType<T>): T {
   return parsed.data;
 }
 
+const toSuggestionIssue = ({ code, severity, params }: Issue): SuggestionIssue => ({
+  code,
+  severity,
+  ...(params ? { params } : {}),
+});
+
 /**
  * Reads the floor's plan image through the `ai-pass` function: locate, crop, tile, read, merge
- * (`readFloorplan`). Nothing is stored; `signal` stops it between and during calls.
+ * (`readFloorplan`). Nothing is stored; `signal` stops it between and during calls. Issues left
+ * after a run's retry (`invalid` runs) are kept with the reading, to be shown with its suggestions.
  */
 export async function readPlan(
   floor: Floor,
@@ -68,19 +78,20 @@ export async function readPlan(
   if (!background) throw new ImportError('image');
   const ids = { projectId: floor.projectId, floorId: floor.id };
   const runIds: Id[] = [];
+  const issues = new Map<string, SuggestionIssue>();
+  const call = async (pass: string, input: unknown) => {
+    const response = await abortable(deps.backend.run({ ...ids, pass, input }, signal), signal);
+    if (response.status === 'invalid')
+      for (const issue of response.issues.map(toSuggestionIssue))
+        issues.set(JSON.stringify(issue), issue);
+    return response;
+  };
   const reading = await readFloorplan(
     image,
     {
-      locate: async (input) =>
-        outputOf(
-          await abortable(
-            deps.backend.run({ ...ids, pass: floorplanLocatePass.id, input }),
-            signal,
-          ),
-          LocateOutput,
-        ),
+      locate: async (input) => outputOf(await call(floorplanLocatePass.id, input), LocateOutput),
       floorplan: async (input) => {
-        const response = await abortable(deps.backend.run({ ...ids, pass: PASS, input }), signal);
+        const response = await call(PASS, input);
         runIds.push(response.runId);
         return outputOf(response, FloorplanOutput);
       },
@@ -99,6 +110,7 @@ export async function readPlan(
     ...(image.pdfPageWidthMm === undefined ? {} : { pdfPageWidthMm: image.pdfPageWidthMm }),
     runIds,
     source: importSource(),
+    issues: [...issues.values()],
   };
 }
 
@@ -108,7 +120,11 @@ export interface Interpreted {
   placement: BackgroundPlacement;
 }
 
-/** M4 decisions 1 and 2 for this floor: its placement, its scale (a user scale is kept) and height. */
+/**
+ * M4 decisions 1 and 2 for this floor: its placement, its scale (a user scale is kept) and height.
+ * The reading's own issues concern it as a whole, so they go where the interpretation's overall
+ * issues go: on the scale suggestion, or on every suggestion when there is none.
+ */
 export function interpretReading(
   reading: PlanReading,
   data: FloorData,
@@ -130,6 +146,13 @@ export function interpretReading(
     },
     newId,
   );
+  if (reading.issues.length > 0) {
+    const hasScale = interpretation.drafts.some((d) => d.kind === 'scale');
+    interpretation.issues = [...interpretation.issues, ...reading.issues];
+    interpretation.drafts = interpretation.drafts.map((d) =>
+      !hasScale || d.kind === 'scale' ? { ...d, issues: [...d.issues, ...reading.issues] } : d,
+    );
+  }
   return {
     interpretation,
     placement: {
@@ -140,10 +163,14 @@ export function interpretReading(
 }
 
 /**
- * Stores `drafts` as the floor's pending suggestions from `reading`, replacing the pending ones of
- * the reading stored before (a new import, or a new scale). The reading is saved first, so the
- * suggestions it lists can always be re-interpreted; the old pending rows are rejected last, so a
- * failure never leaves the floor without suggestions. Returns how many were stored.
+ * Stores `drafts` as the floor's pending suggestions from `reading`, replacing the pending ones
+ * listed by the reading stored before (a new import, or a new scale). Drafts that repeat a
+ * suggestion accepted from an earlier reading of the same image are left out (`withoutAccepted`).
+ *
+ * The stored reading lists the suggestions committed on the floor that may still matter, each with
+ * the placement it was measured at. It is written first, with the new drafts and the old pending
+ * ones together, so if committing or rejecting fails the next replacement still finds the old
+ * pending suggestions and rejects them. Returns how many suggestions were stored.
  */
 export async function commitDrafts(
   floor: Floor,
@@ -153,33 +180,41 @@ export async function commitDrafts(
   deps: ImportDeps,
 ): Promise<number> {
   const previous = await loadReading(deps.files, floor.projectId, floor.id);
-  const stale = previous ? await pendingOf(previous, floor.id, deps.source) : [];
-  if (drafts.length === 0 && stale.length === 0) throw new ImportError('empty');
+  const rows = new Map<Id, Suggestion>(
+    previous ? (await deps.source.list(floor.id)).map((s) => [s.id, s]) : [],
+  );
+  const sameImage = previous?.attachmentId === reading.attachmentId;
+  // Accepted items of another image would be compared at the wrong place, and rejected ones never
+  // matter again; pending ones are kept until they have been rejected.
+  const carried = (previous?.suggestions ?? []).filter((entry) => {
+    const status = rows.get(entry.id)?.status;
+    return status === 'pending' || (sameImage && status === 'accepted');
+  });
+  const stale = carried.filter((e) => rows.get(e.id)?.status === 'pending').map((e) => e.id);
+  const accepted = carried.flatMap((e): AcceptedItem[] => {
+    const suggestion = rows.get(e.id)!;
+    return suggestion.status === 'accepted' ? [{ suggestion, placement: e.placement }] : [];
+  });
+  const fresh = withoutAccepted(drafts, accepted, placement);
+  if (fresh.length === 0 && stale.length === 0) throw new ImportError('empty');
+
   const stored: StoredReading = {
     ...reading,
-    suggestionIds: drafts.map((d) => d.id),
-    placement,
+    suggestions: [...carried, ...fresh.map((d) => ({ id: d.id, placement }))],
   };
   await saveReading(deps.files, floor.projectId, floor.id, stored);
-  if (drafts.length > 0)
+  if (fresh.length > 0)
     await deps.backend.commit({
       pass: PASS,
       projectId: floor.projectId,
       floorId: floor.id,
       runIds: reading.runIds,
       source: reading.source,
-      suggestions: [...drafts],
+      suggestions: fresh,
     });
   if (stale.length > 0) await deps.source.setStatus(stale, 'rejected');
   await deps.queries.invalidateQueries({ queryKey: ['suggestions'] });
-  return drafts.length;
-}
-
-async function pendingOf(reading: StoredReading, floorId: Id, source: SuggestionSource) {
-  const mine = new Set(reading.suggestionIds);
-  return (await source.list(floorId))
-    .filter((s) => mine.has(s.id) && s.status === 'pending')
-    .map((s) => s.id);
+  return fresh.length;
 }
 
 const samePlacement = (p: BackgroundPlacement, q: BackgroundPlacement) =>
@@ -190,10 +225,10 @@ const samePlacement = (p: BackgroundPlacement, q: BackgroundPlacement) =>
 
 /**
  * After the floor's scale was set, interprets its stored reading again at that scale and replaces
- * the reading's pending suggestions, so accepting one can never put back the old scale or leave an
- * item at the wrong size (M4 T5, stale suggestions). Drafts repeating an item already accepted from
- * the reading are left out. `onWork` is called once it is clear there is something to replace.
- * Returns how many suggestions replace the pending ones, or null when there was nothing to replace.
+ * its pending suggestions, so accepting one can never put back the old scale or leave an item at
+ * the wrong size (M4 T5, stale suggestions). `onWork` is called once it is clear there is
+ * something to replace. Returns how many suggestions replace the pending ones, or null when none
+ * is pending at another placement.
  */
 export async function reinterpretStored(
   floor: Floor,
@@ -203,13 +238,10 @@ export async function reinterpretStored(
   const stored = await loadReading(deps.files, floor.projectId, floor.id);
   const now = backgroundPlacement(floor.data.background, floor.data.scale);
   if (!stored || !now || stored.attachmentId !== floor.data.background?.attachmentId) return null;
-  if (samePlacement(stored.placement, now)) return null;
-  const mine = new Set(stored.suggestionIds);
-  const suggestions = (await deps.source.list(floor.id)).filter((s) => mine.has(s.id));
-  if (!suggestions.some((s) => s.status === 'pending')) return null;
+  const status = new Map((await deps.source.list(floor.id)).map((s) => [s.id, s.status]));
+  const pending = stored.suggestions.filter((e) => status.get(e.id) === 'pending');
+  if (pending.every((e) => samePlacement(e.placement, now))) return null;
   onWork();
   const { interpretation, placement } = interpretReading(stored, floor.data, false, deps.newId);
-  const accepted = suggestions.filter((s) => s.status === 'accepted');
-  const drafts = withoutAccepted(interpretation.drafts, accepted, stored.placement, placement);
-  return commitDrafts(floor, stored, drafts, placement, deps);
+  return commitDrafts(floor, stored, interpretation.drafts, placement, deps);
 }

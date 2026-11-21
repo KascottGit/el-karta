@@ -71,12 +71,17 @@ export function connectImport(client: QueryClient): () => void {
 }
 
 /** Runs one step of an import; a failure ends it with its message, a cancel ends it quietly. */
-async function step(floorId: Id, signal: AbortSignal | null, work: () => Promise<void>) {
+async function step(
+  floorId: Id,
+  signal: AbortSignal | null,
+  work: () => Promise<void>,
+  retry: 'read' | 'update' = 'read',
+) {
   try {
     await work();
   } catch (error) {
     if (signal?.aborted || isAbort(error)) return;
-    setImportStep({ step: 'failed', floorId, error: importErrorCode(error) });
+    setImportStep({ step: 'failed', floorId, error: importErrorCode(error), retry });
   }
 }
 
@@ -171,10 +176,28 @@ export async function handleScaleMeasured(event: ScaleMeasured) {
     return;
   }
   if (isBusy(current)) return;
-  await step(floorId, null, async () => {
-    const changed = await reinterpretStored(floorOf(floorId), deps(), () => {
-      setImportStep({ step: 'updating', floorId });
-    });
-    if (changed !== null) setImportStep({ step: 'idle' });
-  });
+  await updateStored(floorId);
+}
+
+async function updateStored(floorId: Id) {
+  await step(
+    floorId,
+    null,
+    async () => {
+      const changed = await reinterpretStored(floorOf(floorId), deps(), () => {
+        setImportStep({ step: 'updating', floorId });
+      });
+      if (changed !== null) setImportStep({ step: 'idle' });
+    },
+    'update',
+  );
+}
+
+/** "Försök igen" after a failure: the same work again, without a new AI read when not needed. */
+export async function retryImport() {
+  const current = importStore.getState().current;
+  if (current.step !== 'failed') return;
+  setImportStep({ step: 'idle' });
+  if (current.retry === 'update') await updateStored(current.floorId);
+  else await startImport(current.floorId);
 }

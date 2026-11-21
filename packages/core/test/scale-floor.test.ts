@@ -111,6 +111,27 @@ describe('scaleFloor', () => {
     expect(validateModel(model).filter((i) => i.severity === 'error')).toEqual([]);
   });
 
+  it('rescales route points through this floor of a connection stored on another floor', () => {
+    const s = setup();
+    const upstairs = s.model.floors[s.f1]!.data;
+    upstairs.connections['c'] = {
+      id: 'c',
+      domain: 'power',
+      kind: 'circuit',
+      fromPortId: 'p1',
+      toPortId: 'p2',
+      provenance: { status: 'manual' },
+      route: [
+        { floorId: s.f0, points: [{ x: 4, y: 4, z: 2 }], certainty: 'traced' },
+        { floorId: s.f1, points: [{ x: 4, y: 4, z: 4 }], certainty: 'traced' },
+      ],
+    };
+    const { model } = applyEdit(s.model, scaleFloor(s.f0, 2, { x: 2, y: 2 }));
+    const route = model.floors[s.f1]!.data.connections['c']!.route!;
+    expect(route[0]!.points).toEqual([{ x: 6, y: 6, z: 2 }]);
+    expect(route[1]!.points).toEqual([{ x: 4, y: 4, z: 4 }]);
+  });
+
   it('leaves other floors, the background and the scale alone', () => {
     const s = setup();
     s.model.floors[s.f0]!.data.scale = { source: 'user', metresPerPixel: 0.01 };

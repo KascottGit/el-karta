@@ -297,8 +297,9 @@ export const scaleFloor =
       if (p.kind === 'wall') p.offset *= factor;
       else if (p.kind === 'floor' || p.kind === 'ceiling') p.at = at(p.at);
     }
+    // A route can pass through a floor its connection is not stored on.
     const connections = [
-      ...Object.values(data.connections),
+      ...Object.values(draft.floors).flatMap((f) => Object.values(f.data.connections)),
       ...Object.values(draft.project.data.crossFloorConnections),
     ];
     for (const connection of connections) {

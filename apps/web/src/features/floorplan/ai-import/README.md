@@ -13,9 +13,13 @@ Errors end the import with a Swedish message (`ai.import.errors.<code>`, mapped 
 
 ## Stored readings and stale suggestions
 
-The merged model output is kept per floor in Storage at `<projectId>/ai-import/<floorId>.json` (`reading.ts`, through `background/project-json.ts`), with the ids of the suggestions committed from it and the background placement (including scale) they were measured at. Storage policies already give members read and writers write access, so this needs no table, and it survives reloads and works for every member.
+The latest reading of a floor is kept in Storage at `<projectId>/ai-import/<floorId>.json` (`reading.ts`, through `background/project-json.ts`, written with `cacheControl: 0`). Next to the merged model output it lists the suggestions committed on the floor that may still matter (pending ones, and accepted ones of the same image), each with the background placement (including scale) it was measured at. Storage policies already give members read and writers write access, so this needs no table, and it survives reloads and works for every member.
 
-When the person sets a scale with the scale tool (`background/scale-events.ts`; undo, redo and remote changes do not count), `reinterpretStored` interprets the stored reading again at the new placement and replaces the reading's pending suggestions, so accepting one never puts back the old scale. New drafts that repeat a suggestion already accepted from the reading (same wall ends or same room name and centre, compared where they lie on the image) are left out, with the openings on a repeated wall.
+Every commit (`commitDrafts`) first writes the reading with the new suggestions and the old pending ones together, then commits, then rejects the old pending ones. If the commit or the rejection fails, the next replacement still finds the old pending suggestions and rejects them. New drafts that repeat a suggestion accepted from an earlier reading of the same image (same wall ends, or same room name and centre, compared where each lies on the image, moved from its own placement) are left out; an opening on a repeated wall moves onto the accepted wall and requires its suggestion. This applies to a fresh import as well as to a re-interpretation.
+
+When the person sets a scale with the scale tool (`background/scale-events.ts`; undo, redo and remote changes do not count), `reinterpretStored` interprets the stored reading again at the new placement and replaces its pending suggestions, so accepting one never leaves an item at the wrong size. Core's `scale` suggestion kind never overwrites a user scale on accept (M4 decision 2). If the re-interpretation fails, "Försök igen" runs it again without a new AI read.
+
+Issues left after a run's retry (`invalid` runs) are kept with the reading and shown on the scale suggestion, or on every suggestion when there is none.
 
 After a new scale, the scale panel also offers to rescale what is drawn on the floor (`background/rescale.ts`, core `scaleFloor`) about the same point as the image, so accepted items stay on the plan they were traced from.
 

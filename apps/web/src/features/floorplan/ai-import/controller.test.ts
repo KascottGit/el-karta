@@ -14,6 +14,7 @@ import {
   connectImport,
   estimateScale,
   measureScale,
+  retryImport,
   setImportServices,
   startImport,
 } from './controller';
@@ -126,6 +127,24 @@ describe('import controller', () => {
     expect(fake.withStatus('pending').some((s) => s.kind === 'scale')).toBe(false);
   });
 
+  it('"Försök igen" after a failed re-interpretation re-interprets, without reading the plan again', async () => {
+    const { fake, measure } = await setup();
+    await estimateScale();
+    const commit = fake.deps.backend.commit.bind(fake.deps.backend);
+    fake.deps.backend.commit = () => Promise.reject(new Error('lost'));
+    measure(TRUE_METRES_PER_PIXEL * 1.1);
+    await vi.waitFor(() => {
+      expect(importStore.getState().current).toMatchObject({ step: 'failed', retry: 'update' });
+    });
+
+    fake.deps.backend.commit = commit;
+    await retryImport();
+    expect(step()).toBe('idle');
+    expect(fake.runs).toHaveLength(0);
+    expect(fake.commits).toHaveLength(2);
+    expect(fake.withStatus('pending').some((s) => s.kind === 'scale')).toBe(false);
+  });
+
   it('a scale measured with nothing pending changes nothing', async () => {
     const { fake, measure } = await setup();
     cancelImport();
@@ -192,6 +211,7 @@ describe('import controller', () => {
       step: 'failed',
       floorId: floor.id,
       error: 'image',
+      retry: 'read',
     });
   });
 

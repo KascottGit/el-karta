@@ -9,7 +9,7 @@ import {
   connectImport,
   estimateScale,
   measureScale,
-  startImport,
+  retryImport,
 } from './controller';
 import { useImport, type ImportStep } from './import-store';
 
@@ -31,7 +31,7 @@ function CancelButton() {
   );
 }
 
-function Body({ current, ctx }: { current: ImportStep; ctx: CanvasContext }) {
+function Body({ current }: { current: ImportStep }) {
   const { t } = useTranslation();
   switch (current.step) {
     case 'idle':
@@ -90,8 +90,7 @@ function Body({ current, ctx }: { current: ImportStep; ctx: CanvasContext }) {
             <Button
               variant="outline"
               onClick={() => {
-                cancelImport();
-                void startImport(ctx.floorId);
+                void retryImport();
               }}
             >
               {t('ai.import.retry')}
@@ -116,7 +115,7 @@ export function ImportPanel({ ctx }: { ctx: CanvasContext }) {
       <h2 id={titleId} className="font-semibold">
         {t('ai.import.action')}
       </h2>
-      <Body current={current} ctx={ctx} />
+      <Body current={current} />
     </section>
   );
 }

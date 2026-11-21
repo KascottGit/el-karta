@@ -26,43 +26,74 @@ describe('withoutAccepted', () => {
   // The old suggestions were measured at 1 cm per pixel; the new ones at 2 cm, about the corner.
   const from: BackgroundPlacement = { offset: { x: 0, y: 0 }, rotation: 0, metresPerPixel: 0.01 };
   const to: BackgroundPlacement = { offset: { x: 0, y: 0 }, rotation: 0, metresPerPixel: 0.02 };
+  const at = (placement: BackgroundPlacement) => (suggestion: Suggestion) => ({
+    suggestion,
+    placement,
+  });
   const square = (k: number) => [
     { x: 0, y: 0 },
     { x: 4 * k, y: 0 },
     { x: 4 * k, y: 3 * k },
     { x: 0, y: 3 * k },
   ];
+  const door = (id: string, wallId: string, offset: number) => ({
+    id,
+    wallId,
+    kind: 'door',
+    offset,
+    width: 1,
+    height: 2.1,
+    hinge: 'left',
+    swing: 'in',
+  });
 
-  it('drops walls and rooms already accepted, wherever they lie on the image now, and what requires them', () => {
+  it('drops walls and rooms already accepted, wherever they lie on the image now', () => {
+    const wall = accepted('wall', {
+      id: 'w',
+      a: { x: 0, y: 0 },
+      b: { x: 4, y: 0 },
+      thickness: 0.1,
+    });
     const done = [
-      accepted('wall', { id: 'w', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, thickness: 0.1 }),
+      wall,
       accepted('room', { id: 'r', name: 'Kök', type: 'kitchen', polygon: square(1) }),
-    ];
+    ].map(at(from));
     const drafts = [
       // The same wall, drawn the other way, at the new scale.
       draft('w1', 'wall', { id: 'x1', a: { x: 8, y: 0 }, b: { x: 0, y: 0 }, thickness: 0.2 }),
-      draft('o1', 'opening', { id: 'y1', wallId: 'x1' }, ['w1']),
+      draft('o1', 'opening', door('y1', 'x1', 1), ['w1']),
       draft('w2', 'wall', { id: 'x2', a: { x: 8, y: 0 }, b: { x: 8, y: 6 }, thickness: 0.2 }),
-      draft('o2', 'opening', { id: 'y2', wallId: 'x2' }, ['w2']),
+      draft('o2', 'opening', door('y2', 'x2', 1), ['w2']),
       draft('r1', 'room', { id: 'z1', name: 'Kök', type: 'kitchen', polygon: square(2) }),
       draft('r2', 'room', { id: 'z2', name: 'Hall', type: 'hallway', polygon: square(2) }),
       draft('s', 'scale', { source: 'user', metresPerPixel: 0.02 }),
     ];
-    expect(withoutAccepted(drafts, done, from, to).map((d) => d.id)).toEqual([
-      'w2',
-      'o2',
-      'r2',
-      's',
-    ]);
+    const kept = withoutAccepted(drafts, done, to);
+    expect(kept.map((d) => d.id)).toEqual(['o1', 'w2', 'o2', 'r2', 's']);
+
+    // The door on the repeated wall moves onto the accepted one, which runs the other way: the
+    // same span from its other end, and hinge and swing flipped.
+    const moved = kept.find((d) => d.id === 'o1')!;
+    expect(moved.requires).toEqual([wall.id]);
+    expect(moved.payload).toMatchObject({
+      id: 'y1',
+      wallId: 'w',
+      offset: 6,
+      hinge: 'right',
+      swing: 'out',
+    });
   });
 
-  it('keeps everything when the accepted items are elsewhere on the image', () => {
+  it('moves each accepted item from the placement it was measured at', () => {
+    // Measured at 2 cm per pixel, where the new drafts are too.
     const done = [
-      accepted('wall', { id: 'w', a: { x: 0, y: 0 }, b: { x: 4, y: 0 }, thickness: 1 }),
-    ];
-    const drafts = [draft('w1', 'wall', { id: 'x', a: { x: 0, y: 0 }, b: { x: 4, y: 0 } })];
-    // At the new scale the accepted wall spans 0–8 m, so a 4 m wall is another wall.
-    expect(withoutAccepted(drafts, done, from, to)).toEqual(drafts);
+      accepted('wall', { id: 'w', a: { x: 0, y: 0 }, b: { x: 8, y: 0 }, thickness: 0.1 }),
+    ].map(at(to));
+    const drafts = [draft('w1', 'wall', { id: 'x', a: { x: 0, y: 0 }, b: { x: 8, y: 0 } })];
+    expect(withoutAccepted(drafts, done, to)).toEqual([]);
+    // Read as measured at 1 cm per pixel, the same wall would now span 0–16 m: another wall.
+    const elsewhere = done.map((d) => ({ ...d, placement: from }));
+    expect(withoutAccepted(drafts, elsewhere, to)).toEqual(drafts);
   });
 });
 

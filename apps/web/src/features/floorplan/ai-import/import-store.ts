@@ -17,7 +17,8 @@ export type ImportStep =
   | { step: 'saving'; floorId: Id }
   /** Re-interpreting a stored reading after the scale changed. */
   | { step: 'updating'; floorId: Id }
-  | { step: 'failed'; floorId: Id; error: ImportErrorCode };
+  /** `retry` says what "Försök igen" does: read the plan again, or only re-interpret it. */
+  | { step: 'failed'; floorId: Id; error: ImportErrorCode; retry: 'read' | 'update' };
 
 export const importStore = createStore<{ current: ImportStep }>()(() => ({
   current: { step: 'idle' },

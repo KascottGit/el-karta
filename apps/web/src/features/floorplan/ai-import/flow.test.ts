@@ -130,6 +130,27 @@ describe('readPlan', () => {
 });
 
 describe('interpretReading', () => {
+  it("shows the issues left after a run's retry with the scale suggestion", async () => {
+    const fake = fakeBackend();
+    const run = fake.deps.backend.run.bind(fake.deps.backend);
+    fake.deps.backend.run = async (request, signal) => ({
+      ...(await run(request, signal)),
+      status: 'invalid',
+      issues: [{ code: 'ai.dimension-invalid', severity: 'error', ids: [] }],
+    });
+    const { floor, reading } = await read(floorWithBackground(), fake);
+    expect(reading.issues).toEqual([{ code: 'ai.dimension-invalid', severity: 'error' }]);
+    const { interpretation } = interpretReading(reading, floor.data, true, newId);
+    const scale = interpretation.drafts.find((d) => d.kind === 'scale')!;
+    expect(scale.issues).toContainEqual({ code: 'ai.dimension-invalid', severity: 'error' });
+    const walls = interpretation.drafts.filter((d) => d.kind === 'wall');
+    expect(walls.every((w) => w.issues.every((i) => i.code !== 'ai.dimension-invalid'))).toBe(true);
+    expect(interpretation.issues).toContainEqual({
+      code: 'ai.dimension-invalid',
+      severity: 'error',
+    });
+  });
+
   it('finds no scale in the reply unless estimating, and estimates it from the standard objects', async () => {
     const { floor, reading } = await read();
     expect(interpretReading(reading, floor.data, false, newId).interpretation.scale.status).toBe(
@@ -182,8 +203,7 @@ describe('commitDrafts', () => {
     const stored = await loadReading(fake.files, floor.projectId, floor.id);
     expect(stored).toEqual({
       ...reading,
-      suggestionIds: interpretation.drafts.map((d) => d.id),
-      placement,
+      suggestions: interpretation.drafts.map((d) => ({ id: d.id, placement })),
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['suggestions'] });
   });
@@ -199,6 +219,24 @@ describe('commitDrafts', () => {
     const pending = fake.withStatus('pending').map((s) => s.id);
     expect(pending.sort()).toEqual(again.interpretation.drafts.map((d) => d.id).sort());
     expect(fake.withStatus('rejected')).toHaveLength(interpretation.drafts.length - 1);
+  });
+
+  it('a fresh import of the same image leaves out what was accepted from the last one', async () => {
+    const { floor, fake, interpretation } = await importEstimated();
+    const walls = interpretation.drafts.filter((d) => d.kind === 'wall');
+    const scale = interpretation.drafts.find((d) => d.kind === 'scale')!;
+    await fake.deps.source.setStatus([scale.id, ...walls.map((w) => w.id)], 'accepted');
+    const accepted = { ...floor, data: { ...floor.data, scale: interpretation.scale.scale! } };
+
+    const { reading } = await read(accepted, fake);
+    const again = interpretReading(reading, accepted.data, true, newId);
+    await commitDrafts(accepted, reading, again.interpretation.drafts, again.placement, fake.deps);
+    const pending = fake.withStatus('pending');
+    expect(pending.some((s) => s.kind === 'wall')).toBe(false);
+    // The door now hangs on its accepted wall.
+    const door = pending.find((s) => s.kind === 'opening')!;
+    expect(walls.map((w) => w.id)).toContain(door.requires[0]);
+    expect(walls.map((w) => (w.payload as Wall).id)).toContain((door.payload as Opening).wallId);
   });
 
   it('stores nothing when there is nothing to suggest', async () => {
@@ -245,8 +283,72 @@ describe('reinterpretStored', () => {
       .filter((w) => distance(w.a, moved(old.a)) < 0.15 && distance(w.b, moved(old.b)) < 0.15);
     expect(repeats).toEqual([]);
     const openings = replaced.filter((s) => s.kind === 'opening').map((s) => s.payload as Opening);
-    const walls = new Set(replaced.map((s) => (s.payload as { id: string }).id));
+    const walls = new Set([
+      (wall.payload as Wall).id,
+      ...replaced.map((s) => (s.payload as { id: string }).id),
+    ]);
     expect(openings.every((o) => walls.has(o.wallId))).toBe(true);
+  });
+
+  it('twice in a row replaces the latest pending suggestions and never repeats an accepted wall', async () => {
+    const { floor, fake, interpretation } = await importEstimated();
+    const wall = interpretation.drafts.find((d) => d.kind === 'wall')!;
+    const scale = interpretation.drafts.find((d) => d.kind === 'scale')!;
+    await fake.deps.source.setStatus([scale.id, wall.id], 'accepted');
+
+    await reinterpretStored(withScale(floor, TRUE_METRES_PER_PIXEL * 1.25), fake.deps);
+    const middle = fake.withStatus('pending').map((s) => s.id);
+    const last = withScale(floor, TRUE_METRES_PER_PIXEL * 1.5, { x: 1, y: 1 });
+    const count = await reinterpretStored(last, fake.deps);
+    for (const id of middle) expect(fake.rows.get(id)!.status).toBe('rejected');
+    expect(fake.withStatus('pending')).toHaveLength(count!);
+    expect(count).toBe(interpretation.drafts.length - 2);
+
+    const placement = backgroundPlacement(last.data.background, last.data.scale)!;
+    const old = wall.payload as Wall;
+    const moved = (p: { x: number; y: number }) => ({
+      x: placement.offset.x + (p.x / TRUE_METRES_PER_PIXEL) * placement.metresPerPixel,
+      y: placement.offset.y + (p.y / TRUE_METRES_PER_PIXEL) * placement.metresPerPixel,
+    });
+    const repeats = fake
+      .withStatus('pending')
+      .filter((s) => s.kind === 'wall')
+      .map((s) => s.payload as Wall)
+      .filter((w) => distance(w.a, moved(old.a)) < 0.15 && distance(w.b, moved(old.b)) < 0.15);
+    expect(repeats).toEqual([]);
+    expect(await reinterpretStored(last, fake.deps)).toBeNull();
+  });
+
+  it('after a failed commit, the next replacement still rejects the old pending suggestions', async () => {
+    const { floor, fake } = await importEstimated();
+    const old = fake.withStatus('pending').map((s) => s.id);
+    const commit = fake.deps.backend.commit.bind(fake.deps.backend);
+    fake.deps.backend.commit = () => Promise.reject(new Error('lost'));
+    const measured = withScale(floor, TRUE_METRES_PER_PIXEL * 1.25);
+    await expect(reinterpretStored(measured, fake.deps)).rejects.toThrow('lost');
+    expect(fake.withStatus('pending').map((s) => s.id)).toEqual(old);
+
+    fake.deps.backend.commit = commit;
+    const count = await reinterpretStored(measured, fake.deps);
+    for (const id of old) expect(fake.rows.get(id)!.status).toBe('rejected');
+    expect(fake.withStatus('pending')).toHaveLength(count!);
+  });
+
+  it('after a failed rejection, the next replacement rejects what was left pending', async () => {
+    const { floor, fake } = await importEstimated();
+    const old = fake.withStatus('pending').map((s) => s.id);
+    const setStatus = fake.deps.source.setStatus.bind(fake.deps.source);
+    fake.deps.source.setStatus = () => Promise.reject(new Error('lost'));
+    await expect(
+      reinterpretStored(withScale(floor, TRUE_METRES_PER_PIXEL * 1.25), fake.deps),
+    ).rejects.toThrow('lost');
+    const both = fake.withStatus('pending').map((s) => s.id);
+    expect(both.length).toBeGreaterThan(old.length);
+
+    fake.deps.source.setStatus = setStatus;
+    const count = await reinterpretStored(withScale(floor, TRUE_METRES_PER_PIXEL * 1.5), fake.deps);
+    for (const id of both) expect(fake.rows.get(id)!.status).toBe('rejected');
+    expect(fake.withStatus('pending')).toHaveLength(count!);
   });
 
   it('does nothing without pending suggestions, at the same placement, or for another image', async () => {

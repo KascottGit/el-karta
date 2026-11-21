@@ -87,6 +87,14 @@ describe('acceptSuggestions', () => {
     });
   });
 
+  it('keeps a scale the person measured when a suggested scale is accepted', () => {
+    const { model, floorId, scale, kinds } = setup();
+    const measured = { source: 'user' as const, metresPerPixel: 0.008 };
+    model.floors[floorId]!.data.scale = measured;
+    const { model: next } = applyEdit(model, acceptSuggestions(kinds, [scale], [scale.id]).edit);
+    expect(next.floors[floorId]!.data.scale).toEqual(measured);
+  });
+
   it('rejects payloads that do not fit the kind', () => {
     const { model, wall, kinds } = setup();
     const broken = { ...wall, payload: { id: 'x' } };

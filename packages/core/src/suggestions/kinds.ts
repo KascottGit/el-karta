@@ -57,7 +57,12 @@ export const builtInSuggestionKinds: readonly SuggestionKindDef[] = [
     kind: 'scale',
     payload: FloorData.shape.scale.unwrap(),
     itemId: () => null,
-    accept: (floorId, payload) => setScale(floorId, payload),
+    // A scale the person measured wins over any suggested one (M4 decision 2), also when the
+    // suggestion was made before they measured.
+    accept: (floorId, payload) => (draft, base) => {
+      if (base.floors[floorId]?.data.scale?.source === 'user') return;
+      setScale(floorId, payload)(draft, base);
+    },
   }),
   defineSuggestionKind({
     kind: 'floor-height',
