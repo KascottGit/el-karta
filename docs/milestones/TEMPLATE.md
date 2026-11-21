@@ -40,4 +40,4 @@ Common acceptance for every task:
 
 ## Order and parallelism
 
-Tasks run one at a time by default (ADR 0005). List the order, dependencies first.
+At most two agents run at a time (ADR 0005). List the order, dependencies first, and which tasks can pair (disjoint Touches).
