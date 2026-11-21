@@ -360,6 +360,53 @@
   "suggestions": {
     "title": "Förslag",
     "accept": "Godkänn",
-    "reject": "Avvisa"
+    "reject": "Avvisa",
+    "tool": "Granska förslag",
+    "remaining_one": "{{count}} förslag att granska.",
+    "remaining_other": "{{count}} förslag att granska.",
+    "none": "Inga förslag att granska.",
+    "loadFailed": "Förslagen kunde inte hämtas.",
+    "hint": "Tryck på ett streckat förslag i planen för att granska det.",
+    "selected": "Markerat förslag",
+    "floorValues": "Våningen",
+    "acceptAndEdit": "Godkänn och redigera",
+    "acceptItem": "Godkänn {{item}}",
+    "rejectItem": "Avvisa {{item}}",
+    "selectItem": "Visa {{item}}",
+    "bulk": "Alla förslag",
+    "acceptAll": "Godkänn alla ({{count}})",
+    "acceptConfident": "Godkänn säkra ({{count}})",
+    "rejectAll": "Avvisa alla ({{count}})",
+    "threshold": "Säkra är förslag med minst",
+    "confidence": "Säkerhet {{percent}} %",
+    "confidenceUnknown": "Säkerhet okänd",
+    "invalid": "Förslaget går inte att läsa och kan bara avvisas.",
+    "group": "{{kind}} ({{count}})",
+    "confirmReject_one": "{{count}} annat förslag bygger på det här och avvisas också.",
+    "confirmReject_other": "{{count}} andra förslag bygger på det här och avvisas också.",
+    "confirmRejectButton": "Avvisa {{count}} förslag",
+    "kinds": {
+      "wall": "Väggar",
+      "opening": "Dörrar och fönster",
+      "room": "Rum",
+      "zone": "Zoner",
+      "scale": "Skala",
+      "floor-height": "Våningshöjd",
+      "other": "Övriga"
+    },
+    "describe": {
+      "wall": "Vägg {{length}} m",
+      "opening": "{{kind}} {{width}} m",
+      "room": "{{name}} ({{type}})",
+      "scale": "Skala: 1 bildpunkt = {{mm}} mm ({{source}})",
+      "floor-height": "Våningshöjd {{height}} m",
+      "other": "Förslag av typen {{kind}}"
+    },
+    "errors": {
+      "requirementRejected": "Förslaget bygger på ett förslag som redan har avvisats och kan inte godkännas.",
+      "invalid": "Förslaget kunde inte läggas in i planen.",
+      "saveAccepted": "Förslagen lades in i planen men kunde inte markeras som godkända. Försök igen – inget läggs in två gånger.",
+      "saveRejected": "Förslagen kunde inte avvisas. Försök igen."
+    }
   }
 }
