@@ -281,6 +281,19 @@
     },
     "scale": {
       "door-width-implausible": "Dörrarna blir {{width}} m breda med den här skalan. Kontrollera skalan."
+    },
+    "ai": {
+      "room-open": "Väggarna runt rummet sluter inte tätt. Konturen är ungefärlig – kontrollera den.",
+      "room-merged": "{{count}} rumsnamn hamnade i samma yta och slogs ihop. Kontrollera om en vägg saknas.",
+      "room-area-mismatch": "Ritningen anger {{printed}} m², men rummet blir {{computed}} m².",
+      "scale-disagreement": "Måtten på ritningen stämmer inte med varandra ({{agreeing}} stämmer, {{outliers}} avviker). Kontrollera skalan.",
+      "coordinate-out-of-range": "AI:n angav en punkt utanför bilden.",
+      "no-walls": "AI:n hittade inga väggar.",
+      "wall-zero-length": "AI:n angav en vägg utan längd.",
+      "opening-zero-width": "AI:n angav en dörr eller ett fönster utan bredd.",
+      "dimension-invalid": "AI:n läste ett mått som inte går att använda.",
+      "box-missing": "AI:n hittade ingen planritning på sidan.",
+      "box-invalid": "AI:n angav ett ogiltigt område för planritningen."
     }
   },
   "background": {
