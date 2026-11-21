@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
+import { MODEL_STORE } from './app-modules';
 import {
   DIMENSION,
   fixture,
@@ -8,6 +9,8 @@ import {
   unscaledImageToPage,
 } from './background';
 import { openNewProjectEditor } from './editor';
+
+const PDF_PAGE = '/src/features/floorplan/background/pdf-page.ts';
 
 const openEditor = (page: Page, run: string) =>
   openNewProjectEditor(page, {
@@ -83,4 +86,23 @@ test('a page picked from a PDF is stored as a tracing-resolution image', async (
   expect(background?.pdfPage).toBe(2);
   expect(image?.size).toEqual({ width: 4000, height: 3000 });
   await expect(page.getByText('Sida 2 ur PDF:en.')).toBeVisible();
+
+  // The image does not keep the page's paper size, which a printed "Skala 1:100" needs, so it is
+  // stored beside the attachment.
+  const pageSize = () =>
+    page.evaluate(
+      async ([modelUrl, pdfPageUrl, attachmentId]) => {
+        const { modelStore } = (await import(/* @vite-ignore */ modelUrl)) as {
+          modelStore: { getState(): { model: { project: { id: string } } } };
+        };
+        const { loadPdfPageSize } = (await import(/* @vite-ignore */ pdfPageUrl)) as {
+          loadPdfPageSize: (projectId: string, attachmentId: string) => Promise<unknown>;
+        };
+        return loadPdfPageSize(modelStore.getState().model.project.id, attachmentId);
+      },
+      [MODEL_STORE, PDF_PAGE, background!.attachmentId] as const,
+    );
+  await expect.poll(pageSize).toMatchObject({ widthMm: expect.any(Number) });
+  const { widthMm, heightMm } = (await pageSize()) as { widthMm: number; heightMm: number };
+  expect(widthMm / heightMm).toBeCloseTo(4 / 3, 2);
 });

@@ -1,0 +1,144 @@
+{
+  "found": true,
+  "box": {
+    "xmin": 0,
+    "ymin": 0,
+    "xmax": 1000,
+    "ymax": 1000
+  },
+  "walls": [
+    {
+      "a": {
+        "x": 128.75,
+        "y": 170
+      },
+      "b": {
+        "x": 872.5,
+        "y": 170
+      },
+      "exterior": true,
+      "thickness": 7.5
+    },
+    {
+      "a": {
+        "x": 872.5,
+        "y": 170
+      },
+      "b": {
+        "x": 872.5,
+        "y": 795
+      },
+      "exterior": true,
+      "thickness": 7.5
+    },
+    {
+      "a": {
+        "x": 872.5,
+        "y": 795
+      },
+      "b": {
+        "x": 128.75,
+        "y": 795
+      },
+      "exterior": true,
+      "thickness": 7.5
+    },
+    {
+      "a": {
+        "x": 128.75,
+        "y": 795
+      },
+      "b": {
+        "x": 128.75,
+        "y": 170
+      },
+      "exterior": true,
+      "thickness": 7.5
+    },
+    {
+      "a": {
+        "x": 500,
+        "y": 170
+      },
+      "b": {
+        "x": 500,
+        "y": 795
+      },
+      "exterior": false,
+      "thickness": 5
+    }
+  ],
+  "openings": [
+    {
+      "kind": "door",
+      "a": {
+        "x": 312.5,
+        "y": 795
+      },
+      "b": {
+        "x": 412.5,
+        "y": 795
+      },
+      "double": false,
+      "hinge": "a",
+      "swingInto": {
+        "x": 340,
+        "y": 760
+      }
+    }
+  ],
+  "rooms": [
+    {
+      "name": "Sovrum",
+      "type": "bedroom",
+      "point": {
+        "x": 312.5,
+        "y": 483
+      },
+      "box": null,
+      "area": null,
+      "outdoor": false
+    },
+    {
+      "name": "Kök",
+      "type": "kitchen",
+      "point": {
+        "x": 687.5,
+        "y": 483
+      },
+      "box": null,
+      "area": null,
+      "outdoor": false
+    }
+  ],
+  "dimensions": [],
+  "scaleBar": null,
+  "scaleText": null,
+  "paperSize": null,
+  "totalArea": null,
+  "ceilingHeight": null,
+  "standardObjects": [
+    {
+      "type": "interior_door_leaf",
+      "a": {
+        "x": 312.5,
+        "y": 700
+      },
+      "b": {
+        "x": 445.3125,
+        "y": 700
+      }
+    },
+    {
+      "type": "wardrobe",
+      "a": {
+        "x": 600,
+        "y": 300
+      },
+      "b": {
+        "x": 693.75,
+        "y": 300
+      }
+    }
+  ]
+}

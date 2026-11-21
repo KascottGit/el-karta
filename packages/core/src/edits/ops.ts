@@ -10,6 +10,8 @@ import type {
   Grid,
   Id,
   Model,
+  Pt,
+  Vec3,
 } from '../schemas/index.ts';
 import { EditError, type Edit } from './apply.ts';
 
@@ -247,4 +249,61 @@ export const combine =
   (...edits: Edit[]): Edit =>
   (draft, base) => {
     for (const edit of edits) edit(draft, base);
+  };
+
+/**
+ * Scales everything drawn on a floor by `factor` about plan point `origin`, as if the drawing it was
+ * traced from had been enlarged: wall ends and thickness, opening offsets and widths, room and zone
+ * corners, grid lines, device positions (and offsets along walls) and the floor's cable route
+ * points, also those of cross-floor connections. Heights, sills and device sizes are real sizes and
+ * stay. The background and scale are not touched: callers change those with `setBackground` and
+ * `setScale`, usually in the same `combine`.
+ */
+export const scaleFloor =
+  (floorId: Id, factor: number, origin: Pt): Edit =>
+  (draft) => {
+    if (!(factor > 0) || !Number.isFinite(factor))
+      throw new EditError(`Scale factor must be a positive number, got ${factor}`);
+    const { data } = floorOf(draft, floorId);
+    const at = (p: Pt): Pt => ({
+      x: origin.x + (p.x - origin.x) * factor,
+      y: origin.y + (p.y - origin.y) * factor,
+    });
+    const at3 = (p: Vec3): Vec3 => ({ ...at(p), z: p.z });
+    for (const wall of Object.values(data.walls)) {
+      wall.a = at(wall.a);
+      wall.b = at(wall.b);
+      wall.thickness *= factor;
+    }
+    for (const opening of Object.values(data.openings)) {
+      opening.offset *= factor;
+      opening.width *= factor;
+    }
+    for (const area of [...Object.values(data.rooms), ...Object.values(data.zones)])
+      area.polygon = area.polygon.map(at);
+    if (data.grid)
+      data.grid = {
+        xLines: data.grid.xLines.map((l) => ({
+          ...l,
+          pos: origin.x + (l.pos - origin.x) * factor,
+        })),
+        yLines: data.grid.yLines.map((l) => ({
+          ...l,
+          pos: origin.y + (l.pos - origin.y) * factor,
+        })),
+      };
+    for (const device of Object.values(data.devices)) {
+      const p = device.placement;
+      if (p.kind === 'wall') p.offset *= factor;
+      else if (p.kind === 'floor' || p.kind === 'ceiling') p.at = at(p.at);
+    }
+    const connections = [
+      ...Object.values(data.connections),
+      ...Object.values(draft.project.data.crossFloorConnections),
+    ];
+    for (const connection of connections) {
+      for (const segment of connection.route ?? []) {
+        if (segment.floorId === floorId) segment.points = segment.points.map(at3);
+      }
+    }
   };

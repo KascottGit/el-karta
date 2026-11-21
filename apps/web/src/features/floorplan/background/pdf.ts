@@ -1,4 +1,7 @@
 import { pdfRenderScale } from '@el-karta/ai-passes';
+import type { PdfPageSize } from './pdf-page';
+
+const POINTS_PER_MM = 72 / 25.4;
 
 /** An opened PDF whose pages can be rendered to images. Call `destroy` when done. */
 export interface PdfFile {
@@ -7,6 +10,8 @@ export interface PdfFile {
   thumbnail(page: number, longSide: number): Promise<string>;
   /** The page as a PNG at tracing resolution. */
   renderPng(page: number): Promise<Blob>;
+  /** The page's size on paper, which the rendered image does not keep. */
+  pageSizeMm(page: number): Promise<PdfPageSize>;
   destroy(): void;
 }
 
@@ -60,6 +65,11 @@ export async function openPdf(file: Blob): Promise<PdfFile> {
       canvas.width = 0;
       canvas.height = 0;
       return blob;
+    },
+    pageSizeMm: async (pageNumber) => {
+      const page = await doc.getPage(pageNumber);
+      const { width, height } = page.getViewport({ scale: 1 });
+      return { widthMm: width / POINTS_PER_MM, heightMm: height / POINTS_PER_MM };
     },
     destroy: () => {
       void task.destroy();
