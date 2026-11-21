@@ -15,6 +15,11 @@ export type ScaleEvidence = (typeof SCALE_EVIDENCE)[number];
 export interface ScaleCandidate {
   evidence: ScaleEvidence;
   metresPerPixel: number;
+  /**
+   * A ratio read against a printed paper size on an image that is not a PDF page, so nothing
+   * confirms that the image spans the whole paper.
+   */
+  unconfirmed?: boolean;
 }
 
 /**
@@ -46,6 +51,9 @@ export const PAPER_MM: Readonly<Record<PaperSize, readonly [number, number]>> = 
 /** Printed values within this fraction of each other agree (decision 2). */
 export const PRINTED_AGREEMENT = 0.05;
 
+/** Printed evidence that is enough on its own; areas depend on the detected walls. */
+const LONE_EVIDENCE: ReadonlySet<ScaleEvidence> = new Set(['ratio', 'dimension', 'scale_bar']);
+
 /** A suggested scale this close to the floor's current one is not worth suggesting. */
 const SAME_SCALE = 0.005;
 
@@ -71,23 +79,29 @@ export interface ScaleContext {
  * The paper width the image spans: a printed paper size (in the image's orientation) wins, because
  * the ratio refers to that paper even if the file's page is another size; otherwise the PDF page.
  */
-function pageWidthMm(paper: PaperSize | null, context: ScaleContext): number | null {
+function pageWidthMm(
+  paper: PaperSize | null,
+  context: ScaleContext,
+): { mm: number; unconfirmed: boolean } | null {
+  const pdf = context.pdfPageWidthMm;
   if (paper) {
     const [short, long] = PAPER_MM[paper];
-    return context.imageSize.width > context.imageSize.height ? long : short;
+    const mm = context.imageSize.width > context.imageSize.height ? long : short;
+    return { mm, unconfirmed: pdf === undefined };
   }
-  return context.pdfPageWidthMm ?? null;
+  return pdf === undefined ? null : { mm: pdf, unconfirmed: false };
 }
 
 /** Candidates from printed information that needs no room geometry. Points are full-image pixels. */
 export function printedCandidates(px: FloorplanOutput, context: ScaleContext): ScaleCandidate[] {
   const out: ScaleCandidate[] = [];
   const ratio = parseRatio(px.scaleText);
-  const pageMm = pageWidthMm(px.paperSize, context);
-  if (ratio !== null && pageMm !== null && context.imageSize.width > 0)
+  const page = pageWidthMm(px.paperSize, context);
+  if (ratio !== null && page !== null && context.imageSize.width > 0)
     out.push({
       evidence: 'ratio',
-      metresPerPixel: ((pageMm / 1000) * ratio) / context.imageSize.width,
+      metresPerPixel: ((page.mm / 1000) * ratio) / context.imageSize.width,
+      ...(page.unconfirmed ? { unconfirmed: true } : {}),
     });
   for (const d of px.dimensions) {
     const mpp = metresPerPixelFrom(d.a, d.b, toMetres(d.value, d.unit));
@@ -156,18 +170,36 @@ export function median(values: readonly number[]): number {
 
 const rank = (c: ScaleCandidate) => SCALE_EVIDENCE.indexOf(c.evidence);
 
+const isArea = (c: ScaleCandidate) => c.evidence === 'room_area' || c.evidence === 'total_area';
+
 /**
- * The largest group of candidates that all lie within `PRINTED_AGREEMENT` of one of them; ties go to
- * the group with the most reliable evidence.
+ * Room and total areas all come from the same detected walls, so they count as one candidate (their
+ * median) and many rooms cannot outvote one independent reading such as a ratio. Other kinds are
+ * independent readings of the print and stay separate.
+ */
+export function collapseEvidence(candidates: readonly ScaleCandidate[]): ScaleCandidate[] {
+  const areas = candidates.filter(isArea);
+  if (areas.length === 0) return [...candidates];
+  const area: ScaleCandidate = {
+    evidence: areas.some((c) => c.evidence === 'total_area') ? 'total_area' : 'room_area',
+    metresPerPixel: median(areas.map((c) => c.metresPerPixel)),
+  };
+  return [...candidates.filter((c) => !isArea(c)), area];
+}
+
+/**
+ * The largest group of candidates whose largest value is at most `PRINTED_AGREEMENT` above its
+ * smallest; ties go to the group with the most reliable evidence.
  */
 export function largestAgreement(candidates: readonly ScaleCandidate[]): ScaleCandidate[] {
-  const limit = Math.log(1 + PRINTED_AGREEMENT);
+  const limit = Math.log(1 + PRINTED_AGREEMENT) + 1e-12;
+  const sorted = [...candidates].sort((a, b) => a.metresPerPixel - b.metresPerPixel);
+  const bestRank = (g: readonly ScaleCandidate[]) => Math.min(...g.map(rank));
   let best: ScaleCandidate[] = [];
-  for (const centre of candidates) {
-    const group = candidates.filter(
-      (c) => Math.abs(Math.log(c.metresPerPixel / centre.metresPerPixel)) <= limit,
-    );
-    const bestRank = (g: ScaleCandidate[]) => Math.min(...g.map(rank));
+  let start = 0;
+  for (let end = 0; end < sorted.length; end++) {
+    while (Math.log(sorted[end]!.metresPerPixel / sorted[start]!.metresPerPixel) > limit) start++;
+    const group = sorted.slice(start, end + 1);
     if (
       group.length > best.length ||
       (group.length === best.length && bestRank(group) < bestRank(best))
@@ -244,28 +276,33 @@ export function resolveScale(
     return { ...base, status, scale, suggest: !same, confidence };
   };
 
-  const agreeing = largestAgreement(printed);
-  if (agreeing.length >= 2 || printed.length === 1) {
-    const outliers = printed.length - agreeing.length;
+  const independent = collapseEvidence(printed);
+  const agreeing = largestAgreement(independent);
+  const lone = independent.length === 1;
+  if (agreeing.length >= 2 || (lone && LONE_EVIDENCE.has(agreeing[0]!.evidence))) {
+    const outliers = independent.length - agreeing.length;
     if (outliers > 0)
       base.issues.push({
         code: 'ai.scale-disagreement',
         severity: 'warning',
         params: { outliers, agreeing: agreeing.length },
       });
-    const single = agreeing.length === 1;
-    const confidence = single ? (agreeing[0]!.evidence === 'ratio' ? 0.8 : 0.6) : 0.95;
+    let confidence = agreeing.length >= 2 ? 0.95 : agreeing[0]!.evidence === 'ratio' ? 0.8 : 0.6;
+    if (lone && agreeing[0]!.unconfirmed) {
+      base.issues.push({ code: 'ai.scale-unconfirmed', severity: 'warning' });
+      confidence = 0.5;
+    }
     return chosen(
       'printed',
       median(agreeing.map((c) => c.metresPerPixel)),
       outliers > 0 ? confidence - 0.1 : confidence,
     );
   }
-  if (printed.length >= 2)
+  if (independent.length >= 2)
     base.issues.push({
       code: 'ai.scale-disagreement',
       severity: 'warning',
-      params: { outliers: printed.length, agreeing: 0 },
+      params: { outliers: independent.length, agreeing: 0 },
     });
 
   const estimate = options.allowEstimate ? estimateFrom(estimates) : null;

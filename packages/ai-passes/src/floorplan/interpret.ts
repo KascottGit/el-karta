@@ -51,7 +51,12 @@ const ROOM_AREA_MISMATCH = 0.15;
 export interface FloorplanInterpretation {
   drafts: SuggestionDraft[];
   scale: ScaleResolution;
+  /** About the reading as a whole, such as openings that fit no wall; also on the scale draft. */
+  issues: SuggestionIssue[];
 }
+
+/** Walls and rooms measured at a placeholder scale are guesses, whatever the geometry looks like. */
+const UNKNOWN_SCALE_CONFIDENCE = 0.3;
 
 function chooseScale(px: FloorplanOutput, options: FloorplanSuggestOptions) {
   const printed = printedCandidates(px, options);
@@ -104,10 +109,26 @@ export function interpretFloorplan(
   const singleDoors = geometry.openings.filter((o) => o.kind === 'door' && !o.double);
   const implausible = (width: number) => width < DOOR_WIDTH.min || width > DOOR_WIDTH.max;
 
+  const overall: SuggestionIssue[] = [];
+  if (geometry.unplacedOpenings > 0)
+    overall.push({
+      code: 'ai.opening-unplaced',
+      severity: 'warning',
+      params: { count: geometry.unplacedOpenings },
+    });
+  const unknownScale = resolution.status === 'none';
+  const measured = (confidence: number, issues: SuggestionIssue[]) =>
+    unknownScale
+      ? {
+          confidence: Math.min(confidence, UNKNOWN_SCALE_CONFIDENCE),
+          issues: [...issues, { code: 'ai.scale-unknown', severity: 'warning' as const }],
+        }
+      : { confidence, issues };
+
   let scaleRequires: Id[] = [];
   if (resolution.suggest && resolution.scale) {
     const id = newId();
-    const issues = [...resolution.issues];
+    const issues = [...resolution.issues, ...overall];
     const wrongDoors = singleDoors.filter((o) => implausible(o.width));
     if (wrongDoors.length * 2 > singleDoors.length) {
       const widths = singleDoors.map((o) => o.width).sort((a, b) => a - b);
@@ -137,8 +158,7 @@ export function interpretFloorplan(
       id: wallSuggestion,
       kind: 'wall',
       payload: wall,
-      confidence: ends === 2 ? 0.85 : ends === 1 ? 0.7 : 0.5,
-      issues: [],
+      ...measured(ends === 2 ? 0.85 : ends === 1 ? 0.7 : 0.5, []),
       requires: scaleRequires,
     });
     for (const o of geometry.openings.filter((o) => o.wallId === key)) {
@@ -189,8 +209,7 @@ export function interpretFloorplan(
       id: newId(),
       kind: 'room',
       payload,
-      confidence: !room.filled ? 0.3 : room.labels.length > 1 ? 0.6 : 0.85,
-      issues,
+      ...measured(!room.filled ? 0.3 : room.labels.length > 1 ? 0.6 : 0.85, issues),
       requires: scaleRequires,
     });
   }
@@ -211,5 +230,5 @@ export function interpretFloorplan(
       requires: [],
     });
 
-  return { drafts, scale: resolution };
+  return { drafts, scale: resolution, issues: overall };
 }

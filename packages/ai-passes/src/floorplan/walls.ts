@@ -106,18 +106,39 @@ export function snapToOrientation(
   });
 }
 
-/** Moves snapped parallel walls whose lines are within `tolerance` onto their length-weighted mean line. */
-export function alignParallel(segments: readonly Oriented[], theta: number, tolerance: number) {
+/**
+ * Moves snapped parallel walls onto their length-weighted mean line when they are pieces of one
+ * wall: lines at most `align` apart (over the whole group) and extents that overlap or leave at most
+ * `gap`. Walls on opposite sides of a building never pull each other off their lines.
+ */
+export function alignParallel(
+  segments: readonly Oriented[],
+  theta: number,
+  tolerances: Pick<CleanupTolerances, 'align' | 'gap'>,
+) {
   const out = segments.map((s) => ({ ...s }));
   for (const axis of [0, 1] as const) {
     const angle = theta + (axis * Math.PI) / 2;
-    const normal = { x: -Math.sin(angle), y: Math.cos(angle) };
+    const dir = { x: Math.cos(angle), y: Math.sin(angle) };
+    const normal = { x: -dir.y, y: dir.x };
     const items = out
-      .map((s, i) => ({ i, c: dot(midpoint(s), normal), w: segLength(s) }))
+      .map((s, i) => {
+        const [lo, hi] = [dot(s.a, dir), dot(s.b, dir)].sort((p, q) => p - q) as [number, number];
+        return { i, c: dot(midpoint(s), normal), lo, hi, w: segLength(s) };
+      })
       .filter(({ i }) => out[i]!.axis === axis)
       .sort((p, q) => p.c - q.c);
-    let group: typeof items = [];
-    const flush = () => {
+    const groups: (typeof items)[] = [];
+    for (const item of items) {
+      const group = groups.find(
+        (g) =>
+          item.c - g[0]!.c <= tolerances.align &&
+          g.some((m) => item.lo <= m.hi + tolerances.gap && m.lo <= item.hi + tolerances.gap),
+      );
+      if (group) group.push(item);
+      else groups.push([item]);
+    }
+    for (const group of groups) {
       const total = group.reduce((sum, g) => sum + g.w, 0);
       const mean = group.reduce((sum, g) => sum + g.c * g.w, 0) / (total || 1);
       for (const g of group) {
@@ -125,16 +146,7 @@ export function alignParallel(segments: readonly Oriented[], theta: number, tole
         const s = out[g.i]!;
         out[g.i] = { ...s, a: add(s.a, shift), b: add(s.b, shift) };
       }
-      group = [];
-    };
-    for (const item of items) {
-      const first = group[0];
-      const last = group[group.length - 1];
-      if (first && last && (item.c - last.c > tolerance || item.c - first.c > 2 * tolerance))
-        flush();
-      group.push(item);
     }
-    flush();
   }
   return out;
 }
@@ -301,7 +313,7 @@ export function cleanWalls(
   const offPage = wrap(found - page, Math.PI / 2);
   const theta = Math.abs(offPage) <= tolerances.pageAngle * RAD ? found - offPage : found;
   const snapped = snapToOrientation(segments, theta, tolerances.snapAngle);
-  const aligned = alignParallel(snapped, theta, tolerances.align);
+  const aligned = alignParallel(snapped, theta, tolerances);
   const merged = mergeCollinear(aligned, tolerances, bridges);
   const joined = joinEnds(merged, tolerances.join);
   const kept = mergeCollinear(joined, tolerances).filter(

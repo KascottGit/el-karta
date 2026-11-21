@@ -69,20 +69,44 @@ describe('snapToOrientation', () => {
 });
 
 describe('alignParallel', () => {
-  it('moves snapped walls on nearly the same line onto one, weighted by length', () => {
-    const snapped = snapToOrientation(
-      [
-        seg({ x: 0, y: 0 }, { x: 3, y: 0 }),
-        seg({ x: 6, y: 0.06 }, { x: 7, y: 0.06 }),
-        seg({ x: 0, y: 2 }, { x: 3, y: 2 }),
-      ],
-      0,
-      WALL_CLEANUP.snapAngle,
-    );
-    const [long, short, apart] = alignParallel(snapped, 0, WALL_CLEANUP.align);
-    expect(long!.a.y).toBeCloseTo(0.015, 9);
-    expect(short!.a.y).toBeCloseTo(0.015, 9);
+  const align = (segments: Segment[]) =>
+    alignParallel(snapToOrientation(segments, 0, WALL_CLEANUP.snapAngle), 0, WALL_CLEANUP);
+
+  it('moves pieces of one wall onto one line, weighted by length', () => {
+    const [long, short, apart] = align([
+      seg({ x: 0, y: 0 }, { x: 3, y: 0 }),
+      seg({ x: 3.1, y: 0.06 }, { x: 4, y: 0.06 }),
+      seg({ x: 0, y: 2 }, { x: 3, y: 2 }),
+    ]);
+    expect(long!.a.y).toBeCloseTo(0.06 * (0.9 / 3.9), 9);
+    expect(short!.a.y).toBeCloseTo(0.06 * (0.9 / 3.9), 9);
     expect(apart!.a.y).toBeCloseTo(2, 9);
+  });
+
+  it('leaves walls far apart along the line where they are, even if nearly in line', () => {
+    const [left, right] = align([
+      seg({ x: 0, y: 0 }, { x: 3, y: 0 }),
+      seg({ x: 9, y: 0.08 }, { x: 12, y: 0.08 }),
+    ]);
+    expect(left!.a.y).toBeCloseTo(0, 9);
+    expect(right!.a.y).toBeCloseTo(0.08, 9);
+  });
+
+  it('keeps a parallel pair 0.15 m apart as two walls', () => {
+    const pair = [seg({ x: 0, y: 0 }, { x: 3, y: 0 }), seg({ x: 0, y: 0.15 }, { x: 3, y: 0.15 })];
+    const [a, b] = align(pair);
+    expect(a!.a.y).toBeCloseTo(0, 9);
+    expect(b!.a.y).toBeCloseTo(0.15, 9);
+    expect(cleanWalls(pair)).toHaveLength(2);
+  });
+
+  it('caps a group at the alignment tolerance, not a chain of small steps', () => {
+    const walls = align([
+      seg({ x: 0, y: 0 }, { x: 3, y: 0 }),
+      seg({ x: 0, y: 0.07 }, { x: 3, y: 0.07 }),
+      seg({ x: 0, y: 0.14 }, { x: 3, y: 0.14 }),
+    ]);
+    expect(new Set(walls.map((w) => w.a.y.toFixed(6))).size).toBe(2);
   });
 });
 

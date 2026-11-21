@@ -1,6 +1,7 @@
 import { distance, type Opening, type Pt, type Wall } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
 import {
+  collapseEvidence,
   estimateFrom,
   interpretFloorplan,
   largestAgreement,
@@ -153,16 +154,28 @@ describe('printed scale', () => {
       area: (r.name === 'Vardagsrum' ? living : small) * factor,
     }));
 
-  it('comes from printed room areas and the total area when nothing else is printed', () => {
-    const result = run({ rooms: withAreas(1), totalArea: living + 2 * small });
+  it('counts room and total areas as one piece of evidence, confirmed by a scale bar', () => {
+    const result = run({ rooms: withAreas(1), totalArea: living + 2 * small, scaleBar });
     expect(result.scale.status).toBe('printed');
     const evidence = result.scale.candidates.map((c) => c.evidence);
     expect(evidence.filter((e) => e === 'room_area')).toHaveLength(3);
     expect(evidence).toContain('total_area');
-    const mpp = (scaleDraft(result)!.payload as { metresPerPixel: number }).metresPerPixel;
+    expect(collapseEvidence(result.scale.candidates).map((c) => c.evidence)).toEqual([
+      'scale_bar',
+      'total_area',
+    ]);
+    const draft = scaleDraft(result)!;
+    expect(draft.confidence).toBe(0.95);
+    const mpp = (draft.payload as { metresPerPixel: number }).metresPerPixel;
     expect(Math.abs(mpp / MPP - 1)).toBeLessThan(0.03);
     const rooms = result.drafts.filter((d) => d.kind === 'room');
     for (const room of rooms) expect(room.issues).toEqual([]);
+  });
+
+  it('does not take printed areas alone as a scale, since they depend on the detected walls', () => {
+    const result = run({ rooms: withAreas(1), totalArea: living + 2 * small });
+    expect(result.scale.status).toBe('none');
+    expect(result.scale.issues).toEqual([]);
   });
 
   it('does not trust a total area when a room is not measured', () => {
@@ -172,19 +185,14 @@ describe('printed scale', () => {
     expect(result.scale.candidates.map((c) => c.evidence)).not.toContain('total_area');
   });
 
-  it('flags printed room areas that disagree with a printed ratio', () => {
+  it('does not let many room areas outvote a printed ratio', () => {
     // Areas four times too large imply a scale twice too large.
     const result = run({ scaleText: '1:100', rooms: withAreas(4) }, { pdfPageWidthMm });
-    const draft = scaleDraft(result)!;
-    // Three room areas agree with each other and outvote the ratio.
-    expect((draft.payload as { metresPerPixel: number }).metresPerPixel).toBeCloseTo(2 * MPP, 2);
-    // Doors come out twice as wide too, which the door check catches.
-    expect(draft.issues.map((i) => i.code)).toEqual([
-      'ai.scale-disagreement',
-      'scale.door-width-implausible',
+    expect(result.scale.status).toBe('none');
+    expect(result.scale.issues).toEqual([
+      { code: 'ai.scale-disagreement', severity: 'warning', params: { outliers: 2, agreeing: 0 } },
     ]);
-    const agreeing = largestAgreement(result.scale.candidates);
-    expect(agreeing.every((c) => c.evidence === 'room_area')).toBe(true);
+    expect(scaleDraft(result)).toBeUndefined();
   });
 
   it('flags a room whose area does not match its printed area', () => {
@@ -290,5 +298,111 @@ describe('door width sanity', () => {
   it('does not flag plausible doors', () => {
     const result = run({ scaleText: '1:100' }, { pdfPageWidthMm });
     for (const d of result.drafts) expect(d.issues).toEqual([]);
+  });
+});
+
+describe('agreement', () => {
+  const at = (factors: number[], evidence: 'ratio' | 'dimension' | 'scale_bar' = 'dimension') =>
+    factors.map((f) => ({ evidence, metresPerPixel: MPP * f }));
+
+  it('means the largest value is at most 5 % above the smallest', () => {
+    expect(largestAgreement(at([1, 1.04]))).toHaveLength(2);
+    expect(largestAgreement(at([1, 1.06]))).toHaveLength(1);
+    // Each is within 5 % of the middle one, but not of each other.
+    expect(largestAgreement(at([1, 1.04, 1.08]))).toHaveLength(2);
+    expect(resolveScale(at([1, 1.06]), [], { allowEstimate: false }).status).toBe('none');
+  });
+
+  it('breaks ties by the most reliable evidence', () => {
+    const group = largestAgreement([
+      ...at([1, 1.01], 'dimension'),
+      { evidence: 'scale_bar', metresPerPixel: MPP * 2 },
+      { evidence: 'ratio', metresPerPixel: MPP * 2.02 },
+    ]);
+    expect(group.map((c) => c.evidence).sort()).toEqual(['ratio', 'scale_bar']);
+  });
+});
+
+describe('a printed ratio on an image that is not a PDF page', () => {
+  it('needs the printed paper size and is marked unconfirmed', () => {
+    expect(run({ scaleText: '1:100' }).scale.status).toBe('none');
+    // 1400 px landscape image read as A3 at 1:100: 0.42 m × 100 / 1400 px.
+    const result = run({ scaleText: '1:100', paperSize: 'A3' });
+    const draft = scaleDraft(result)!;
+    expect((draft.payload as { metresPerPixel: number }).metresPerPixel).toBeCloseTo(0.03, 9);
+    expect(draft.confidence).toBe(0.5);
+    expect(draft.issues.map((i) => i.code)).toContain('ai.scale-unconfirmed');
+  });
+
+  it('is confirmed by agreeing evidence', () => {
+    const result = run({
+      scaleText: '1:100',
+      paperSize: 'A3',
+      scaleBar: {
+        unit: 'm',
+        ticks: [0, 1.5, 3, 7.5].map((value) => ({
+          value,
+          point: plan.norm({ x: value / 1.5, y: 7 }),
+        })),
+      },
+    });
+    const draft = scaleDraft(result)!;
+    expect(draft.confidence).toBe(0.95);
+    expect(draft.issues.map((x) => x.code)).not.toContain('ai.scale-unconfirmed');
+  });
+
+  it('is the PDF page width when there is one and no paper size', () => {
+    expect(scaleDraft(run({ scaleText: '1:100' }, { pdfPageWidthMm }))!.issues).toEqual([]);
+  });
+});
+
+describe('without a scale', () => {
+  it('flags every wall and room as measured at an unknown scale, with low confidence', () => {
+    const result = run({});
+    expect(result.scale.status).toBe('none');
+    const measured = result.drafts.filter((d) => d.kind === 'wall' || d.kind === 'room');
+    expect(measured.length).toBe(9);
+    for (const d of measured) {
+      expect(d.issues.map((i) => i.code)).toContain('ai.scale-unknown');
+      expect(d.confidence).toBeLessThanOrEqual(0.3);
+    }
+  });
+
+  it('does not flag them when the scale is known', () => {
+    const result = run({}, { existingScale: { source: 'user', metresPerPixel: MPP } });
+    for (const d of result.drafts)
+      expect(d.issues.map((i) => i.code)).not.toContain('ai.scale-unknown');
+  });
+});
+
+describe('suggestions measured at a suggested scale', () => {
+  it('require it: walls and rooms directly, openings through their wall', () => {
+    const result = run({ scaleText: '1:100' }, { pdfPageWidthMm });
+    const scale = scaleDraft(result)!;
+    for (const d of result.drafts.filter((d) => d.kind === 'wall' || d.kind === 'room'))
+      expect(d.requires).toEqual([scale.id]);
+    expect(result.drafts.filter((d) => d.kind === 'room')).toHaveLength(3);
+  });
+});
+
+describe('openings that fit no wall', () => {
+  it('are reported with their count on the interpretation and the scale draft', () => {
+    const stray = {
+      kind: 'window' as const,
+      a: plan.norm({ x: 2, y: 9 }),
+      b: plan.norm({ x: 3, y: 9 }),
+      double: false,
+      hinge: null,
+      swingInto: null,
+    };
+    const result = run(
+      { scaleText: '1:100', openings: [...plan.output.openings, stray] },
+      { pdfPageWidthMm },
+    );
+    const issue = { code: 'ai.opening-unplaced', severity: 'warning', params: { count: 1 } };
+    expect(result.issues).toEqual([issue]);
+    expect(scaleDraft(result)!.issues).toContainEqual(issue);
+    expect(result.drafts.filter((d) => d.kind === 'opening')).toHaveLength(4);
+    expect(run({ scaleText: '1:100' }, { pdfPageWidthMm }).issues).toEqual([]);
   });
 });

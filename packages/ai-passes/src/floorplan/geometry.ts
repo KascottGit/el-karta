@@ -68,6 +68,8 @@ export interface PlannedRoom {
 export interface PlannedGeometry {
   walls: Record<string, Wall & { joined: CleanWall['joined'] }>;
   openings: PlannedOpening[];
+  /** Detected openings with no wall in reach, which are left out. */
+  unplacedOpenings: number;
   rooms: PlannedRoom[];
 }
 
@@ -230,9 +232,9 @@ export function planGeometry(px: FloorplanOutput, placement: BackgroundPlacement
     };
   });
 
-  const openings = joinDoubleOpenings(
-    detected.flatMap((o) => placeDetectedOpening(walls, o) ?? []),
-  );
+  const placed = detected.map((o) => placeDetectedOpening(walls, o));
+  const openings = joinDoubleOpenings(placed.filter((o) => o !== null));
+  const unplacedOpenings = placed.length - placed.filter((o) => o !== null).length;
 
   const faces = wallFaces(walls, FILL_TOLERANCE);
   const halfThickness =
@@ -276,5 +278,5 @@ export function planGeometry(px: FloorplanOutput, placement: BackgroundPlacement
     byFace.set(face, room);
     rooms.push(room);
   }
-  return { walls, openings, rooms };
+  return { walls, openings, unplacedOpenings, rooms };
 }
