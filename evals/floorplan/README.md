@@ -5,7 +5,7 @@
 ## Running
 
 ```sh
-GEMINI_API_KEY=… pnpm eval floorplan --model gemini-3.8-flash [--estimate-scale] [--plans gotgatan-78,lundagatan-47] [--images ../floorplans]
+GEMINI_API_KEY=… pnpm eval floorplan --model gemini-3-flash-preview [--estimate-scale] [--plans gotgatan-78,lundagatan-47] [--images ../floorplans]
 ```
 
 The key comes from `GEMINI_API_KEY` in the shell. When that is not set, the runner reads `supabase/functions/.env` (the ignored file the local Edge Function uses), if it exists, and takes only `GEMINI_API_KEY` from it; its other settings, such as `AI_PROVIDER`, are ignored.
