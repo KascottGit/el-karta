@@ -1,9 +1,15 @@
 import type { ImageInput } from '@el-karta/ai-providers';
 import type { Tile } from '../pass.ts';
-import { tilesBounds } from './frame.ts';
+import { pageEvidenceToPixels, tilesBounds } from './frame.ts';
 import { mergeFloorplanTiles } from './merge.ts';
 import { planCropBox } from './passes.ts';
-import type { FloorplanInput, FloorplanOutput, LocateInput, LocateOutput } from './schema.ts';
+import type {
+  FloorplanInput,
+  FloorplanOutput,
+  LocateInput,
+  LocateOutput,
+  PageEvidence,
+} from './schema.ts';
 import { planTiles } from './tiles.ts';
 
 /** A plan page as the app holds it: the full background image, and parts of it encoded on demand. */
@@ -38,6 +44,11 @@ export interface FloorplanReading {
   /** The joined output, in coordinates normalised to `frame`; null if any call failed. */
   output: FloorplanOutput | null;
   frame: Tile | null;
+  /**
+   * The scale and size evidence the locate call read anywhere on the page, also outside the crop,
+   * with its points in pixels of the full image; null if locating failed.
+   */
+  page: PageEvidence | null;
 }
 
 /**
@@ -50,11 +61,18 @@ export async function readFloorplan(
   onProgress: (progress: ReadProgress) => void = () => {},
 ): Promise<FloorplanReading> {
   const size = { width: image.width, height: image.height };
-  const reading: FloorplanReading = { crop: null, tiles: [], output: null, frame: null };
+  const reading: FloorplanReading = {
+    crop: null,
+    tiles: [],
+    output: null,
+    frame: null,
+    page: null,
+  };
   const whole: Tile = { x: 0, y: 0, ...size };
   onProgress({ step: 'locate' });
   const located = await calls.locate({ image: await image.encode(whole) }, whole);
   if (!located) return reading;
+  reading.page = pageEvidenceToPixels(located, whole);
 
   const crop = planCropBox(located, size);
   reading.crop = crop;

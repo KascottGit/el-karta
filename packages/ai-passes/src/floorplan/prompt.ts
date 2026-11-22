@@ -1,10 +1,20 @@
 const COORDINATES = `Coordinates: every point is {x, y} on the image you are given, normalised to 0–1000: x = 0 at the left edge and 1000 at the right edge, y = 0 at the top edge and 1000 at the bottom edge. Boxes are {xmin, ymin, xmax, ymax} in the same coordinates. Report only what you see; never invent values. Use null when something is not printed or not visible.`;
 
+const PAGE_EVIDENCE = `scaleBar: a drawn scale bar, with each labelled tick's value and position and the unit, or null.
+
+scaleText: a printed ratio such as "1:100" exactly as printed ("Skala 1:100"), or null. paperSize: the paper size printed with it ("A4", "A3"), or null.
+
+totalArea: a printed total area in m² ("Area ca 23 m²", "BOA 74 m²") or null. ceilingHeight: a printed ceiling height in metres ("rumshöjd ca 2,55 m" → 2.55) or null.`;
+
 export const LOCATE_SYSTEM = `You read Swedish floor plans, typically from estate agents (mäklare). ${COORDINATES}`;
 
 export const LOCATE_TEXT = `Find the main floor plan drawing on this page: the walls and rooms of the dwelling. Leave out everything around it: legends, the title block, logos, compass roses, site maps (situationsplan, tomtkarta), building sections (sektion), small overview plans of other floors and text blocks. The box should hug the outermost walls of the main plan, including balconies and terraces drawn with it.
 
-Return found = false and box = null if the page holds no floor plan.`;
+Return found = false and box = null if the page holds no floor plan.
+
+Also report the following, wherever it is printed on the page: in the legend, the title block or the margins as well as on the plan. Positions are on the whole page.
+
+${PAGE_EVIDENCE}`;
 
 export const FLOORPLAN_SYSTEM = `You read Swedish floor plans, typically from estate agents (mäklare), and report what is drawn and printed on them as structured data. Code turns your answer into geometry, so precise positions matter more than completeness. ${COORDINATES}`;
 
@@ -28,11 +38,7 @@ A combined label such as "Hall/Kokvrå" is one room typed by its first word. Abb
 
 dimensions: printed dimension texts with the two ends they measure (the ends of the dimension line, or the wall faces it spans). value as a number with a dot as decimal separator ("3,4" → 3.4) and unit: plain numbers such as "3400" are mm, "3,4 m" is m.
 
-scaleBar: a drawn scale bar, with each labelled tick's value and position and the unit, or null.
-
-scaleText: a printed ratio such as "1:100" exactly as printed ("Skala 1:100"), or null. paperSize: the paper size printed with it ("A4", "A3"), or null.
-
-totalArea: a printed total area in m² ("Area ca 23 m²", "BOA 74 m²") or null. ceilingHeight: a printed ceiling height in metres ("rumshöjd ca 2,55 m" → 2.55) or null.
+${PAGE_EVIDENCE}
 
 standardObjects: objects whose real size is standard, each with the two ends a and b of one dimension:
 - interior_door_leaf: an interior door's leaf, from the hinge to the leaf's free end (the arc's radius)

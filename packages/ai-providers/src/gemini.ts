@@ -1,15 +1,27 @@
-import { ApiError, GoogleGenAI, type Content, type HttpOptions, type Part } from '@google/genai';
+import {
+  ApiError,
+  GoogleGenAI,
+  type Content,
+  type GenerateContentConfig,
+  type HttpOptions,
+  type Part,
+} from '@google/genai';
 import { ProviderError, type AiProvider, type GenerateRequest, type Usage } from './provider.ts';
 
 // Typed locally so the package stays free of Node, browser and Deno types; every runtime has it.
 declare function setTimeout(callback: () => void, ms: number): unknown;
+declare function clearTimeout(handle: unknown): void;
+declare const AbortController: new () => { signal: unknown; abort(): void };
 
 export interface GeminiOptions {
   apiKey: string;
   fetch?: HttpOptions['fetch'];
   /** Waits between retries; tests pass one that resolves at once. */
   sleep?: (ms: number) => Promise<void>;
-  /** Per attempt; an overloaded model can otherwise hold a request open for many minutes. */
+  /**
+   * Per attempt, enforced on our side. Not sent to Google as a deadline: with one, an overloaded
+   * model queues the request until the deadline and answers 504 instead of a quick 503.
+   */
   timeoutMs?: number;
 }
 
@@ -34,26 +46,31 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
   const ai = new GoogleGenAI({
     apiKey: options.apiKey,
     apiVersion: 'v1beta',
-    httpOptions: {
-      timeout: options.timeoutMs ?? defaultTimeoutMs,
-      ...(options.fetch ? { fetch: options.fetch } : {}),
-    },
+    ...(options.fetch ? { httpOptions: { fetch: options.fetch } } : {}),
   });
   const sleep = options.sleep ?? defaultSleep;
 
   async function call(request: GenerateRequest) {
     for (let attempt = 1; ; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => {
+        controller.abort();
+      }, options.timeoutMs ?? defaultTimeoutMs);
       try {
-        return await ai.models.generateContent({
+        const response = await ai.models.generateContent({
           model: request.model,
           contents: toContents(request),
           config: {
             systemInstruction: request.system,
             responseMimeType: 'application/json',
             responseJsonSchema: request.jsonSchema,
+            abortSignal: controller.signal as NonNullable<GenerateContentConfig['abortSignal']>,
           },
         });
+        clearTimeout(timer);
+        return response;
       } catch (error) {
+        clearTimeout(timer);
         const status = error instanceof ApiError ? error.status : undefined;
         const timedOut = status === undefined && isTimeout(error);
         const retryable = timedOut || (status !== undefined && retryableStatuses.has(status));

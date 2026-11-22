@@ -1,6 +1,18 @@
-import type { FloorplanOutput, LocateOutput } from '@el-karta/ai-passes';
+import type { FloorplanOutput, LocateOutput, PageEvidence } from '@el-karta/ai-passes';
 
-export const locate = (box: LocateOutput['box']): LocateOutput => ({ found: true, box });
+const noPage: PageEvidence = {
+  scaleBar: null,
+  scaleText: null,
+  paperSize: null,
+  totalArea: null,
+  ceilingHeight: null,
+};
+
+/** A locate reply: the plan in `box`, or no plan when it is null, and what the page prints. */
+export const locate = (
+  box: LocateOutput['box'],
+  page: Partial<PageEvidence> = {},
+): LocateOutput => ({ found: box !== null, box, ...noPage, ...page });
 
 /**
  * A model reply for a two-room flat filling the middle of the sent image: a living room and a

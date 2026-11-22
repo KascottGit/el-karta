@@ -5,7 +5,7 @@
 ## Running
 
 ```sh
-GEMINI_API_KEY=… pnpm eval floorplan --model gemini-3.8-flash [--estimate-scale] [--plans gotgatan-78,lundagatan-47] [--images ../floorplans]
+GEMINI_API_KEY=… pnpm eval floorplan --model gemini-3-flash-preview [--estimate-scale] [--plans gotgatan-78,lundagatan-47] [--images ../floorplans]
 ```
 
 The key comes from `GEMINI_API_KEY` in the shell. When that is not set, the runner reads `supabase/functions/.env` (the ignored file the local Edge Function uses), if it exists, and takes only `GEMINI_API_KEY` from it; its other settings, such as `AI_PROVIDER`, are ignored.
@@ -14,11 +14,11 @@ The runner (`run.ts`, `pipeline.ts`) does what the app's import does, in Node:
 
 1. Renders the PDF page with pdf.js at the app's resolution (`pdfRenderScale` from `@el-karta/ai-passes`, which the app uses too: 4000 px on the long side) and takes the PDF page width in mm; an image file is used at its own size.
 2. Calls `floorplan-locate` on the whole page, crops to `planCropBox`, cuts the crop into `planTiles` if it is still large, calls `floorplan` per tile and merges with `mergeFloorplanTiles`.
-3. Runs `interpretFloorplan` with the background placed at the plan origin, unturned, so the result is in the image frame below.
+3. Runs `interpretFloorplan` with the locate call's page evidence (a scale or area printed in the legend, outside the crop) and the background placed at the plan origin, unturned, so the result is in the image frame below.
 
 Before any call it checks every selected plan against its `sha256` and refuses to run on a missing or changed file. `--images` overrides the manifest's `imagesDir` (useful in a git worktree).
 
-`--estimate-scale` removes all printed scale evidence from the merged output (scale text, paper size, dimensions, scale bar, total and room areas) and does not pass the PDF page width, so the scale chain can only estimate from objects of standard size. Plans with a facit scale then score the estimate.
+`--estimate-scale` removes all printed scale evidence from the merged output (scale text, paper size, dimensions, scale bar, total and room areas) and from the page evidence the locate call read (`stripPageScale`) and does not pass the PDF page width, so the scale chain can only estimate from objects of standard size. Plans with a facit scale then score the estimate.
 
 Each run appends one row per plan to `evals/results/floorplan.csv` (committed) and writes the model outputs, crop, tiles and interpretation to `evals/results/raw/` (git-ignored, for debugging). The API key is read by the provider and never printed or written.
 

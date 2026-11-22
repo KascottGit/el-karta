@@ -16,7 +16,7 @@ import {
   validateFloorplan,
   validateLocate,
 } from '../../src/index.ts';
-import { optionsFor, output, testPlan } from './fixtures.ts';
+import { located, optionsFor, output, testPlan } from './fixtures.ts';
 
 const image = { mimeType: 'image/png', data: 'iVBORw0KGgo=' };
 
@@ -50,15 +50,34 @@ describe('planCropBox', () => {
 
 describe('validators', () => {
   it('asks the locate call again for a missing or inverted box', () => {
-    expect(validateLocate({ found: true, box: null }).map((i) => i.code)).toEqual([
+    expect(validateLocate({ ...located(null), found: true }).map((i) => i.code)).toEqual([
       'ai.box-missing',
     ]);
     expect(
-      validateLocate({ found: true, box: { xmin: 500, ymin: 0, xmax: 400, ymax: 900 } }).map(
-        (i) => i.code,
-      ),
+      validateLocate(located({ xmin: 500, ymin: 0, xmax: 400, ymax: 900 })).map((i) => i.code),
     ).toEqual(['ai.box-invalid']);
-    expect(validateLocate({ found: false, box: null })).toEqual([]);
+    expect(validateLocate(located(null))).toEqual([]);
+  });
+
+  it('asks the locate call again for scale-bar ticks far outside the page, found or not', () => {
+    const scaleBar = {
+      unit: 'm' as const,
+      ticks: [
+        { value: 0, point: { x: 100, y: 950 } },
+        { value: 5, point: { x: 1200, y: 950 } },
+      ],
+    };
+    const box = { xmin: 100, ymin: 100, xmax: 900, ymax: 800 };
+    for (const answer of [located(box, { scaleBar }), located(null, { scaleBar })])
+      expect(validateLocate(answer)).toEqual([
+        {
+          code: 'ai.coordinate-out-of-range',
+          severity: 'error',
+          ids: [],
+          params: { field: 'scaleBar.ticks.1' },
+        },
+      ]);
+    expect(validateLocate(located(box, { scaleBar: { ...scaleBar, ticks: [] } }))).toEqual([]);
   });
 
   it('errors on coordinates far outside the image and rooms without walls', () => {
@@ -181,8 +200,6 @@ describe('pass definitions', () => {
   });
 
   it('suggest nothing from the locate pass', () => {
-    expect(
-      floorplanLocatePass.toSuggestions({ found: true, box: null }, undefined, () => ''),
-    ).toEqual([]);
+    expect(floorplanLocatePass.toSuggestions(located(null), undefined, () => '')).toEqual([]);
   });
 });

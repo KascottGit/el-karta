@@ -7,7 +7,7 @@ import {
   type ReadProgress,
   type Tile,
 } from '../../src/index.ts';
-import { output } from './fixtures.ts';
+import { located, output, page } from './fixtures.ts';
 
 const image = (width: number, height: number): PlanImage => ({
   width,
@@ -26,10 +26,7 @@ describe('readFloorplan', () => {
         locate: (input, frame) => {
           sent.push(JSON.parse(input.image.data) as Tile);
           expect(frame).toEqual({ x: 0, y: 0, width: 2000, height: 1000 });
-          return Promise.resolve({
-            found: true,
-            box: { xmin: 250, ymin: 250, xmax: 750, ymax: 750 },
-          });
+          return Promise.resolve(located({ xmin: 250, ymin: 250, xmax: 750, ymax: 750 }));
         },
         floorplan: (input) => {
           inputs.push(input);
@@ -48,10 +45,45 @@ describe('readFloorplan', () => {
     expect(progress).toEqual([{ step: 'locate' }, { step: 'tile', index: 0, count: 1 }]);
   });
 
+  it('carries the evidence the locate call read outside the plan, in full-image pixels', async () => {
+    const evidence = {
+      scaleText: 'Skala 1:100',
+      paperSize: 'A4' as const,
+      totalArea: 23,
+      ceilingHeight: 2.55,
+      scaleBar: {
+        unit: 'm' as const,
+        ticks: [
+          { value: 0, point: { x: 100, y: 950 } },
+          { value: 5, point: { x: 350, y: 950 } },
+        ],
+      },
+    };
+    const reading = await readFloorplan(image(2000, 1000), {
+      locate: () =>
+        Promise.resolve(located({ xmin: 250, ymin: 250, xmax: 750, ymax: 750 }, evidence)),
+      floorplan: () => Promise.resolve(output()),
+    });
+    expect(reading.page).toEqual({
+      ...evidence,
+      scaleBar: {
+        unit: 'm',
+        ticks: [
+          { value: 0, point: { x: 200, y: 950 } },
+          { value: 5, point: { x: 700, y: 950 } },
+        ],
+      },
+    });
+    // The scale bar lies below the crop, which the detail call never sees.
+    expect(reading.crop!.y + reading.crop!.height).toBeLessThan(950);
+    // Only the scale and size evidence, not the box.
+    expect(Object.keys(reading.page!).sort()).toEqual(Object.keys(page()).sort());
+  });
+
   it('tiles a large crop, reads each tile marked as a tile, and merges', async () => {
     const frames: Tile[] = [];
     const reading = await readFloorplan(image(5000, 3000), {
-      locate: () => Promise.resolve({ found: false, box: null }),
+      locate: () => Promise.resolve(located(null)),
       floorplan: (input) => {
         expect(input.tile).toBe(true);
         frames.push(input.frame);
@@ -72,11 +104,11 @@ describe('readFloorplan', () => {
         return Promise.resolve(output());
       },
     });
-    expect(noLocate).toEqual({ crop: null, tiles: [], output: null, frame: null });
+    expect(noLocate).toEqual({ crop: null, tiles: [], output: null, frame: null, page: null });
     expect(tiles).toBe(0);
 
     const noTile = await readFloorplan(image(5000, 3000), {
-      locate: () => Promise.resolve({ found: false, box: null }),
+      locate: () => Promise.resolve(located(null)),
       floorplan: () => {
         tiles++;
         return Promise.resolve(null);
