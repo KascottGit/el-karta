@@ -5,6 +5,8 @@ import {
   estimateFrom,
   interpretFloorplan,
   largestAgreement,
+  outputToNorm,
+  outputToPixels,
   parseRatio,
   printedCandidates,
   resolveScale,
@@ -13,7 +15,7 @@ import {
   type FloorplanSuggestOptions,
   type StandardObjectType,
 } from '../../src/index.ts';
-import { idSource, output, testPlan } from './fixtures.ts';
+import { idSource, output, page, testPlan } from './fixtures.ts';
 
 // 0.02 m per pixel, unlike the 0.01 default placement, so a wrong fallback shows.
 const MPP = 0.02;
@@ -320,6 +322,52 @@ describe('agreement', () => {
       { evidence: 'ratio', metresPerPixel: MPP * 2.02 },
     ]);
     expect(group.map((c) => c.evidence).sort()).toEqual(['ratio', 'scale_bar']);
+  });
+});
+
+describe('evidence printed on the page outside the plan', () => {
+  // The detail call is sent only the plan with a margin; the legend lies below it.
+  const crop = { x: 450, y: 400, width: 500, height: 400 };
+  const cropped = outputToNorm(outputToPixels(plan.output, plan.frame), crop);
+  const cut = (extra: Partial<FloorplanOutput>, opts: Partial<FloorplanSuggestOptions> = {}) =>
+    interpretFloorplan({ ...cropped, ...extra }, options({ frame: crop, ...opts }), idSource());
+  // 0 and 5 m on a bar in the legend, in full-image pixels, 1000 px down: outside the crop.
+  const legendBar = {
+    unit: 'm' as const,
+    ticks: [
+      { value: 0, point: { x: 100, y: 1000 } },
+      { value: 5, point: { x: 100 + 5 / MPP, y: 1000 } },
+    ],
+  };
+
+  it('gives a printed scale from a scale bar outside the crop', () => {
+    const result = cut({}, { page: page({ scaleBar: legendBar }) });
+    expect(result.scale.status).toBe('printed');
+    expect(result.scale.candidates.map((c) => c.evidence)).toEqual(['scale_bar']);
+    expect(result.scale.scale?.metresPerPixel).toBeCloseTo(MPP, 9);
+    // Without the page evidence nothing printed is left.
+    expect(cut({}).scale.status).toBe('none');
+  });
+
+  it('gives a printed scale from a ratio in the title block and the PDF page width', () => {
+    const result = cut({}, { page: page({ scaleText: 'Skala 1:100' }), pdfPageWidthMm });
+    expect(result.scale.status).toBe('printed');
+    expect(result.scale.scale?.metresPerPixel).toBeCloseTo(MPP, 9);
+  });
+
+  it('fills only what the detail call left null; its own values win', () => {
+    const evidence = page({ scaleText: 'Skala 1:50', ceilingHeight: 2.4, scaleBar: legendBar });
+    const result = cut(
+      { scaleText: '1:100', ceilingHeight: 2.6 },
+      { page: evidence, pdfPageWidthMm },
+    );
+    // The detail call's 1:100 agrees with the page's scale bar; the page's 1:50 is not used.
+    expect(result.scale.candidates.map((c) => c.evidence)).toEqual(['ratio', 'scale_bar']);
+    expect(result.scale.issues).toEqual([]);
+    expect(result.scale.scale?.metresPerPixel).toBeCloseTo(MPP, 9);
+    const height = (r: typeof result) => r.drafts.find((d) => d.kind === 'floor-height')?.payload;
+    expect(height(result)).toEqual({ height: 2.6 });
+    expect(height(cut({}, { page: evidence }))).toEqual({ height: 2.4 });
   });
 });
 

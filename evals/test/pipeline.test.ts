@@ -1,7 +1,12 @@
 import { floorplanPass, planTiles, type Tile } from '@el-karta/ai-passes';
 import { createFakeProvider, ProviderError } from '@el-karta/ai-providers';
 import { describe, expect, it } from 'vitest';
-import { runFloorplanPipeline, stripPrintedScale, type PlanImage } from '../floorplan/pipeline.ts';
+import {
+  runFloorplanPipeline,
+  stripPageScale,
+  stripPrintedScale,
+  type PlanImage,
+} from '../floorplan/pipeline.ts';
 import { flat, locate } from './fixtures.ts';
 
 /** An image that "encodes" a region as its JSON, so tests can see what each call was sent. */
@@ -18,7 +23,7 @@ const promptText = (tile: boolean) =>
     frame: { x: 0, y: 0, width: 1, height: 1 },
     tile,
   }).text;
-const wholePage = { found: false, box: null };
+const wholePage = locate(null);
 const sent = (provider: ReturnType<typeof createFakeProvider>) =>
   provider.calls.map((c) => JSON.parse(c.images[0]!.data) as Tile);
 
@@ -96,6 +101,55 @@ describe('runFloorplanPipeline', () => {
     expect(estimate.interpretation?.scale.scale?.metresPerPixel).toBeCloseTo(0.01);
   });
 
+  it('takes the scale printed outside the plan from the locate call, but not in estimate mode', async () => {
+    // The ratio and a scale bar are in the legend, below the crop; the crop holds no scale.
+    const legend = {
+      scaleText: 'Skala 1:100',
+      scaleBar: {
+        unit: 'm' as const,
+        ticks: [
+          { value: 0, point: { x: 100, y: 900 } },
+          { value: 10, point: { x: 600, y: 900 } },
+        ],
+      },
+      ceilingHeight: 2.5,
+    };
+    const box = { xmin: 250, ymin: 250, xmax: 750, ymax: 750 };
+    const reply = flat({
+      scaleText: null,
+      standardObjects: [
+        { type: 'interior_door_leaf', a: { x: 600, y: 450 }, b: { x: 600, y: 535 } },
+      ],
+    });
+    const printed = await runFloorplanPipeline(fakeImage(2000, 2000, 200), {
+      provider: createFakeProvider([locate(box, legend), reply]),
+      model: 'm',
+      mode: 'printed',
+    });
+    expect(printed.page?.scaleBar?.ticks.map((t) => t.point)).toEqual([
+      { x: 200, y: 1800 },
+      { x: 1200, y: 1800 },
+    ]);
+    expect(printed.interpretation?.scale.status).toBe('printed');
+    // 1:100 on a 200 mm page 2000 px wide, and 10 m over 1000 px: the same.
+    expect(printed.interpretation?.scale.candidates.map((c) => c.evidence)).toEqual([
+      'ratio',
+      'scale_bar',
+      'standard_object',
+    ]);
+    expect(printed.interpretation?.scale.scale?.metresPerPixel).toBeCloseTo(0.01, 9);
+
+    const estimate = await runFloorplanPipeline(fakeImage(2000, 2000, 200), {
+      provider: createFakeProvider([locate(box, legend), reply]),
+      model: 'm',
+      mode: 'estimate',
+    });
+    expect(estimate.page).toMatchObject({ scaleText: null, scaleBar: null, ceilingHeight: 2.5 });
+    expect(estimate.interpretation?.scale.candidates.map((c) => c.evidence)).toEqual([
+      'standard_object',
+    ]);
+  });
+
   it('stops at the first call that returns nothing', async () => {
     const provider = createFakeProvider([new ProviderError('rate_limited', 'slow down')]);
     const result = await runFloorplanPipeline(fakeImage(1000, 1000), {
@@ -129,5 +183,16 @@ describe('stripPrintedScale', () => {
     expect(stripped.rooms.map((r) => r.area)).toEqual([null, null]);
     expect(stripped.walls).toEqual(output.walls);
     expect(stripped.standardObjects).toEqual(output.standardObjects);
+  });
+
+  it('strips the page evidence the same way, keeping the ceiling height', () => {
+    const page = locate(null, {
+      scaleText: '1:50',
+      paperSize: 'A3',
+      totalArea: 40,
+      ceilingHeight: 2.4,
+      scaleBar: { unit: 'm', ticks: [] },
+    });
+    expect(stripPageScale(page)).toEqual({ ...locate(null), ceilingHeight: 2.4 });
   });
 });

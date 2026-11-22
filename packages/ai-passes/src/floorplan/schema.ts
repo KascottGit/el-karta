@@ -35,14 +35,6 @@ export const TileSchema = z.object({
 export const LocateInput = z.object({ image: ImageInputSchema });
 export type LocateInput = z.infer<typeof LocateInput>;
 
-export const LocateOutput = z.object({
-  /** False when the image holds no floor plan at all. */
-  found: z.boolean(),
-  /** The main floor plan only, without legend, site map, section or title block. */
-  box: NormBox.nullable(),
-});
-export type LocateOutput = z.infer<typeof LocateOutput>;
-
 export const FloorplanInput = z.object({
   image: ImageInputSchema,
   /** Where the sent image lies in the full background image. */
@@ -124,6 +116,34 @@ export const DetectedScaleBar = z.object({
 });
 export type DetectedScaleBar = z.infer<typeof DetectedScaleBar>;
 
+/**
+ * Scale and size evidence printed once per page. Estate agents often print it in the legend or
+ * title block outside the plan, which the detail call's crop leaves out, so the locate call reports
+ * it too, from the whole page. `readFloorplan` returns the locate call's evidence in full-image
+ * pixels (`page`), and `interpretFloorplan` fills each field the detail call left null from it.
+ */
+export const PageEvidence = z.object({
+  scaleBar: DetectedScaleBar.nullable(),
+  /** A printed ratio such as "1:100". */
+  scaleText: z.string().nullable(),
+  paperSize: PaperSize.nullable(),
+  /** Printed total area in m², e.g. from "Area ca 23 m²". */
+  totalArea: z.number().nullable(),
+  /** Printed ceiling height in metres. */
+  ceilingHeight: z.number().nullable(),
+});
+export type PageEvidence = z.infer<typeof PageEvidence>;
+
+/** What the locate call reports, normalised to the whole page (the image it is sent). */
+export const LocateOutput = z.object({
+  /** False when the image holds no floor plan at all. */
+  found: z.boolean(),
+  /** The main floor plan only, without legend, site map, section or title block. */
+  box: NormBox.nullable(),
+  ...PageEvidence.shape,
+});
+export type LocateOutput = z.infer<typeof LocateOutput>;
+
 export const DetectedStandardObject = z.object({
   type: StandardObjectType,
   /** The two ends of the measured dimension (see the prompt for which one per type). */
@@ -138,14 +158,7 @@ export const FloorplanOutput = z.object({
   openings: z.array(DetectedOpening),
   rooms: z.array(DetectedRoom),
   dimensions: z.array(DetectedDimension),
-  scaleBar: DetectedScaleBar.nullable(),
-  /** A printed ratio such as "1:100". */
-  scaleText: z.string().nullable(),
-  paperSize: PaperSize.nullable(),
-  /** Printed total area in m², e.g. from "Area ca 23 m²". */
-  totalArea: z.number().nullable(),
-  /** Printed ceiling height in metres. */
-  ceilingHeight: z.number().nullable(),
+  ...PageEvidence.shape,
   standardObjects: z.array(DetectedStandardObject),
 });
 export type FloorplanOutput = z.infer<typeof FloorplanOutput>;

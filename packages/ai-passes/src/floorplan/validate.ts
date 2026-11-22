@@ -1,6 +1,6 @@
 import type { Issue } from '@el-karta/core';
 import { NORM } from './frame.ts';
-import type { FloorplanOutput, LocateOutput, NormBox, NormPoint } from './schema.ts';
+import type { FloorplanOutput, LocateOutput, NormBox, NormPoint, PageEvidence } from './schema.ts';
 
 /** Coordinates a little outside 0–1000 are rounding and get clamped; further out is a misreading. */
 const SLACK = 10;
@@ -22,15 +22,27 @@ function boxIssues(box: NormBox, field: string): Issue[] {
   return [];
 }
 
+const scaleBarPoints = (evidence: PageEvidence) =>
+  (evidence.scaleBar?.ticks ?? []).map((t, i): [string, NormPoint] => [
+    `scaleBar.ticks.${i}`,
+    t.point,
+  ]);
+
+/** One issue per field with a point well outside the image. */
+function pointIssues(points: readonly [string, NormPoint][]): Issue[] {
+  const fields = new Set(points.filter(([, p]) => outside(p)).map(([field]) => field));
+  return [...fields].map((field) => issue('ai.coordinate-out-of-range', 'error', { field }));
+}
+
 export function validateLocate(output: LocateOutput): Issue[] {
-  if (!output.found) return [];
-  if (!output.box) return [issue('ai.box-missing', 'error', { field: 'box' })];
-  return boxIssues(output.box, 'box');
+  const issues = pointIssues(scaleBarPoints(output));
+  if (!output.found) return issues;
+  if (!output.box) return [...issues, issue('ai.box-missing', 'error', { field: 'box' })];
+  return [...issues, ...boxIssues(output.box, 'box')];
 }
 
 /** Checks that make the runner retry (errors) or that are shown with the result (warnings). */
 export function validateFloorplan(output: FloorplanOutput): Issue[] {
-  const issues: Issue[] = [];
   const points: [string, NormPoint][] = [
     ...output.walls.flatMap((w, i): [string, NormPoint][] => [
       [`walls.${i}`, w.a],
@@ -49,18 +61,9 @@ export function validateFloorplan(output: FloorplanOutput): Issue[] {
       [`standardObjects.${i}`, s.a],
       [`standardObjects.${i}`, s.b],
     ]),
-    ...(output.scaleBar?.ticks ?? []).map((t, i): [string, NormPoint] => [
-      `scaleBar.ticks.${i}`,
-      t.point,
-    ]),
+    ...scaleBarPoints(output),
   ];
-  const reported = new Set<string>();
-  for (const [field, p] of points) {
-    if (outside(p) && !reported.has(field)) {
-      reported.add(field);
-      issues.push(issue('ai.coordinate-out-of-range', 'error', { field }));
-    }
-  }
+  const issues = pointIssues(points);
   output.rooms.forEach((r, i) => {
     if (r.box) issues.push(...boxIssues(r.box, `rooms.${i}.box`));
   });

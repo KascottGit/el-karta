@@ -1,6 +1,12 @@
 import type { Pt } from '@el-karta/core';
 import type { Tile } from '../pass.ts';
-import type { FloorplanOutput, NormBox, NormPoint } from './schema.ts';
+import type {
+  DetectedScaleBar,
+  FloorplanOutput,
+  NormBox,
+  NormPoint,
+  PageEvidence,
+} from './schema.ts';
 
 export const NORM = 1000;
 
@@ -20,6 +26,21 @@ const mapBox = (box: NormBox, f: (p: Pt) => Pt): NormBox => {
   const max = f({ x: box.xmax, y: box.ymax });
   return { xmin: min.x, ymin: min.y, xmax: max.x, ymax: max.y };
 };
+
+const mapScaleBar = (bar: DetectedScaleBar | null, point: (p: Pt) => Pt) =>
+  bar && { ...bar, ticks: bar.ticks.map((t) => ({ ...t, point: point(t.point) })) };
+
+/**
+ * Only the page evidence of `evidence` (a locate or detail output), its scale bar's normalised
+ * points on the image of `frame` → pixels of the full image.
+ */
+export const pageEvidenceToPixels = (evidence: PageEvidence, frame: Tile): PageEvidence => ({
+  scaleBar: mapScaleBar(evidence.scaleBar, (p) => toPixels(frame, p)),
+  scaleText: evidence.scaleText,
+  paperSize: evidence.paperSize,
+  totalArea: evidence.totalArea,
+  ceilingHeight: evidence.ceilingHeight,
+});
 
 /**
  * The same detections with every point mapped by `point` and every wall thickness by `length`.
@@ -50,10 +71,7 @@ export function mapFloorplan(
       box: r.box && mapBox(r.box, point),
     })),
     dimensions: output.dimensions.map((d) => ({ ...d, a: point(d.a), b: point(d.b) })),
-    scaleBar: output.scaleBar && {
-      ...output.scaleBar,
-      ticks: output.scaleBar.ticks.map((t) => ({ ...t, point: point(t.point) })),
-    },
+    scaleBar: mapScaleBar(output.scaleBar, point),
     standardObjects: output.standardObjects.map((o) => ({ ...o, a: point(o.a), b: point(o.b) })),
   };
 }

@@ -5,7 +5,30 @@ import type {
   DetectedRoom,
   DetectedWall,
   FloorplanOutput,
+  LocateOutput,
+  NormBox,
+  PageEvidence,
 } from '../../src/floorplan/schema.ts';
+
+/** Page evidence with nothing printed unless given. */
+export const page = (partial: Partial<PageEvidence> = {}): PageEvidence => ({
+  scaleBar: null,
+  scaleText: null,
+  paperSize: null,
+  totalArea: null,
+  ceilingHeight: null,
+  ...partial,
+});
+
+/** A locate answer: found with `box`, or nothing found when it is null. */
+export const located = (
+  box: NormBox | null,
+  partial: Partial<PageEvidence> = {},
+): LocateOutput => ({
+  found: box !== null,
+  box,
+  ...page(partial),
+});
 
 /** A hand-written model output: nothing detected unless given. */
 export const output = (partial: Partial<FloorplanOutput> = {}): FloorplanOutput => ({
@@ -13,11 +36,7 @@ export const output = (partial: Partial<FloorplanOutput> = {}): FloorplanOutput 
   openings: [],
   rooms: [],
   dimensions: [],
-  scaleBar: null,
-  scaleText: null,
-  paperSize: null,
-  totalArea: null,
-  ceilingHeight: null,
+  ...page(),
   standardObjects: [],
   ...partial,
 });
