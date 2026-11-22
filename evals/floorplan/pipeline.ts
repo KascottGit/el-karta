@@ -7,6 +7,7 @@ import {
   type FloorplanInterpretation,
   type FloorplanOutput,
   type LocateOutput,
+  type PageEvidence,
   type PlanImage,
   type RunResult,
   type RunStatus,
@@ -42,6 +43,8 @@ export interface PipelineResult {
   /** The joined output, in coordinates normalised to `frame`, after estimate-mode stripping. */
   output: FloorplanOutput | null;
   frame: Tile | null;
+  /** The locate call's page evidence in full-image pixels, after estimate-mode stripping. */
+  page: PageEvidence | null;
   interpretation: FloorplanInterpretation | null;
   usage: Usage;
   calls: number;
@@ -58,15 +61,20 @@ const worse = (a: RunStatus, b: RunStatus) =>
  */
 export function stripPrintedScale(output: FloorplanOutput): FloorplanOutput {
   return {
-    ...output,
-    scaleText: null,
-    paperSize: null,
+    ...stripPageScale(output),
     dimensions: [],
-    scaleBar: null,
-    totalArea: null,
     rooms: output.rooms.map((r) => ({ ...r, area: null })),
   };
 }
+
+/** The same for the evidence read on the whole page (it has no dimensions or room areas). */
+export const stripPageScale = <T extends PageEvidence>(evidence: T): T => ({
+  ...evidence,
+  scaleText: null,
+  paperSize: null,
+  scaleBar: null,
+  totalArea: null,
+});
 
 /**
  * The app's import flow (M4 decisions 1, 2 and 6) without the browser: locate the plan on the whole
@@ -87,6 +95,7 @@ export async function runFloorplanPipeline(
     tiles: [],
     output: null,
     frame: null,
+    page: null,
     interpretation: null,
     usage: {},
     calls: 0,
@@ -119,9 +128,12 @@ export async function runFloorplanPipeline(
   if (!reading.output || !reading.frame) return result;
 
   const frame = reading.frame;
-  const output = mode === 'estimate' ? stripPrintedScale(reading.output) : reading.output;
+  const estimate = mode === 'estimate';
+  const output = estimate ? stripPrintedScale(reading.output) : reading.output;
+  const page = reading.page && (estimate ? stripPageScale(reading.page) : reading.page);
   result.output = output;
   result.frame = frame;
+  result.page = page;
   result.interpretation = interpretFloorplan(
     output,
     {
@@ -129,7 +141,8 @@ export async function runFloorplanPipeline(
       imageSize: size,
       placement: { offset: { x: 0, y: 0 }, rotation: 0, metresPerPixel: DEFAULT_METRES_PER_PIXEL },
       pdfPageWidthMm: mode === 'estimate' ? undefined : image.pdfPageWidthMm,
-      allowEstimate: mode === 'estimate',
+      allowEstimate: estimate,
+      page: page ?? undefined,
     },
     newId,
   );

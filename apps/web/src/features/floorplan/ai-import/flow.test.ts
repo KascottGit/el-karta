@@ -184,6 +184,48 @@ describe('interpretReading', () => {
   });
 });
 
+describe('evidence the locate call read outside the plan', () => {
+  // "Skala 1:100" in the title block: the 800 px page is 6.4 m, so 64 mm, at 1:100.
+  const titleBlock = (request: { pass: string }) =>
+    Promise.resolve(
+      request.pass === 'floorplan-locate'
+        ? { ...(planReply() as object), scaleText: 'Skala 1:100' }
+        : planReply(),
+    );
+
+  it('gives a printed scale the crop does not show, and is stored with the reading', async () => {
+    const floor = floorWithBackground();
+    const fake = fakeBackend(titleBlock);
+    const reading = await readPlan(floor, fakeImage(64), fake.deps, never, () => {});
+    expect(reading.output.scaleText).toBeNull();
+    expect(reading.page).toMatchObject({ scaleText: 'Skala 1:100' });
+    const { interpretation, placement } = interpretReading(reading, floor.data, false, newId);
+    expect(interpretation.scale.status).toBe('printed');
+    expect(placement.metresPerPixel).toBeCloseTo(TRUE_METRES_PER_PIXEL, 9);
+
+    await commitDrafts(floor, reading, interpretation.drafts, placement, fake.deps);
+    const stored = (await loadReading(fake.files, floor.projectId, floor.id))!;
+    expect(stored.page).toEqual(reading.page);
+    expect(interpretReading(stored, floor.data, false, newId).interpretation.scale.status).toBe(
+      'printed',
+    );
+  });
+
+  it('is optional in readings stored before it was kept', async () => {
+    const floor = floorWithBackground();
+    const fake = fakeBackend(titleBlock);
+    const { page, ...reading } = await readPlan(floor, fakeImage(64), fake.deps, never, () => {});
+    expect(page).toBeDefined();
+    const old = { ...reading, suggestions: [] };
+    await fake.files.save(floor.projectId, `ai-import/${floor.id}`, old);
+    const stored = await loadReading(fake.files, floor.projectId, floor.id);
+    expect(stored).toEqual(old);
+    expect(interpretReading(stored!, floor.data, false, newId).interpretation.scale.status).toBe(
+      'none',
+    );
+  });
+});
+
 describe('commitDrafts', () => {
   it('stores the reading, then the drafts as pending suggestions, and refreshes the suggestions', async () => {
     const { floor, fake, reading } = await read();

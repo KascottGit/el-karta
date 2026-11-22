@@ -1,4 +1,4 @@
-import { FloorplanOutput, TileSchema } from '@el-karta/ai-passes';
+import { FloorplanOutput, PageEvidence, TileSchema } from '@el-karta/ai-passes';
 import { Id, Pt, SuggestionIssue } from '@el-karta/core';
 import { z } from 'zod';
 import type { ProjectJson } from '../background/project-json';
@@ -12,6 +12,11 @@ export const PlanReading = z.object({
   frame: TileSchema,
   imageSize: z.object({ width: z.number().positive(), height: z.number().positive() }),
   pdfPageWidthMm: z.number().positive().optional(),
+  /**
+   * What the locate call read anywhere on the page, such as a scale in the legend outside the
+   * crop, in pixels of the full image; absent in readings stored before it was kept.
+   */
+  page: PageEvidence.optional(),
   /** The `floorplan` runs it came from. */
   runIds: z.array(Id),
   /** Provenance source of its suggestions, `ai:floorplan:<model>`. */

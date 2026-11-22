@@ -20,7 +20,7 @@ export const CROP_MARGIN = 0.04;
  * margin, in whole pixels inside the image; the whole image when no plan was located.
  */
 export function planCropBox(
-  output: LocateOutput,
+  output: Pick<LocateOutput, 'found' | 'box'>,
   size: { width: number; height: number },
   margin = CROP_MARGIN,
 ): Tile {

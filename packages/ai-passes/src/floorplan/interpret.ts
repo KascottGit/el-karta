@@ -18,7 +18,7 @@ import {
   resolveScale,
   type ScaleResolution,
 } from './scale.ts';
-import type { FloorplanOutput } from './schema.ts';
+import type { FloorplanOutput, PageEvidence } from './schema.ts';
 
 export interface FloorplanSuggestOptions {
   /**
@@ -38,6 +38,23 @@ export interface FloorplanSuggestOptions {
   pdfPageWidthMm?: number | undefined;
   /** Whether a scale may be estimated from objects of standard size when nothing printed gives one. */
   allowEstimate: boolean;
+  /**
+   * Evidence read on the whole page (`FloorplanReading.page`), in pixels of the full image. It fills
+   * each field the output leaves null; the output's own value wins.
+   */
+  page?: PageEvidence | undefined;
+}
+
+function withPageEvidence(px: FloorplanOutput, page: PageEvidence | undefined): FloorplanOutput {
+  if (!page) return px;
+  return {
+    ...px,
+    scaleBar: px.scaleBar ?? page.scaleBar,
+    scaleText: px.scaleText ?? page.scaleText,
+    paperSize: px.paperSize ?? page.paperSize,
+    totalArea: px.totalArea ?? page.totalArea,
+    ceilingHeight: px.ceilingHeight ?? page.ceilingHeight,
+  };
 }
 
 /** A single door narrower or wider than this, in metres, suggests the scale is wrong (decision 2). */
@@ -95,9 +112,13 @@ export function interpretFloorplan(
   options: FloorplanSuggestOptions,
   newId: () => Id,
 ): FloorplanInterpretation {
-  const px = outputToPixels(
-    mapFloorplan(output, clampNorm, (t) => t),
-    options.frame,
+  // After clamping: the page's points may lie outside the output's frame.
+  const px = withPageEvidence(
+    outputToPixels(
+      mapFloorplan(output, clampNorm, (t) => t),
+      options.frame,
+    ),
+    options.page,
   );
   const { resolution, geometry } = chooseScale(px, options);
   const drafts: SuggestionDraft[] = [];
