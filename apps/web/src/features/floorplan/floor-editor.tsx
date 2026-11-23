@@ -23,11 +23,13 @@ export const FloorEditor = memo(function FloorEditor({
   // Only the name, so that edits to the floor do not re-render the workspace.
   const name = useModelStore((s) => s.model?.floors[floorId]?.name);
 
-  if (name === undefined) return <p className="text-destructive">{t('editor.floorNotFound')}</p>;
+  if (name === undefined) {
+    return <p className="p-4 text-destructive">{t('editor.floorNotFound')}</p>;
+  }
 
   return (
-    <div className="flex h-[calc(100dvh-10rem)] min-h-96 flex-col gap-2">
-      <header className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <header className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 pt-3 pb-2">
         <Link to={backTo} className="text-sm text-muted-foreground hover:underline">
           {t('editor.back')}
         </Link>

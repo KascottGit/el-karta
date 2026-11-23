@@ -33,7 +33,11 @@ export function SyntheticPage() {
   }, [size]);
 
   if (!isSize(size)) {
-    return <p>{t('editor.unknownSize', { sizes: Object.keys(SYNTHETIC_SPECS).join(', ') })}</p>;
+    return (
+      <p className="p-4">
+        {t('editor.unknownSize', { sizes: Object.keys(SYNTHETIC_SPECS).join(', ') })}
+      </p>
+    );
   }
   if (!floorId) return null;
   return <FloorEditor floorId={floorId} backTo="/" />;
