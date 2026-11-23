@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
-import { readOpenFloor, type Pt } from './app-modules';
+import { readOpenFloor, readSelection, worldToPage, type Pt } from './app-modules';
 import { openSynthetic } from './editor';
+import { finger, mouse, type Input } from './input';
 
 interface OpeningSnapshot {
   id: string;
@@ -134,5 +135,112 @@ test.describe('on a phone', () => {
     await page.getByRole('button', { name: 'Markera', exact: true }).tap();
     await page.touchscreen.tap(spot.screen.x, spot.screen.y);
     await expect(page.getByRole('region', { name: 'Dörr', exact: true })).toBeVisible();
+  });
+});
+
+interface Area {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+const WIDEN = 0.3;
+
+/**
+ * Selects a window in `area` with room beside its end, widens it from that side by dragging its
+ * edge handle, and undoes it.
+ */
+async function widenWindow(page: Page, input: Input, area: (canvas: Area) => Area) {
+  const box = (await page.getByTestId('floor-editor-canvas').boundingBox())!;
+  const bounds = area({ x0: box.x, x1: box.x + box.width, y0: box.y, y1: box.y + box.height });
+  const { walls, openings } = await readFloor(page);
+  const toPage = await worldToPage(page);
+  const inArea = (p: Pt) => {
+    const s = toPage(p);
+    return s.x > bounds.x0 && s.x < bounds.x1 && s.y > bounds.y0 && s.y < bounds.y1;
+  };
+  const found = openings
+    .filter((o) => o.kind === 'window')
+    .flatMap((window) => {
+      const wall = walls.find((w) => w.id === window.wallId)!;
+      const length = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
+      const at = (t: number) => ({
+        x: wall.a.x + ((wall.b.x - wall.a.x) * t) / length,
+        y: wall.a.y + ((wall.b.y - wall.a.y) * t) / length,
+      });
+      const others = openings.filter((o) => o.wallId === wall.id && o.id !== window.id);
+      const start = window.offset;
+      const end = start + window.width;
+      const sides = [
+        {
+          side: 'end' as const,
+          from: end,
+          free: end + WIDEN + 0.1 < length && others.every((o) => o.offset >= end + WIDEN + 0.1),
+        },
+        {
+          side: 'start' as const,
+          from: start,
+          free:
+            start - WIDEN - 0.1 > 0 &&
+            others.every((o) => o.offset + o.width <= start - WIDEN - 0.1),
+        },
+      ];
+      return sides.flatMap(({ side, from, free }) => {
+        const points = [
+          at(start + window.width / 2),
+          at(from),
+          at(side === 'end' ? from + WIDEN : from - WIDEN),
+        ];
+        return free && points.every(inArea)
+          ? [{ window, side, centre: points[0]!, edge: points[1]!, to: points[2]! }]
+          : [];
+      });
+    })[0];
+  expect(found).toBeDefined();
+  const { window, side, centre, edge, to } = found!;
+
+  await input.tap(toPage(centre));
+  expect(await readSelection(page)).toEqual([{ collection: 'openings', id: window.id }]);
+  await input.drag(toPage(edge), toPage(to));
+  const widened = (await readFloor(page)).openings.find((o) => o.id === window.id)!;
+  // The other edge stays where it was.
+  if (side === 'end') expect(widened.offset).toBeCloseTo(window.offset, 6);
+  else expect(widened.offset + widened.width).toBeCloseTo(window.offset + window.width, 6);
+  expect(Math.abs(widened.width - (window.width + WIDEN))).toBeLessThan(0.03);
+  // Snapping is on, so the width is in whole centimetres.
+  expect(Math.round(widened.width * 100) / 100).toBeCloseTo(widened.width, 9);
+
+  await input.button('Ångra');
+  expect((await readFloor(page)).openings.find((o) => o.id === window.id)).toEqual(window);
+}
+
+test('widening a selected window from one side with the mouse, and undoing it', async ({
+  page,
+}) => {
+  await openSynthetic(page, 'small');
+  // Clear of the toolbar on the left and the side panel at the top right.
+  await widenWindow(page, mouse(page), (c) => ({
+    x0: c.x0 + 80,
+    x1: c.x1 - 360,
+    y0: c.y0 + 20,
+    y1: c.y1 - 20,
+  }));
+});
+
+test.describe('widening on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+
+  test('widening a selected window from one side with a finger, and undoing it', async ({
+    page,
+  }) => {
+    await openSynthetic(page, 'small');
+    // Above the bottom sheet that opens for the selected window.
+    await widenWindow(page, await finger(page), (c) => ({
+      x0: c.x0 + 30,
+      x1: c.x1 - 30,
+      y0: c.y0 + 60,
+      y1: c.y0 + (c.y1 - c.y0) * 0.45,
+    }));
   });
 });

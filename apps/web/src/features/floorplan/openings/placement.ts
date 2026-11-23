@@ -98,27 +98,6 @@ export function placeOpening(
 }
 
 /**
- * The opening slid along its own wall so that the point grabbed `grab` metres from its near edge
- * follows `p`, clamped to the wall and kept off its neighbours. Null if it fits nowhere on the wall.
- */
-export function slideOpening(
-  floor: OpeningsOf,
-  opening: Opening,
-  grab: number,
-  p: Pt,
-): Opening | null {
-  const wall = floor.walls[opening.wallId];
-  if (!wall) return null;
-  const offset = fitOffset(
-    offsetAlong(wall, p) - grab,
-    opening.width,
-    wallLength(wall),
-    openingsOnWall(floor, wall.id, opening.id),
-  );
-  return offset === null ? null : { ...opening, offset };
-}
-
-/**
  * The openings with a new width, each keeping its centre where it can and then clamped and nudged
  * like a new one. Openings on the same wall are fitted one after the other, so they do not overlap
  * each other. Null if any of them no longer fits.

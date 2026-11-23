@@ -7,7 +7,6 @@ import {
   flipSwing,
   placeOpening,
   resizeOpenings,
-  slideOpening,
   withKind,
 } from './placement';
 
@@ -131,37 +130,6 @@ describe('placeOpening', () => {
     expect(placed.ok && Object.keys(placed.opening).sort()).toEqual(
       ['height', 'id', 'kind', 'offset', 'provenance', 'wallId', 'width'].sort(),
     );
-  });
-});
-
-describe('slideOpening', () => {
-  it('follows the pointer along its wall, keeping where it was grabbed', () => {
-    const door = opening('d', 1);
-    expect(slideOpening(floorWith(door), door, 0.3, pt(2.3, 0.4))?.offset).toBeCloseTo(2);
-  });
-
-  it('stops at the wall ends', () => {
-    const door = opening('d', 1);
-    expect(slideOpening(floorWith(door), door, 0.5, pt(-3, 0))?.offset).toBe(0);
-    expect(slideOpening(floorWith(door), door, 0.5, pt(9, 0))?.offset).toBe(4);
-  });
-
-  it('stays off its neighbours and never moves to another wall', () => {
-    const door = opening('d', 0);
-    const other = opening('o', 2);
-    expect(slideOpening(floorWith(door, other), door, 0.5, pt(2.2, 0))?.offset).toBe(1);
-    expect(slideOpening(floorWith(door, other), door, 0.5, pt(3.4, 0))?.offset).toBe(3);
-    expect(slideOpening(floorWith(door, other), door, 0.5, pt(2.2, 3))?.wallId).toBe('w');
-  });
-
-  it('brings an opening beyond the wall end back onto the wall', () => {
-    const outside = opening('d', 4.6);
-    expect(slideOpening(floorWith(outside), outside, 0.5, pt(5, 0))?.offset).toBe(4);
-  });
-
-  it('is null when the opening fits nowhere on its wall', () => {
-    const wide = opening('d', 0, 6);
-    expect(slideOpening(floorWith(wide), wide, 0, pt(1, 0))).toBeNull();
   });
 });
 
