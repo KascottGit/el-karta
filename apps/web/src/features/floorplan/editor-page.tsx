@@ -12,8 +12,14 @@ export function EditorPage() {
   const { model, failed } = project;
   useFlushOn(floorId);
 
-  if (failed) return <p className="text-destructive">{t('project.notFound')}</p>;
-  if (project.blockedBy) return <UnsavedProjectNotice project={project} />;
-  if (!model) return <p className="text-muted-foreground">{t('common.loading')}</p>;
+  if (failed) return <p className="p-4 text-destructive">{t('project.notFound')}</p>;
+  if (project.blockedBy) {
+    return (
+      <div className="p-4">
+        <UnsavedProjectNotice project={project} />
+      </div>
+    );
+  }
+  if (!model) return <p className="p-4 text-muted-foreground">{t('common.loading')}</p>;
   return <FloorEditor floorId={floorId} backTo={`/projects/${projectId}`} />;
 }

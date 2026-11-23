@@ -5,6 +5,9 @@ import { ProjectListPage } from '@/features/projects/project-list-page';
 import { AutosaveLayout } from './autosave-layout';
 import { AppLayout } from './layout';
 import { NotFoundPage } from './pages';
+import type { RouteHandle } from './route-handle';
+
+const editorHandle: RouteHandle = { fullBleed: true };
 
 export const router = createBrowserRouter(
   [
@@ -28,6 +31,7 @@ export const router = createBrowserRouter(
                 },
                 {
                   path: 'projects/:projectId/floors/:floorId',
+                  handle: editorHandle,
                   lazy: async () => ({
                     Component: (await import('@/features/floorplan/editor-page')).EditorPage,
                   }),
@@ -40,6 +44,7 @@ export const router = createBrowserRouter(
           ? [
               {
                 path: 'dev/synthetic/:size',
+                handle: editorHandle,
                 lazy: async () => ({
                   Component: (await import('@/features/floorplan/synthetic-page')).SyntheticPage,
                 }),

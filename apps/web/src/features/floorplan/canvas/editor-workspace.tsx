@@ -40,10 +40,12 @@ export function EditorWorkspace({
   useEditorKeyboard(ctx, registry);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <Toolbar ctx={ctx} registry={registry} />
-      <div className="relative flex min-h-0 flex-1 gap-2">
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-lg border bg-white">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="px-2 pb-2 md:px-4">
+        <Toolbar ctx={ctx} registry={registry} />
+      </div>
+      <div className="relative flex min-h-0 flex-1 border-t">
+        <div className="relative min-h-0 flex-1 overflow-hidden bg-white">
           <FloorCanvas ctx={ctx} registry={registry} stageRef={stageRef} />
         </div>
         <SidePanel ctx={ctx} registry={registry} />
