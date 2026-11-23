@@ -50,7 +50,7 @@ Escape first cancels a drag in progress. If `onKeyDown` does not handle it, it t
 
 **Tolerances:** give snap and hit distances in pixels and convert them with `ctx.pxToWorld(px)`, so they feel the same at every zoom. Use a larger value for `p.kind === 'touch'`.
 
-**Snapping:** snap a pointer with `snapPointer(p, ctx, options)` from `snapping/snapping.ts`. It wraps core `snapPoint` (wall ends, midpoints and centrelines, grid lines, angle steps from `from`, extra `points`) with the shared pixel reach `SNAP_PX`, and returns the free point while Alt is held or the snapping toggle (`SnappingToggle`) is off. Draw the result with `SnapMarker` (`snapping/snap-marker.tsx`).
+**Snapping:** snap a pointer with `snapPointer(p, ctx, options)` from `snapping/snapping.ts`. It wraps core `snapPoint` (wall ends, midpoints and centrelines, grid lines, angle steps from `from`, extra `points`) with the shared pixel reach `SNAP_PX` (point targets are caught within exactly that many pixels at every zoom; a wall's centre line within that many pixels of its face), and returns the free point while Alt is held or the snapping toggle (`SnappingToggle`) is off. Draw the result with `SnapMarker` (`snapping/snap-marker.tsx`).
 
 **Validation:** `floorIssues(floor)` (`validation/floor-issues.ts`) validates a floor once per edit and is cached per floor data. Features filter it for their items, as `walls/wall-issues.ts` and `areas/area-issues.ts` do, and draw flagged items in `issueColors` from `canvas/theme.ts`. List the issues of the selected items in their side panel with `IssueList` (`validation/issue-list.tsx`), after grouping them with `summarizeIssues`. Openings whose wall is missing (`opening.wall-missing`) are not drawn, since there is no wall to place them on; the editor removes a wall's openings with the wall, so only imported or remote data has them.
 
@@ -103,7 +103,7 @@ A drag that starts on a handle goes to that handle, whichever tool is active. It
 
 ### Panels and actions
 
-A `Panel` shows in the side panel while `visible(editor, model)` holds. On phones the side panel is a sheet over the canvas. An `Action` is a one-shot toolbar button with `run(ctx)` and an optional `enabled(editor, model)`. Both edit the model with `apply(edit)` like everything else.
+A `Panel` shows in the side panel while `visible(editor, model)` holds. The side panel always lies over the canvas: a bottom sheet on phones and a floating card at the top right from `md` up, so the canvas and the 3D view never resize when a panel opens. Keep other controls over the canvas away from the top right. An `Action` is a one-shot toolbar button with `run(ctx)` and an optional `enabled(editor, model)`. Both edit the model with `apply(edit)` like everything else.
 
 Fields that edit the model use `fields/`:
 

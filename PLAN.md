@@ -384,7 +384,7 @@ Every run: select context → call the model with structured output → parse wi
 
 ## UX principles
 
-- **Edit in 2D, view in 3D.** All placement happens on the floor plan; 3D is a view of the same data. Choosing "what this photo shows" can be done by tapping a room or wall in either view, via the shared selection.
+- **Place in 2D, adjust in either.** New items are drawn and placed on the floor plan. Walls, doors, windows and passages can also be moved and resized in 3D with gizmos (M9b); both views edit the same data through the same edit operations. Choosing "what this photo shows" can be done by tapping a room or wall in either view, via the shared selection.
 - One selection state shared by every view: select something anywhere and it's highlighted everywhere, and the view jumps to the right floor.
 - **Suggestions look different:** suggested and detected items are ghosted with their source and confidence, and have accept / edit / reject actions, individually or in bulk. Confirmed and manual items look normal.
 - Touch first: large targets, a maximum of 3 taps to place a single device, works one-handed.
@@ -395,7 +395,7 @@ Every run: select context → call the model with structured output → parse wi
 
 ## Milestones
 
-Done: M0–M4, M9. **Order from here:** provider review → M11 → M5 → M6 → M7 → M8 → M10 → M12 → M13 → M14 → M15 → M16. M9 and M11 come first, so each says what it pulls forward from the milestones it skips.
+Done: M0–M4, M9. **Order from here:** M9b → provider review → M11 → M5 → M6 → M7 → M8 → M10 → M12 → M13 → M14 → M15 → M16. M9 and M11 come first, so each says what it pulls forward from the milestones it skips.
 
 ### M0 – Scaffold
 pnpm monorepo with the structure above; Node and pnpm versions pinned (`.nvmrc`, `packageManager`). Vite + React + TS strict, Tailwind + shadcn/ui, React Router, i18next, ESLint with import-boundary rules + Prettier, Vitest, PWA. `AGENTS.md` (conventions, commands, boundaries, "minimal comments" rule), `CLAUDE.md` pointing to it, `docs/decisions/` with ADR 0001 recording this stack. GitHub Actions: CI (typecheck, lint, test, build) on every push, and deploy to GitHub Pages from `main` as described under Hosting. Dependabot configured. Supabase CLI initialised, local stack runs, `.env.example` committed, `.env.local` git-ignored.
@@ -436,6 +436,15 @@ Flow: choose a breaker → "I've switched it off" → tap every device that went
 ### M9 – 3D view and furniture
 Walls extruded from the 2D plan using wall, room and floor heights; doors and windows cut out as openings; floors stacked; devices as instanced icons at their resolved positions (generic markers per device type until M5 adds the power icons); orbit/zoom on touch and mouse. Show one floor, a few floors, or all (exploded view). Clicking in 3D uses the same selection state as the 2D editor, so selecting a wall, room or device in one view selects it in the other; tapping a room or wall in 3D is also how M11 picks what a photo shows. Small `plugin-furnishing` (desk, table, shelf, rack shelving, cabinet, bed, sofa as simple boxes) to make rooms recognisable; it must need no core changes. Comes before M5 and M6, so circuit highlighting in 3D is part of M6.
 **Done when:** an item selected in 2D is selected in 3D and the other way round, the large synthetic project stays usable in 3D on a laptop, and the furniture plugin was added without touching `packages/core`.
+
+### M9b – Direct editing: overlay panel, gizmos, wall moves
+Comes before every other remaining milestone. Four changes to the editor:
+- **Overlay side panel.** On desktop the side panel (tool and selection panels) floats over the right edge of the viewport instead of taking a column beside it, so opening a tool or selecting something never shrinks or re-fits the 2D canvas or the 3D view. Phones keep the bottom sheet.
+- **Screen-relative node snapping.** The reach for snapping to wall ends, midpoints and polyline points is a fixed number of screen pixels at every zoom level; it no longer grows with wall thickness when zoomed in.
+- **Move a wall along its normal.** A new interaction: drag a selected wall (or use the move-wall tool on any wall) and it slides perpendicular to itself; the walls joined to it keep their direction and stretch or shrink to stay connected. One undoable edit.
+- **Gizmos in 3D, openings selectable in 3D.** Doors, windows and passages are drawn in their cut-outs (door leaf, glass pane, invisible pick volume for passages) and can be selected in 3D. A selected wall gets gizmos to move it along its normal, drag its ends and set its height; a selected opening gets gizmos to slide it along the wall and to move each edge (width), the top (height) and, for windows, the sill. 2D gets the matching handles for opening width. Changes preview live and commit as one edit on release.
+
+**Done when:** opening a tool panel on a laptop leaves the canvas size and view untouched; node snapping covers the same screen distance at any zoom; moving a wall keeps every joined wall connected and is undone in one step; a window can be selected, moved and resized in 3D on a phone and a laptop, and the change shows in 2D.
 
 ### M10 – Provenance, route certainty and evidence
 Provenance shown on everything (manual, detected, suggested, confirmed; source; confidence) with filters such as "show unconfirmed items". Optional drawn cable route on the plan (may continue on another floor) with route certainty and styling. Photo attachments on devices, connections, rooms and walls, with `region` recording what each photo shows (uploaded to Supabase Storage, compressed on the client first).

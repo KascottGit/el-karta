@@ -203,6 +203,20 @@ test('selecting a wall, deselecting it with Escape, deleting it with the keyboar
   await expect(redo).toBeDisabled();
 });
 
+test('a tool panel floats over the canvas on a desktop, leaving its size and view unchanged', async ({
+  page,
+}) => {
+  const { canvas, box } = await openSmall(page);
+  const { viewport } = await readEditor(page);
+  await page.keyboard.press('w');
+  const panel = page.getByRole('complementary');
+  await expect(panel).toBeVisible();
+  const panelBox = (await panel.boundingBox())!;
+  expect(panelBox.x).toBeLessThan(box.x + box.width);
+  expect(await canvas.boundingBox()).toEqual(box);
+  expect((await readEditor(page)).viewport).toEqual(viewport);
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 

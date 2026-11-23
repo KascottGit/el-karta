@@ -1,6 +1,6 @@
 # 3D view
 
-The read-only 3D view of the floor editor (ADR 0008).
+The 3D view of the floor editor (ADR 0008). Walls and openings can be moved and resized here with gizmos (ADR 0009); everything else is edited in 2D.
 
 ## Geometry (`geometry/`)
 

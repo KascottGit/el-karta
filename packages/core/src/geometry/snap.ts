@@ -26,7 +26,11 @@ export interface Snap {
 }
 
 export interface SnapOptions {
-  /** Capture distance in metres; the UI converts it from pixels so it feels the same at every zoom. */
+  /**
+   * Capture distance in metres; the UI converts it from pixels so it feels the same at every zoom.
+   * Point targets (wall ends, midpoints, `points`) use exactly this; a wall's centre line adds half
+   * the wall's thickness, so a point on the wall body snaps to it.
+   */
   tolerance: number;
   /** Points the new point connects to, for angle snapping: the previous point of a polyline, or the fixed ends of walls whose shared end is being dragged. */
   from?: readonly Pt[];
@@ -188,10 +192,9 @@ export function snapPoint(floor: SnapFloor, p: Pt, options: SnapOptions): Snap {
   }
   for (const wall of Object.values(floor.walls)) {
     if (opts.ignore.has(wall.id) || !nearBox(wall, p, tolerance + wall.thickness / 2)) continue;
-    const endCapture = Math.max(tolerance, wall.thickness / 2);
     for (const end of ['a', 'b'] as const) {
       const d = distance(wall[end], p);
-      if (d <= endCapture && (!endpoint || d < endpoint.d))
+      if (d <= tolerance && (!endpoint || d < endpoint.d))
         endpoint = { point: wall[end], target: { kind: 'endpoint', wallId: wall.id, end }, d };
     }
     if (endpoint) continue;
