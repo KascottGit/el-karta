@@ -1,6 +1,7 @@
-import { expect, test, type CDPSession, type Page } from '@playwright/test';
-import { EDITOR_STORE, readOpenFloor, readSelection, worldToPage, type Pt } from './app-modules';
+import { expect, test, type Page } from '@playwright/test';
+import { readEditor, readOpenFloor, readSelection, worldToPage, type Pt } from './app-modules';
 import { openSynthetic } from './editor';
+import { finger, mouse, type Input } from './input';
 
 interface Wall {
   id: string;
@@ -102,54 +103,6 @@ async function expectMoved(page: Page, before: Record<string, Wall>, wall: Wall)
   for (const { id, end, of } of joined) expect(dist(walls[id]![end], moved[of])).toBeLessThan(1e-6);
 }
 
-const readViewport = (page: Page) =>
-  page.evaluate(async (url) => {
-    const { editorStore } = (await import(/* @vite-ignore */ url)) as {
-      editorStore: { getState(): { viewport: { x: number; y: number } } };
-    };
-    return editorStore.getState().viewport;
-  }, EDITOR_STORE);
-
-const touch = (cdp: CDPSession, type: 'touchStart' | 'touchMove' | 'touchEnd', points: Pt[]) =>
-  cdp.send('Input.dispatchTouchEvent', {
-    type,
-    touchPoints: points.map((p, id) => ({ ...p, id })),
-  });
-
-interface Input {
-  tap(at: Pt): Promise<void>;
-  drag(from: Pt, to: Pt): Promise<void>;
-  button(name: string): Promise<void>;
-}
-
-const mouse = (page: Page): Input => ({
-  tap: (at) => page.mouse.click(at.x, at.y),
-  drag: async (from, to) => {
-    await page.mouse.move(from.x, from.y);
-    await page.mouse.down();
-    await page.mouse.move(to.x, to.y, { steps: 10 });
-    await page.mouse.up();
-  },
-  button: (name) => page.getByRole('button', { name, exact: true }).click(),
-});
-
-async function finger(page: Page): Promise<Input> {
-  const cdp = await page.context().newCDPSession(page);
-  return {
-    tap: (at) => page.touchscreen.tap(at.x, at.y),
-    drag: async (from, to) => {
-      await touch(cdp, 'touchStart', [from]);
-      for (let i = 1; i <= 10; i++) {
-        await touch(cdp, 'touchMove', [
-          { x: from.x + ((to.x - from.x) * i) / 10, y: from.y + ((to.y - from.y) * i) / 10 },
-        ]);
-      }
-      await touch(cdp, 'touchEnd', []);
-    },
-    button: (name) => page.getByRole('button', { name, exact: true }).tap(),
-  };
-}
-
 /**
  * Selects a room wall and drags it, then checks undo; drags it unselected, which pans; and drags
  * it with the move-wall tool.
@@ -170,11 +123,11 @@ async function moveRoomWall(page: Page, input: Input, area: (box: DOMRectLike) =
   // Unselected, a drag on the wall pans the view and leaves the wall alone.
   await page.keyboard.press('Escape');
   await expect.poll(() => readSelection(page)).toEqual([]);
-  const viewBefore = await readViewport(page);
+  const viewBefore = (await readEditor(page)).viewport;
   const from = toPage(at);
   await input.drag(from, { x: from.x + 30, y: from.y + 50 });
   expect((await readFloor(page)).walls).toEqual(before);
-  const viewAfter = await readViewport(page);
+  const viewAfter = (await readEditor(page)).viewport;
   expect(viewAfter.x - viewBefore.x).toBeCloseTo(30, 0);
   expect(viewAfter.y - viewBefore.y).toBeCloseTo(50, 0);
 

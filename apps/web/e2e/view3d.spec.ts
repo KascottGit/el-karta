@@ -1,6 +1,7 @@
-import { expect, test, type CDPSession, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { EDITOR_STORE, MODEL_STORE, readSelection, type Pt } from './app-modules';
 import { openSynthetic } from './editor';
+import { touch } from './input';
 import {
   firstOnPage,
   itemOnPage,
@@ -303,16 +304,6 @@ test('the fitted view follows a resize until the camera is moved', async ({ page
 
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-
-  const touch = (
-    cdp: CDPSession,
-    type: 'touchStart' | 'touchMove' | 'touchEnd',
-    points: { x: number; y: number }[],
-  ) =>
-    cdp.send('Input.dispatchTouchEvent', {
-      type,
-      touchPoints: points.map((p, id) => ({ ...p, id })),
-    });
 
   test('3D replaces the canvas and shares the selection and the side panel with 2D', async ({
     page,
