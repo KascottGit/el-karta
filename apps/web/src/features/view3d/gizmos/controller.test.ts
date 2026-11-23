@@ -1,9 +1,10 @@
-import type { Vec3 } from '@el-karta/core';
+import { putSpaceItem, removeSpaceItem, type Vec3 } from '@el-karta/core';
 import { Group, PerspectiveCamera, Vector3 } from 'three';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { PointerInput } from '@/features/floorplan/canvas/gestures';
 import { setSnapping } from '@/features/floorplan/snapping/snapping';
 import { projectWith } from '@/features/floorplan/walls/test-fixtures';
+import { editorStore } from '@/features/floorplan/editor-store';
 import { modelStore } from '@/model/store';
 import { FloorFixture, pt } from '../geometry/test-fixtures';
 import { floorMeshes } from '../meshes/floor-meshes';
@@ -58,9 +59,18 @@ function setup(target: (ids: { top: string; window: string }) => GizmoTarget) {
     const ndc = new Vector3(...toThree(at)).add(new Vector3(0, BASE, 0)).project(camera);
     return { x: ((ndc.x + 1) / 2) * SIZE.width, y: ((1 - ndc.y) / 2) * SIZE.height };
   };
+  editorStore.getState().openFloor(floorId, [gizmo]);
   const controller = new GizmoController(registry);
   const data = () => modelStore.getState().model!.floors[floorId]!.data;
-  return { controller, view, screen, data, top, window, floorId };
+  /** Presses a handle, starts dragging it and moves the pointer over `to`. */
+  const dragTo = (name: Parameters<GizmoController['handlePosition']>[1], to: Vec3) => {
+    const start = input(controller.handlePosition(view, name)!);
+    controller.press(view, start);
+    controller.start(view, start);
+    controller.move(view, input(screen(to)));
+    return input(screen(to));
+  };
+  return { controller, view, screen, data, top, window, floorId, dragTo };
 }
 
 beforeEach(() => {
@@ -162,5 +172,75 @@ describe('GizmoController', () => {
     const walls = Object.values(data().walls);
     expect(data().walls[top.id]?.a.y).toBeCloseTo(4.5, 6);
     expect(walls.find((w) => w.id !== top.id)?.a.y).toBeCloseTo(4.5, 6);
+  });
+
+  it('keeps a removed item removed when the drag ends', () => {
+    const { controller, view, data, window, floorId, dragTo } = setup(({ window }) => ({
+      collection: 'openings',
+      id: window,
+    }));
+    const to = dragTo('top', { x: 1.6, y: 4, z: 2.3 });
+    expect(gizmoStore.getState().preview).not.toBeNull();
+    modelStore.getState().apply(removeSpaceItem(floorId, 'openings', window.id));
+    expect(gizmoStore.getState().preview).toBeNull();
+    controller.end(view, to);
+    expect(data().openings[window.id]).toBeUndefined();
+    expect(modelStore.getState().past).toHaveLength(1);
+  });
+
+  it('drops the drag when an undo removes the item, keeping the redo', () => {
+    const { controller, view, data, window, floorId, dragTo } = setup(({ window }) => ({
+      collection: 'openings',
+      id: window,
+    }));
+    // Put back by an edit, so undo takes it away.
+    modelStore.getState().apply(removeSpaceItem(floorId, 'openings', window.id));
+    modelStore.getState().apply(putSpaceItem(floorId, 'openings', window));
+    const to = dragTo('top', { x: 1.6, y: 4, z: 2.3 });
+    modelStore.getState().undo();
+    expect(gizmoStore.getState().preview).toBeNull();
+    controller.end(view, to);
+    expect(data().openings[window.id]).toBeUndefined();
+    expect(modelStore.getState().past).toHaveLength(1);
+    expect(modelStore.getState().future).toHaveLength(1);
+  });
+
+  it('recomputes the preview on new data and commits the drag on it', () => {
+    const { controller, view, data, window, floorId, dragTo } = setup(({ window }) => ({
+      collection: 'openings',
+      id: window,
+    }));
+    const to = dragTo('top', { x: 1.6, y: 4, z: 2.3 });
+    modelStore
+      .getState()
+      .apply(putSpaceItem(floorId, 'openings', { ...data().openings[window.id]!, width: 1.5 }));
+    const preview = gizmoStore.getState().preview?.data.openings[window.id];
+    expect(preview?.width).toBe(1.5);
+    expect(preview?.height).toBeCloseTo(1.4, 6);
+    controller.end(view, to);
+    expect(data().openings[window.id]).toMatchObject({ width: 1.5, height: 1.4 });
+    expect(modelStore.getState().past).toHaveLength(2);
+  });
+
+  it('drops the drag when the selection or the floor changes', () => {
+    const { controller, view, data, window, floorId, dragTo } = setup(({ window }) => ({
+      collection: 'openings',
+      id: window,
+    }));
+    let to = dragTo('top', { x: 1.6, y: 4, z: 2.3 });
+    editorStore.getState().select([]);
+    expect(gizmoStore.getState().preview).toBeNull();
+    controller.end(view, to);
+    expect(modelStore.getState().past).toHaveLength(0);
+
+    editorStore.getState().select([{ collection: 'openings', id: window.id }]);
+    to = dragTo('top', { x: 1.6, y: 4, z: 2.3 });
+    editorStore.getState().openFloor('elsewhere');
+    expect(gizmoStore.getState().preview).toBeNull();
+    expect(controller.holds(1)).toBe(false);
+    controller.end(view, to);
+    expect(data().openings[window.id]?.height).toBe(1.2);
+    expect(modelStore.getState().past).toHaveLength(0);
+    editorStore.getState().openFloor(floorId);
   });
 });

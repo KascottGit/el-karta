@@ -1,7 +1,8 @@
-import type { Id, Pt } from '@el-karta/core';
+import type { FloorData, Id, Pt } from '@el-karta/core';
 import { Vector3, type Camera } from 'three';
 import type { PointerInput } from '@/features/floorplan/canvas/gestures';
 import { SNAP_PX, snappingStore } from '@/features/floorplan/snapping/snapping';
+import { editorStore } from '@/features/floorplan/editor-store';
 import { modelStore } from '@/model/store';
 import type { SceneRegistry } from '../scene-registry';
 import {
@@ -10,10 +11,11 @@ import {
   previewFloor,
   startGizmoDrag,
   type DragAmount,
+  type DragOptions,
   type GizmoChange,
   type GizmoDrag,
 } from './drag';
-import { GRAB_PX, handleNear, type GizmoHandle, type GizmoTarget } from './handles';
+import { GRAB_PX, gizmoTarget, handleNear, type GizmoHandle, type GizmoTarget } from './handles';
 import { gizmoStore } from './preview-store';
 import { toThree } from '../meshes/merged';
 import { pixelSize, pointerRay, screenHandles, toScreen, worldOf, type Size } from './screen';
@@ -40,7 +42,8 @@ interface Drag {
   grab: number | Pt;
   /** Metres per pixel at the handle when the drag started. */
   scale: number;
-  last: GizmoChange | null;
+  /** The last change shown, with the committed data and pointer it was computed from. */
+  last: { change: GizmoChange; on: FloorData; amount: DragAmount; options: DragOptions } | null;
 }
 
 const committed = (floorId: Id) => modelStore.getState().model?.floors[floorId]?.data;
@@ -51,10 +54,81 @@ const committed = (floorId: Id) => modelStore.getState().model?.floors[floorId]?
  * commits it as one edit, and a cancel drops the preview.
  */
 export class GizmoController {
-  private pressed: { pointerId: number; handle: GizmoHandle } | null = null;
+  private pressed: { pointerId: number; handle: GizmoHandle; gizmo: GizmoEntry } | null = null;
   private drag: Drag | null = null;
+  private unwatch: (() => void) | null = null;
+
+  private abort: () => void = () => {
+    this.cancel();
+  };
 
   constructor(private readonly registry: SceneRegistry) {}
+
+  /**
+   * How to end a drag that can no longer go on (its item was removed, undone or deselected, or the
+   * floor changed): the way Escape does, through the gesture controller. Without one it just drops
+   * the preview.
+   */
+  onAbort(abort: (() => void) | null) {
+    this.abort =
+      abort ??
+      (() => {
+        this.cancel();
+      });
+  }
+
+  /**
+   * While a handle is held, follows the model and the editor: a change to the floor's data
+   * recomputes the preview from the last pointer position (or aborts when the change is refused
+   * or the item is gone), and a new selection or floor aborts.
+   */
+  private watch() {
+    if (this.unwatch) return;
+    const offModel = modelStore.subscribe(() => {
+      this.refresh();
+    });
+    const offEditor = editorStore.subscribe((s) => {
+      const held = this.pressed?.gizmo;
+      if (!held) return;
+      const target = gizmoTarget(s.selection);
+      const same =
+        s.floorId === held.floorId &&
+        target?.collection === held.target.collection &&
+        target.id === held.target.id;
+      if (!same) this.drop();
+    });
+    this.unwatch = () => {
+      offModel();
+      offEditor();
+    };
+  }
+
+  private stopWatching() {
+    if (this.pressed || this.drag) return;
+    this.unwatch?.();
+    this.unwatch = null;
+  }
+
+  /** Lets go of the press and aborts any drag. */
+  private drop() {
+    this.pressed = null;
+    if (this.drag) this.abort();
+    if (this.drag) this.cancel();
+    this.stopWatching();
+  }
+
+  private refresh() {
+    const drag = this.drag;
+    const data = drag && committed(drag.floorId);
+    if (!drag?.last || data === drag.last.on) return;
+    const change = data && drag.session.change(data, drag.last.amount, drag.last.options);
+    if (!data || !change) {
+      this.drop();
+      return;
+    }
+    drag.last = { ...drag.last, change, on: data };
+    gizmoStore.setState({ preview: { floorId: drag.floorId, data: previewFloor(data, change) } });
+  }
 
   /** The handle at `(x, y)` canvas pixels within reach of a `kind` pointer, or null. */
   handleAt(view: View, x: number, y: number, kind: PointerInput['kind']): GizmoHandle | null {
@@ -69,9 +143,12 @@ export class GizmoController {
   /** A press: grabs the handle under it, if any, and says whether it did. */
   press(view: View, p: PointerInput): boolean {
     if (this.pressed || this.drag) return false;
-    const handle = this.handleAt(view, p.x, p.y, p.kind);
-    if (handle) this.pressed = { pointerId: p.id, handle };
-    return !!handle;
+    const gizmo = this.registry.gizmo;
+    const handle = gizmo && this.handleAt(view, p.x, p.y, p.kind);
+    if (!gizmo || !handle) return false;
+    this.pressed = { pointerId: p.id, handle, gizmo };
+    this.watch();
+    return true;
   }
 
   /** Whether `pointerId` pressed a handle; its taps and drags belong to the gizmo. */
@@ -80,7 +157,9 @@ export class GizmoController {
   }
 
   release(pointerId: number) {
-    if (this.pressed?.pointerId === pointerId) this.pressed = null;
+    if (this.pressed?.pointerId !== pointerId) return;
+    this.pressed = null;
+    this.stopWatching();
   }
 
   get dragging(): boolean {
@@ -89,7 +168,7 @@ export class GizmoController {
 
   /** Starts dragging the pressed handle from where the press was. False when nothing was pressed. */
   start(view: View, start: PointerInput): boolean {
-    const gizmo = this.registry.gizmo;
+    const gizmo = this.pressed?.gizmo;
     const handle = this.pressed?.handle;
     const data = gizmo && committed(gizmo.floorId);
     const floor = gizmo && this.registry.floors.get(gizmo.floorId);
@@ -129,12 +208,10 @@ export class GizmoController {
     const amount = drag && data && this.amount(view, p, drag);
     if (!drag || !data || !amount) return;
     const snaps = snappingStore.getState().enabled && !p.altKey;
-    const change = drag.session.change(data, amount, {
-      snap: snaps ? SNAP_PX[p.kind] * drag.scale : null,
-      round: snaps,
-    });
+    const options = { snap: snaps ? SNAP_PX[p.kind] * drag.scale : null, round: snaps };
+    const change = drag.session.change(data, amount, options);
     if (!change) return;
-    drag.last = change;
+    drag.last = { change, on: data, amount, options };
     gizmoStore.setState({ preview: { floorId: drag.floorId, data: previewFloor(data, change) } });
   }
 
@@ -142,10 +219,14 @@ export class GizmoController {
   end(view: View, p: PointerInput) {
     this.move(view, p);
     const drag = this.drag;
+    // Detached first, so the edit's own model update does not recompute the preview.
+    this.drag = null;
     const data = drag && committed(drag.floorId);
-    // Applied before the preview is dropped, so the old data is never drawn in between.
-    if (drag?.last && data && changes(data, drag.last))
-      modelStore.getState().apply(changeEdit(drag.floorId, drag.last));
+    const last = drag?.last;
+    // Only a change computed on the data as it is now; applied before the preview is dropped, so
+    // the old data is never drawn in between.
+    if (drag && last && data && last.on === data && changes(data, last.change))
+      modelStore.getState().apply(changeEdit(drag.floorId, last.change));
     this.cancel();
   }
 
@@ -153,6 +234,7 @@ export class GizmoController {
   cancel() {
     this.drag = null;
     gizmoStore.setState({ preview: null, active: null });
+    this.stopWatching();
   }
 
   /** Where a handle of the shown gizmo is drawn, in canvas pixels, or null. */

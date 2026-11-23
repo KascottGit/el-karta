@@ -256,6 +256,27 @@ test.describe('on a phone', () => {
     expect((await readFloor(page)).openings[window.id]).toEqual(before);
     expect(await readSelection(page)).toEqual([selected(window)]);
 
+    // A second finger landing on a handle during a pinch joins the pinch instead of grabbing it.
+    const top = await gizmoHandleOnPage(page, 'top');
+    const spots = [0.15, 0.85].flatMap((fx) =>
+      [0.12, 0.3].map((fy) => ({ x: box.x + box.width * fx, y: box.y + box.height * fy })),
+    );
+    const first = spots.reduce((p, q) => (dist(q, top) > dist(p, top) ? q : p));
+    const away = { x: Math.sign(top.x - first.x), y: Math.sign(top.y - first.y) };
+    await touch(cdp, 'touchStart', [first]);
+    await touch(cdp, 'touchStart', [first, top]);
+    for (let i = 1; i <= 8; i++)
+      await touch(cdp, 'touchMove', [
+        { x: first.x - away.x * 6 * i, y: first.y - away.y * 6 * i },
+        { x: top.x + away.x * 6 * i, y: top.y + away.y * 6 * i },
+      ]);
+    await touch(cdp, 'touchEnd', []);
+    expect((await readFloor(page)).openings[window.id]).toEqual(before);
+    await expect
+      .poll(async () => dist(await gizmoHandleOnPage(page, 'top'), top))
+      .toBeGreaterThan(5);
+    await input.button('Zooma till allt');
+
     await moveWallThenOrbit(page, input, clear);
   });
 });

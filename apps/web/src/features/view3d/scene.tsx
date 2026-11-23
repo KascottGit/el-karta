@@ -223,7 +223,7 @@ function Interaction({
       if (!gizmos.holds(p.id)) choose(p);
     };
     const noop = () => undefined;
-    const gestures = createGestureController({
+    const controller = createGestureController({
       hover: (p) => {
         el.style.cursor = gizmos.handleAt(get(), p.x, p.y, p.kind) ? 'grab' : '';
       },
@@ -243,33 +243,41 @@ function Interaction({
       pinch: noop,
     });
     const input = (e: PointerEvent): PointerInput => pointerInput(e, canvas, false);
+    gizmos.onAbort(() => {
+      controller.cancelDrag();
+    });
+    // The pointer that turned the orbit controls off; the gizmo may have let go of it already.
+    let holder: number | null = null;
     const lift = (p: PointerInput) => {
-      if (!gizmos.holds(p.id)) return;
       gizmos.release(p.id);
+      if (p.id !== holder) return;
+      holder = null;
       if (controls) controls.enabled = true;
       el.style.cursor = '';
     };
     // Capture phase, so a press on a handle turns the orbit controls off before they see it.
     const onDown = (e: PointerEvent) => {
       const p = input(e);
-      if (p.button === 0 && gizmos.press(get(), p)) {
+      // Only a first pointer: a finger joining an orbit or pinch must not stop it.
+      if (controller.mode === 'idle' && p.button === 0 && gizmos.press(get(), p)) {
+        holder = p.id;
         if (controls) controls.enabled = false;
         el.setPointerCapture(e.pointerId);
         el.style.cursor = 'grabbing';
       }
-      gestures.down(p);
+      controller.down(p);
     };
     const onMove = (e: PointerEvent) => {
-      gestures.move(input(e));
+      controller.move(input(e));
     };
     const onUp = (e: PointerEvent) => {
       const p = input(e);
-      gestures.up(p);
+      controller.up(p);
       lift(p);
     };
     const onCancel = (e: PointerEvent) => {
       const p = input(e);
-      gestures.cancel(p);
+      controller.cancel(p);
       lift(p);
     };
     const onKey = (e: KeyboardEvent) => {
@@ -277,7 +285,7 @@ function Interaction({
       // Before the editor's shortcuts, which would also clear the selection.
       e.preventDefault();
       e.stopPropagation();
-      gestures.cancelDrag();
+      controller.cancelDrag();
     };
     el.addEventListener('pointerdown', onDown, true);
     el.addEventListener('pointermove', onMove, true);
@@ -285,7 +293,8 @@ function Interaction({
     el.addEventListener('pointercancel', onCancel, true);
     window.addEventListener('keydown', onKey, true);
     return () => {
-      gestures.cancelDrag();
+      controller.cancelDrag();
+      gizmos.onAbort(null);
       if (controls) controls.enabled = true;
       el.removeEventListener('pointerdown', onDown, true);
       el.removeEventListener('pointermove', onMove, true);
