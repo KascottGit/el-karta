@@ -4,6 +4,7 @@ import { DevicePanel } from './device-panel';
 import { hasDeviceSelected } from './device-selection';
 import { deviceMarks, markBounds } from './device-marks';
 import { DevicesLayer } from './devices-layer';
+import { DraggedDevice } from './dragged-device';
 
 /**
  * Every device on the plan as a generic marker or footprint, selectable, with a read-only panel.
@@ -20,6 +21,7 @@ export const devicesExtension: EditorExtension = {
       Component: DevicesLayer,
       bounds: ({ data }) => union(Object.values(deviceMarks(data)).map(markBounds)),
     },
+    { id: 'dragged-device', layer: 'overlays', order: 5, Component: DraggedDevice },
   ],
   panels: [{ id: 'device-props', order: 40, visible: hasDeviceSelected, Component: DevicePanel }],
 };

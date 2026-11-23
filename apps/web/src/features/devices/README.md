@@ -7,4 +7,6 @@ Generic drawing of devices, shared by the 2D editor and the 3D view (ADR 0008). 
 - `device-marks.ts`: the drawn devices of a floor, cached so that unrelated edits keep the same objects.
 - `device-issues.ts`: the validator's issues per device. Flagged devices take the colour of their worst issue.
 - `extension.ts`: the `devices` editor extension. Its layer content sits on the `openings` logical layer above the openings, so it is in the model's Konva layer and not redrawn on every pointer move. One shape paints all markers from cached sprites; each marker has a hit-only shape (`hitFunc`, no `sceneFunc`) so it can be tapped.
+- `device-shapes.tsx`: the marker sprites painter and the footprint shape, shared by the layer and the drag preview.
+- `device-drag.ts`, `dragged-device.tsx`: a device being dragged (moved, turned) is put in `deviceDragStore` as its preview; the devices layer hides it and `DraggedDevice` draws the preview on the overlays, so a drag redraws only them. A domain's handles set and clear it (furniture in `features/furnishing/`).
 - `type-name.ts`: a type's Swedish name is the i18n key `devices.types.<domain>.<type>`, falling back to `devices.types.generic`. A domain adds its names there.

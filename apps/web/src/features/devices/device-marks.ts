@@ -31,7 +31,8 @@ function basisOf(floor: FloorData, device: Device): object | undefined {
   return undefined;
 }
 
-function markOf(floor: FloorData, device: Device): DeviceMark | null {
+/** How a device is drawn on a floor, or null when it is not (in a container, or without a position). */
+export function deviceMark(floor: FloorData, device: Device): DeviceMark | null {
   if (!hasOwnMarker(device)) return null;
   const footprint = sizedFootprint(device);
   if (footprint) {
@@ -61,7 +62,7 @@ export function deviceMarks(floor: FloorData): Readonly<Record<Id, DeviceMark>> 
     const basis = basisOf(floor, device);
     let entry = byDevice.get(device);
     if (!entry || entry.basis !== basis) {
-      entry = { mark: markOf(floor, device), basis };
+      entry = { mark: deviceMark(floor, device), basis };
       byDevice.set(device, entry);
     }
     if (entry.mark) marks[device.id] = entry.mark;
