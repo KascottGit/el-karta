@@ -4,8 +4,10 @@ import { resolve } from 'node:path';
 import { parseArgs, parseEnv } from 'node:util';
 import { floorplanEvalChoice, runFloorplanEval } from './floorplan/run.ts';
 import { probe } from './probe.ts';
+import { writeSummary } from './summary.ts';
 
 const USAGE = `Usage: pnpm eval floorplan [--provider <id>] [--model <id>] [--estimate-scale] [--plans a,b] [--images <dir>]
+       pnpm eval summary   (writes evals/results/floorplan-summary.md from floorplan.csv)
        pnpm eval probe --model <id> --plan <file> [--timeout <s>]   (Gemini: times a tiny request and one locate call)
 
 --provider is ${Object.keys(providerKeys).join(' or ')} (default: the floor-plan pass's primary provider);
@@ -46,6 +48,16 @@ async function main(args: string[]) {
     },
   });
   const [suite] = positionals;
+  if (suite === 'summary') {
+    const results = resolve(import.meta.dirname, 'results');
+    const summaries = await writeSummary(
+      resolve(results, 'floorplan.csv'),
+      resolve(results, 'floorplan-summary.md'),
+      'evals/results/floorplan.csv',
+    );
+    say(`${summaries.length} groups written to evals/results/floorplan-summary.md`);
+    return 0;
+  }
   if (suite === 'probe' && values.model && values.plan) {
     const apiKey = providerEnv()[providerKeys.gemini];
     if (!apiKey) throw new Error('No GEMINI_API_KEY in the shell or supabase/functions/.env');

@@ -13,7 +13,7 @@ import {
   type RunStatus,
   type Tile,
 } from '@el-karta/ai-passes';
-import type { AiProvider, Usage } from '@el-karta/ai-providers';
+import { costUsd, type AiProvider, type Usage } from '@el-karta/ai-providers';
 import { DEFAULT_METRES_PER_PIXEL } from '@el-karta/core';
 import type { EvalMode } from './score.ts';
 
@@ -48,6 +48,8 @@ export interface PipelineResult {
   interpretation: FloorplanInterpretation | null;
   usage: Usage;
   calls: number;
+  /** From `modelPrices`, per pass run; left out for a model without a price. */
+  costUsd?: number;
   modelVersion?: string;
 }
 
@@ -103,6 +105,8 @@ export async function runFloorplanPipeline(
   const record = <Out>(pass: string, frame: Tile, run: RunResult<Out>): PipelineCall<Out> => {
     result.status = worse(result.status, run.status);
     result.calls += 1 + run.validationRetries;
+    const cost = costUsd(provider.id, model, run.usage, 1 + run.validationRetries);
+    if (cost !== undefined) result.costUsd = (result.costUsd ?? 0) + cost;
     if (run.usage.inputTokens !== undefined)
       result.usage.inputTokens = (result.usage.inputTokens ?? 0) + run.usage.inputTokens;
     if (run.usage.outputTokens !== undefined)

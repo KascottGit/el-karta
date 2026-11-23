@@ -147,6 +147,7 @@ describe('runFloorplanEval', () => {
 
     expect(row).toMatchObject({
       plan: 'tiny',
+      provider: 'fake',
       model: 'fake-model',
       modelVersion: 'fake:fake-model',
       mode: 'printed',
@@ -160,6 +161,8 @@ describe('runFloorplanEval', () => {
       calls: 2,
       estimateWithin10: null,
     });
+    // The fake provider has no price.
+    expect(row!.costUsd).toBeUndefined();
     expect(row!.nameMatch).toBeCloseTo(2 / 3);
     expect(row!.rotationErrorDeg as number).toBeCloseTo(0, 9);
     // "1:100" on the 210 mm (595.28 pt) wide PDF page: the whole image is 21 m wide.
@@ -168,7 +171,9 @@ describe('runFloorplanEval', () => {
     const csv = (await readFile(join(resultsDir, 'floorplan.csv'), 'utf8')).trim().split('\n');
     expect(csv[0]).toBe(FLOORPLAN_COLUMNS.join(','));
     expect(csv).toHaveLength(2);
-    expect(csv[1]).toContain('2026-11-21T10:00:00.000Z,tiny,fake-model,fake:fake-model,printed,ok');
+    expect(csv[1]).toContain(
+      '2026-11-21T10:00:00.000Z,tiny,fake,fake-model,fake:fake-model,printed,ok',
+    );
 
     const raw = await readdir(join(resultsDir, 'raw'));
     expect(raw).toEqual(['2026-11-21T10-00-00-000Z-tiny-fake-model-printed.json']);
