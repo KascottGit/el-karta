@@ -12,6 +12,9 @@ const colors = {
 
 export const view3dBackground = colors.background;
 
+const gizmoMaterial = (color: string) =>
+  new MeshBasicMaterial({ color, transparent: true, depthTest: false, depthWrite: false });
+
 let shared:
   | {
       wall: MeshLambertMaterial;
@@ -19,6 +22,8 @@ let shared:
       device: MeshLambertMaterial;
       opening: Readonly<Record<Opening['kind'], Material>>;
       highlight: MeshBasicMaterial;
+      gizmo: MeshBasicMaterial;
+      gizmoActive: MeshBasicMaterial;
     }
   | undefined;
 
@@ -57,6 +62,9 @@ export function materials() {
       polygonOffsetFactor: -1,
       polygonOffsetUnits: -1,
     }),
+    // Drawn over everything, so a handle inside a wall or behind another can still be grabbed.
+    gizmo: gizmoMaterial(canvasColors.selected),
+    gizmoActive: gizmoMaterial(canvasColors.snap),
   };
   return shared;
 }

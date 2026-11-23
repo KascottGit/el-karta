@@ -2,6 +2,7 @@ import type { FloorCollection, Id } from '@el-karta/core';
 import { Matrix4, Raycaster, Vector2, Vector3, type Camera, type Object3D } from 'three';
 import { sameItem, type SelectionItem } from '@/features/floorplan/canvas/selection';
 import type { View3dItem } from './dev-hook-types';
+import type { GizmoEntry } from './gizmos/controller';
 import type { FloorMeshes } from './meshes/floor-meshes';
 import type { MergedMesh } from './meshes/merged';
 import { itemOfHit } from './meshes/pick';
@@ -63,6 +64,21 @@ export class SceneRegistry {
   readonly floors = new Map<Id, FloorEntry>();
   /** The selected items each floor's highlight draws. */
   readonly highlights = new Map<Id, readonly SelectionItem[]>();
+  private shownGizmo: GizmoEntry | null = null;
+
+  /** The gizmo of the selected wall or opening, while one is drawn. */
+  get gizmo(): GizmoEntry | null {
+    return this.shownGizmo;
+  }
+
+  showGizmo(entry: GizmoEntry) {
+    this.shownGizmo = entry;
+  }
+
+  /** Forgets `entry` unless another gizmo has been shown since. */
+  hideGizmo(entry: GizmoEntry) {
+    if (this.shownGizmo === entry) this.shownGizmo = null;
+  }
 
   /** The item drawn nearest the camera at `(x, y)` in canvas pixels, or null. */
   pick(camera: Camera, size: Size, x: number, y: number): View3dItem | null {
