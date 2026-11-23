@@ -45,7 +45,16 @@ const readTopWall = (page: Page) =>
             model: {
               floors: Record<
                 string,
-                { data: { walls: Record<string, { id: string; a: Pt; b: Pt }> } }
+                {
+                  data: {
+                    walls: Record<string, { id: string; a: Pt; b: Pt }>;
+                    openings: Record<string, { wallId: string; offset: number; width: number }>;
+                    devices: Record<
+                      string,
+                      { placement: { kind: string; wallId?: string; offset?: number } }
+                    >;
+                  };
+                }
               >;
             };
           };
@@ -55,15 +64,31 @@ const readTopWall = (page: Page) =>
         editorStore: { getState(): { floorId: string; selection: { id: string }[] } };
       };
       const { floorId, selection } = editorStore.getState();
-      const walls = Object.values(modelStore.getState().model.floors[floorId]!.data.walls);
-      const top = walls
+      const { walls, openings, devices } = modelStore.getState().model.floors[floorId]!.data;
+      const top = Object.values(walls)
         .filter((w) => w.a.y === w.b.y)
         .reduce((best, w) => (w.a.y < best.a.y ? w : best));
+      const length = Math.abs(top.b.x - top.a.x);
+      // Tap in the widest stretch of the wall without openings or device markers on it.
+      const taken = [
+        ...Object.values(openings)
+          .filter((o) => o.wallId === top.id)
+          .map((o) => [o.offset, o.offset + o.width] as const),
+        ...Object.values(devices)
+          .filter((d) => d.placement.kind === 'wall' && d.placement.wallId === top.id)
+          .map((d) => [d.placement.offset ?? 0, d.placement.offset ?? 0] as const),
+      ].sort((p, q) => p[0] - q[0]);
+      let from = 0;
+      let best = { gap: -1, at: 0 };
+      for (const [start, end] of [...taken, [length, length] as const]) {
+        if (start - from > best.gap) best = { gap: start - from, at: (from + start) / 2 };
+        from = Math.max(from, end);
+      }
+      const t = best.at / length;
       return {
         selected: selection.map((s) => s.id),
         id: top.id,
-        // Openings sit around the middle of the synthetic walls.
-        middle: { x: top.a.x + 0.15 * (top.b.x - top.a.x), y: top.a.y },
+        middle: { x: top.a.x + t * (top.b.x - top.a.x), y: top.a.y },
       };
     },
     [MODEL_STORE, EDITOR_STORE] as const,

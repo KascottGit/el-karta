@@ -16,7 +16,7 @@ import type { SelectionItem } from '@/features/floorplan/canvas/selection';
 import {
   createGestureController,
   type PointerInput,
-  type PointerKind,
+  pointerInput,
 } from '@/features/floorplan/canvas/gestures';
 import { editorStore, useEditorStore } from '@/features/floorplan/editor-store';
 import { useModelStore } from '@/model/store';
@@ -65,7 +65,13 @@ const Highlight = memo(function Highlight({
   }, [registry, floorId, highlight, invalidate]);
 
   return highlight ? (
-    <mesh geometry={highlight.geometry} material={materials().highlight} renderOrder={1} />
+    // The material is shared; R3F would otherwise dispose it when the highlight unmounts.
+    <mesh
+      geometry={highlight.geometry}
+      material={materials().highlight}
+      renderOrder={1}
+      dispose={null}
+    />
   ) : null;
 });
 
@@ -172,9 +178,6 @@ function CameraRig({
   return null;
 }
 
-const pointerKind = (type: string): PointerKind =>
-  type === 'touch' || type === 'pen' ? type : 'mouse';
-
 /** Taps pick and select; drags and pinches are left to the orbit controls. */
 function Interaction({
   registry,
@@ -211,22 +214,7 @@ function Interaction({
       pan: noop,
       pinch: noop,
     });
-    const input = (e: PointerEvent): PointerInput => {
-      const rect = canvas.getBoundingClientRect();
-      return {
-        id: e.pointerId,
-        kind: pointerKind(e.pointerType),
-        button: e.button,
-        buttons: e.buttons,
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-        time: e.timeStamp,
-        panKey: false,
-        shiftKey: e.shiftKey,
-        altKey: e.altKey,
-        modKey: e.ctrlKey || e.metaKey,
-      };
-    };
+    const input = (e: PointerEvent): PointerInput => pointerInput(e, canvas, false);
     const onDown = (e: PointerEvent) => {
       gestures.down(input(e));
     };
