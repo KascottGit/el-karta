@@ -142,12 +142,27 @@ describe('wallPieces', () => {
     expect(r(sidePiece.size.x)).toBe(r(Math.hypot(0.005, 2.995) + 0.15));
   });
 
-  it('extends all ends meeting at a T built from three wall ends', () => {
+  it('extends the stem of a T built from three wall ends, not the straight crossbar', () => {
     const floor = new FloorFixture();
     floor.wall(pt(0, 0), pt(2, 0));
     floor.wall(pt(2, 0), pt(4, 0));
     floor.wall(pt(2, 0), pt(2, 3));
-    expect(wallPieces(floor.data).map((p) => r(p.size.x))).toEqual([2.1, 2.1, 3.1]);
+    expect(wallPieces(floor.data).map((p) => r(p.size.x))).toEqual([2, 2, 3.1]);
+  });
+
+  it('does not extend a wall into a straight continuation, so a door at the joint stays open', () => {
+    const floor = new FloorFixture();
+    floor.wall(pt(0, 0), pt(2, 0));
+    const second = floor.wall(pt(2, 0), pt(4, 0));
+    floor.opening(second.id, 'door', 0, 0.9, 2.1);
+    const pieces = wallPieces(floor.data);
+    const inDoor = pieces.filter(
+      (p) =>
+        p.center.z - p.size.z / 2 < 2.1 - 1e-9 &&
+        p.center.x + p.size.x / 2 > 2 + 1e-9 &&
+        p.center.x - p.size.x / 2 < 2.9,
+    );
+    expect(inDoor).toEqual([]);
   });
 
   it('leaves an end on the middle of another wall as it is, since it already reaches into it', () => {

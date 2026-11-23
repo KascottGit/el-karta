@@ -10,11 +10,19 @@ import {
   type Opening,
   type Wall,
 } from '@el-karta/core';
-import { endKey, jointEnds } from '@/features/floorplan/walls/wall-outline';
+import {
+  endKey,
+  JOINT_TOLERANCE,
+  jointEnds,
+  type WallEnd,
+} from '@/features/floorplan/walls/wall-outline';
 import type { WallPiece } from './types';
 
 /** Shorter pieces than this (1 mm) are dropped; they only come from openings touching each other. */
 const MIN_PIECE = 0.001;
+
+/** Sine of the largest angle (about 1°) at which two joined walls still count as one straight line. */
+const STRAIGHT = 0.02;
 
 interface Hole {
   start: number;
@@ -25,8 +33,10 @@ interface Hole {
 
 /**
  * Every wall of the floor as boxes, split around its openings. A wall end that meets another
- * wall's end is extended by half the wall's thickness so L and T corners close. An end that meets
- * the middle of another wall already reaches into that wall's body and is left as it is.
+ * wall's end is extended by half the wall's thickness so L and T corners close, unless another
+ * wall there continues it in a straight line: that pair is already continuous, and extending it
+ * would overlap the neighbour (coplanar faces, and a sliver inside an opening at the joint). An end
+ * that meets the middle of another wall already reaches into that wall's body and is left as it is.
  */
 export function wallPieces(floor: FloorData): WallPiece[] {
   const openingsByWall = new Map<Id, Opening[]>();
@@ -36,18 +46,66 @@ export function wallPieces(floor: FloorData): WallPiece[] {
     else openingsByWall.set(opening.wallId, [opening]);
   }
   const joined = jointEnds(floor.walls);
+  const continued = continuedEnds(floor.walls, joined);
+  const extends_ = (wallId: Id, end: WallEnd) => {
+    const key = endKey(wallId, end);
+    return joined.has(key) && !continued.has(key);
+  };
   const pieces: WallPiece[] = [];
   for (const wall of Object.values(floor.walls)) {
     piecesOfWall(
       wall,
       wall.height ?? floor.height,
       openingsByWall.get(wall.id) ?? [],
-      joined.has(endKey(wall.id, 'a')),
-      joined.has(endKey(wall.id, 'b')),
+      extends_(wall.id, 'a'),
+      extends_(wall.id, 'b'),
       pieces,
     );
   }
   return pieces;
+}
+
+/** Joined ends where another wall's end continues the wall in a straight line. */
+function continuedEnds(
+  walls: Readonly<Record<Id, Wall>>,
+  joined: ReadonlySet<string>,
+): ReadonlySet<string> {
+  const cell = (v: number) => Math.floor(v / JOINT_TOLERANCE);
+  const ends: { key: string; wallId: Id; p: Wall['a']; into: Wall['a'] }[] = [];
+  for (const w of Object.values(walls)) {
+    if (wallLength(w) < EPSILON) continue;
+    const d = normalize(sub(w.b, w.a));
+    for (const [end, p, into] of [
+      ['a', w.a, d],
+      ['b', w.b, scale(d, -1)],
+    ] as const) {
+      const key = endKey(w.id, end);
+      if (joined.has(key)) ends.push({ key, wallId: w.id, p, into });
+    }
+  }
+  const buckets = new Map<string, typeof ends>();
+  for (const e of ends) {
+    const k = `${cell(e.p.x)},${cell(e.p.y)}`;
+    const bucket = buckets.get(k);
+    if (bucket) bucket.push(e);
+    else buckets.set(k, [e]);
+  }
+  const continued = new Set<string>();
+  for (const e of ends) {
+    const cx = cell(e.p.x);
+    const cy = cell(e.p.y);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (const o of buckets.get(`${cx + dx},${cy + dy}`) ?? []) {
+          if (o.wallId === e.wallId) continue;
+          const cross = e.into.x * o.into.y - e.into.y * o.into.x;
+          const dot = e.into.x * o.into.x + e.into.y * o.into.y;
+          if (Math.abs(cross) < STRAIGHT && dot < 0) continued.add(e.key);
+        }
+      }
+    }
+  }
+  return continued;
 }
 
 function piecesOfWall(
