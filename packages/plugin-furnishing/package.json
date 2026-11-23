@@ -1,0 +1,16 @@
+{
+  "name": "@el-karta/plugin-furnishing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit && tsc --noEmit -p test"
+  },
+  "dependencies": {
+    "@el-karta/core": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

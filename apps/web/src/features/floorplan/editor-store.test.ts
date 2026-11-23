@@ -39,6 +39,15 @@ describe('editor store', () => {
     });
   });
 
+  it('selects on another floor when given a selection, and keeps it on reopening that floor', () => {
+    const store = setup();
+    store.getState().openFloor(floorA);
+    const item = { collection: 'rooms', id: crypto.randomUUID() } as const;
+    store.getState().openFloor(floorB, [item]);
+    store.getState().openFloor(floorB);
+    expect(store.getState()).toMatchObject({ floorId: floorB, selection: [item] });
+  });
+
   it('keeps the render window during a small pan and covers the view after a large one', () => {
     const store = setup();
     store.getState().setViewport({ x: 0, y: 0, scale: 20 });
