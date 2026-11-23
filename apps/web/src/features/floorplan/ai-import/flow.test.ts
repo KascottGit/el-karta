@@ -15,6 +15,7 @@ import { describe, expect, it, vi } from 'vitest';
 import envText from '../../../../e2e/fixtures/ai-import.env?raw';
 import { ImportError } from './errors';
 import {
+  answeredBy,
   fakeBackend,
   fakeImage,
   floorWithBackground,
@@ -22,7 +23,7 @@ import {
   PLAN_SIZE,
   TRUE_METRES_PER_PIXEL,
 } from './fixtures';
-import { commitDrafts, interpretReading, readPlan, reinterpretStored } from './flow';
+import { commitDrafts, importSource, interpretReading, readPlan, reinterpretStored } from './flow';
 import { loadReading } from './reading';
 
 const never = new AbortController().signal;
@@ -77,10 +78,27 @@ describe('readPlan', () => {
       frame: { x: 0, y: 0, ...PLAN_SIZE },
       imageSize: PLAN_SIZE,
       runIds: [expect.any(String)],
-      source: `ai:floorplan:${defaultModels['floorplan']!}`,
+      source: `ai:floorplan:${defaultModels['floorplan']!.primary.model}`,
     });
     expect(reading.output.rooms.map((r) => r.name)).toEqual(['Sovrum', 'Kök']);
     expect(progress).toEqual([{ step: 'locate' }, { step: 'tile', index: 0, count: 1 }]);
+  });
+
+  it('names the models that answered the floor-plan calls in the source', async () => {
+    const fake = fakeBackend();
+    const backend = { ...fake.deps.backend };
+    // The primary is down for the floor-plan call, so the fallback answers it.
+    fake.deps.backend.run = async (request, signal) => {
+      const response = await backend.run(request, signal);
+      return request.pass === 'floorplan'
+        ? { ...response, ...defaultModels['floorplan']!.fallback! }
+        : response;
+    };
+    const { reading } = await read(floorWithBackground(), fake);
+    expect(reading.source).toBe('ai:floorplan:gemini-3-flash-preview');
+    expect(importSource(['claude-haiku-5-5', 'gemini-x', 'claude-haiku-5-5'])).toBe(
+      'ai:floorplan:claude-haiku-5-5+gemini-x',
+    );
   });
 
   it('turns unusable answers into Swedish error codes and stops', async () => {
@@ -95,7 +113,13 @@ describe('readPlan', () => {
       const fake = fakeBackend();
       fake.deps.backend.run = (request) => {
         fake.runs.push(request);
-        return Promise.resolve({ runId: newId(), status: c.status, output: c.output, issues: [] });
+        return Promise.resolve({
+          runId: newId(),
+          ...answeredBy(request.pass),
+          status: c.status,
+          output: c.output,
+          issues: [],
+        });
       };
       const error = await readPlan(floor, fakeImage(), fake.deps, never, () => {}).catch(
         (e: unknown) => e,

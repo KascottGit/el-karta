@@ -5,10 +5,12 @@
 ## Running
 
 ```sh
-GEMINI_API_KEY=… pnpm eval floorplan --model gemini-3-flash-preview [--estimate-scale] [--plans gotgatan-78,lundagatan-47] [--images ../floorplans]
+pnpm eval floorplan [--provider anthropic|gemini] [--model <id>] [--estimate-scale] [--plans gotgatan-78,lundagatan-47] [--images ../floorplans]
 ```
 
-The key comes from `GEMINI_API_KEY` in the shell. When that is not set, the runner reads `supabase/functions/.env` (the ignored file the local Edge Function uses), if it exists, and takes only `GEMINI_API_KEY` from it; its other settings, such as `AI_PROVIDER`, are ignored.
+`--provider` defaults to the floor-plan pass's primary provider (`defaultModels` in `@el-karta/ai-passes`: Anthropic), and `--model` to that pass's model on the chosen provider (`claude-haiku-5-5`, or `gemini-3-flash-preview` with `--provider gemini`). Both passes of a run (locate and floor plan) use that one provider and model, with no fallback.
+
+Each key (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`) comes from the shell. When the shell has none, the runner reads it from `supabase/functions/.env` (the ignored file the local Edge Function uses), if that exists. Only the key names are taken from either; other settings, such as `AI_PROVIDER`, are ignored.
 
 The runner (`run.ts`, `pipeline.ts`) does what the app's import does, in Node:
 

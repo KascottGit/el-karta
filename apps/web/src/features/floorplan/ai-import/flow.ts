@@ -1,5 +1,4 @@
 import {
-  defaultModels,
   floorplanLocatePass,
   floorplanPass,
   FloorplanOutput,
@@ -45,8 +44,12 @@ type Floor = Pick<FloorRecord, 'id' | 'projectId' | 'data'>;
 
 const PASS = floorplanPass.id;
 
-/** Provenance source of imported items: the pass and the model it runs by default. */
-export const importSource = () => `ai:${PASS}:${defaultModels[PASS] ?? 'unknown'}`;
+/**
+ * Provenance source of imported items: the pass and every model that answered its calls, in the
+ * order they first answered (a fallback model joins the primary when it took over some tiles).
+ */
+export const importSource = (models: readonly string[]) =>
+  `ai:${PASS}:${[...new Set(models)].join('+')}`;
 
 function outputOf<T>(response: AiRunResponse, schema: z.ZodType<T>): T {
   if (response.status === 'rate_limited') throw new ImportError('provider_busy');
@@ -78,6 +81,7 @@ export async function readPlan(
   if (!background) throw new ImportError('image');
   const ids = { projectId: floor.projectId, floorId: floor.id };
   const runIds: Id[] = [];
+  const models: string[] = [];
   const issues = new Map<string, SuggestionIssue>();
   const call = async (pass: string, input: unknown) => {
     const response = await abortable(deps.backend.run({ ...ids, pass, input }, signal), signal);
@@ -93,6 +97,7 @@ export async function readPlan(
       floorplan: async (input) => {
         const response = await call(PASS, input);
         runIds.push(response.runId);
+        models.push(response.model);
         return outputOf(response, FloorplanOutput);
       },
     },
@@ -110,7 +115,7 @@ export async function readPlan(
     ...(image.pdfPageWidthMm === undefined ? {} : { pdfPageWidthMm: image.pdfPageWidthMm }),
     ...(reading.page ? { page: reading.page } : {}),
     runIds,
-    source: importSource(),
+    source: importSource(models),
     issues: [...issues.values()],
   };
 }

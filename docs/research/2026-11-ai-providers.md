@@ -24,6 +24,16 @@ Desk research before M11, to pick which providers to add behind `AiProvider` and
 
 Verified against the provider's own docs: DeepSeek models, vision and prices; Claude Haiku 5.5 price and image input. The rest came from pricing aggregators and is directional.
 
+### Claude Haiku 5.5, checked 2026-11-23
+
+Checked on Anthropic's models overview, the Haiku 5.5 model page, the pricing page and the structured outputs page (sources below), not through the Models API (no key yet):
+
+- Model id `claude-haiku-5-5` (a pinned snapshot; the alias is the same string). Released 7 October 2026, retirement not before 7 October 2027. The older `claude-haiku-4-5` is still listed at $1 / $5.
+- Prices per 1M tokens depend on the prompt length: up to 100,000 prompt tokens $0.10 in, $0.50 out, cache reads $0.01, 5-minute cache writes $0.125; over 100,000 prompt tokens $0.50 in, $2.50 out. The prompt length counts all input tokens, cached ones included. Batch API is half price. A floor-plan call is far below the threshold.
+- Text and image input, 1M context, 128K output. Adaptive thinking is on by default (effort default `medium`); thinking tokens are billed as output. `temperature`, `top_p` and `top_k` must be left out.
+- Structured output (`output_config.format`, JSON Schema) is supported. Objects must have `additionalProperties: false`; numeric bounds, string lengths and `oneOf` are not supported, which the provider handles with the SDK's schema transform.
+- Same newer tokenizer as Claude 4.7 and later: about 30 % more tokens than Haiku 4.5 for the same text, so measure real counts.
+
 ## DeepSeek V4.1
 
 Technically it fits: `deepseek-flash` takes images (resized to at most about 1024 tokens each), is among the cheapest options, and supports JSON output and tool calls. Peak hours are 01–04 and 06–10 UTC on weekdays; off-peak is half price.
@@ -49,6 +59,9 @@ Each needs an `AiProvider` implementation in `packages/ai-providers`. Score them
 - Garante and DeepSeek: https://thedpo.eu/en/decisions/a8ad032c-f045-409e-a449-958de8c7374f
 - DeepSeek on EU infrastructure: https://optinest.de/ai-infrastructure/models/open-weights/running-deepseek-models-on-european-infrastructure
 - Claude Haiku 5.5: https://platform.claude.com/docs/en/models/haiku-5-5/overview
+- Claude models overview: https://platform.claude.com/docs/en/about-claude/models/overview
+- Claude pricing: https://platform.claude.com/docs/en/about-claude/pricing
+- Claude structured outputs: https://platform.claude.com/docs/en/build-with-claude/structured-outputs
 - Gemini Flash-Lite EU pricing: https://www.requesty.ai/models/vertex/gemini-3.1-flash-lite-eu
 - GPT-5 mini: https://developers.openai.com/api/docs/models/gpt-5-mini
 - Mistral pricing: https://www.cloudzero.com/blog/mistral-api-pricing/

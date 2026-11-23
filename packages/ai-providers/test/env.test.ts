@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { createProviderFromEnv } from '../src/index.ts';
+import { createProvidersFromEnv } from '../src/index.ts';
 
-describe('createProviderFromEnv', () => {
-  it('returns the fake provider with the given replies', async () => {
-    const provider = createProviderFromEnv({ AI_PROVIDER: 'fake' }, { fakeReplies: [{ ok: 1 }] });
-    expect(provider.id).toBe('fake');
-    const response = await provider.generateStructured({
+const ids = (env: Record<string, string | undefined>) => [...createProvidersFromEnv(env).keys()];
+
+describe('createProvidersFromEnv', () => {
+  it('returns only the fake provider with the given replies, whatever keys are set', async () => {
+    const providers = createProvidersFromEnv(
+      { AI_PROVIDER: 'fake', ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g' },
+      { fakeReplies: [{ ok: 1 }] },
+    );
+    expect([...providers.keys()]).toEqual(['fake']);
+    const response = await providers.get('fake')!.generateStructured({
       model: 'm',
       system: '',
       messages: [],
@@ -15,16 +20,27 @@ describe('createProviderFromEnv', () => {
     expect(response.text).toBe('{"ok":1}');
   });
 
-  it('returns Gemini when a key is set', () => {
-    expect(createProviderFromEnv({ GEMINI_API_KEY: 'k' }).id).toBe('gemini');
-    expect(createProviderFromEnv({ AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'k' }).id).toBe('gemini');
+  it('returns every provider that has a key, under its own id', () => {
+    const providers = createProvidersFromEnv({ ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g' });
+    expect([...providers.keys()]).toEqual(['anthropic', 'gemini']);
+    expect(providers.get('anthropic')!.id).toBe('anthropic');
+    expect(providers.get('gemini')!.id).toBe('gemini');
+    expect(ids({ GEMINI_API_KEY: 'g' })).toEqual(['gemini']);
+    expect(ids({ ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: '' })).toEqual(['anthropic']);
+    expect(ids({})).toEqual([]);
   });
 
-  it('refuses a missing configuration or an unknown provider', () => {
-    expect(() => createProviderFromEnv({})).toThrow(/GEMINI_API_KEY/);
-    expect(() => createProviderFromEnv({ AI_PROVIDER: 'other', GEMINI_API_KEY: 'k' })).toThrow(
-      /Unknown/,
-    );
-    expect(() => createProviderFromEnv({ AI_PROVIDER: 'fake' })).toThrow(/at least one reply/);
+  it('keeps only the provider AI_PROVIDER names', () => {
+    expect(ids({ AI_PROVIDER: 'gemini', ANTHROPIC_API_KEY: 'a', GEMINI_API_KEY: 'g' })).toEqual([
+      'gemini',
+    ]);
+    expect(ids({ AI_PROVIDER: 'anthropic', GEMINI_API_KEY: 'g' })).toEqual([]);
+    expect(ids({ AI_PROVIDER: '', GEMINI_API_KEY: 'g' })).toEqual(['gemini']);
+  });
+
+  it('refuses an unknown provider or a fake one without replies', () => {
+    expect(() => createProvidersFromEnv({ AI_PROVIDER: 'other' })).toThrow(/Unknown/);
+    expect(() => createProvidersFromEnv({ AI_PROVIDER: 'toString' })).toThrow(/Unknown/);
+    expect(() => createProvidersFromEnv({ AI_PROVIDER: 'fake' })).toThrow(/at least one reply/);
   });
 });

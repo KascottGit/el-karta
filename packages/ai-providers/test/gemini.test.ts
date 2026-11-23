@@ -114,7 +114,9 @@ describe('createGeminiProvider', () => {
 
   it('gives up on a persistent 503 with error', async () => {
     const { provider, calls } = setup([() => json(503, { error: { code: 503, message: 'down' } })]);
-    await expect(provider.generateStructured(request)).rejects.toMatchObject({ kind: 'error' });
+    await expect(provider.generateStructured(request)).rejects.toMatchObject({
+      kind: 'unavailable',
+    });
     expect(calls).toHaveLength(3);
   });
 
@@ -168,7 +170,7 @@ describe('createGeminiProvider timeouts', () => {
       })
       .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ProviderError);
-    expect((error as ProviderError).kind).toBe('error');
+    expect((error as ProviderError).kind).toBe('unavailable');
     expect((error as ProviderError).message).toMatch(/within 0.02 s/);
     expect(attempts).toBe(3);
   });

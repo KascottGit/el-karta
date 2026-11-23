@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { LightFacit, Manifest } from '../floorplan/facit.ts';
 import { loadPlanImage } from '../floorplan/image.ts';
-import { FLOORPLAN_COLUMNS, runFloorplanEval } from '../floorplan/run.ts';
+import { FLOORPLAN_COLUMNS, floorplanEvalChoice, runFloorplanEval } from '../floorplan/run.ts';
 import type { FloorplanScores } from '../floorplan/score.ts';
 import { flat, locate } from './fixtures.ts';
 
@@ -94,6 +94,24 @@ const pngSize = (data: string) => {
   const png = Buffer.from(data, 'base64');
   return [png.readUInt32BE(16), png.readUInt32BE(20)];
 };
+
+describe('floorplanEvalChoice', () => {
+  it('defaults to the pass primary, and to the pass model on a named provider', () => {
+    expect(floorplanEvalChoice(undefined, undefined)).toEqual({
+      provider: 'anthropic',
+      model: 'claude-haiku-5-5',
+    });
+    expect(floorplanEvalChoice('gemini', undefined)).toEqual({
+      provider: 'gemini',
+      model: 'gemini-3-flash-preview',
+    });
+    expect(floorplanEvalChoice('gemini', 'gemini-x')).toEqual({
+      provider: 'gemini',
+      model: 'gemini-x',
+    });
+    expect(() => floorplanEvalChoice('mistral', undefined)).toThrow(/--model/);
+  });
+});
 
 describe('loadPlanImage', () => {
   it('renders a PDF page with its width in mm, and takes an image file at its own size', async () => {

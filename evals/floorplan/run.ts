@@ -1,3 +1,4 @@
+import { defaultModels, type ModelChoice } from '@el-karta/ai-passes';
 import type { AiProvider } from '@el-karta/ai-providers';
 import { DEFAULT_METRES_PER_PIXEL } from '@el-karta/core';
 import { createHash } from 'node:crypto';
@@ -52,6 +53,18 @@ export interface FloorplanEvalOptions {
   now?: () => Date;
   loadImage?: (path: string, page: number) => Promise<PlanImage>;
   log?: (line: string) => void;
+}
+
+/** The provider and model to evaluate: as given, else the floor-plan pass's default on it. */
+export function floorplanEvalChoice(
+  provider: string | undefined,
+  model: string | undefined,
+): ModelChoice {
+  const { primary, fallback } = defaultModels['floorplan']!;
+  const id = provider ?? primary.provider;
+  const chosen = model ?? [primary, fallback].find((choice) => choice?.provider === id)?.model;
+  if (chosen === undefined) throw new Error(`No default floor-plan model on ${id}; pass --model`);
+  return { provider: id, model: chosen };
 }
 
 const sha256 = (data: Buffer) => createHash('sha256').update(data).digest('hex');
