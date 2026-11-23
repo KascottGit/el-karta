@@ -1,7 +1,15 @@
-import { add, distance, scale as scaled, type Pt, type Wall } from '@el-karta/core';
+import {
+  add,
+  distance,
+  leftNormal,
+  scale as scaled,
+  sub,
+  type Pt,
+  type Wall,
+} from '@el-karta/core';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Circle, Line } from 'react-konva';
+import { Arrow, Circle, Line } from 'react-konva';
 import { useModelStore } from '@/model/store';
 import { useEditorStore } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
@@ -12,6 +20,8 @@ import { canvasColors } from '../canvas/theme';
 import { wallColors } from './colors';
 import { formatDecimal } from '../fields/numbers';
 import { cornerHandle } from './corner-handle';
+import { wallMoveHandle } from './move-wall-handle';
+import { wallsMovable } from './move-wall-tool';
 import { endKey, jointEnds, wallOutline } from './wall-outline';
 import { WALL_TOOL } from './wall-tool';
 import { WallShape } from './walls-layer';
@@ -19,8 +29,13 @@ import { useWallsStore } from './walls-store';
 import { SnapMarker } from '../snapping/snap-marker';
 
 const HANDLE_PX = 6;
+/** Half the length of the double arrow across a selected wall's middle. */
+const ARROW_PX = 18;
 
-/** Everything the walls feature draws above the model: the polyline being drawn, a dragged corner, the snap marker and corner handles. */
+/**
+ * Everything the walls feature draws above the model: the polyline being drawn, a dragged corner
+ * or wall, the snap marker, corner handles and move arrows.
+ */
 export function WallsOverlay({ ctx }: { ctx: CanvasContext }) {
   return (
     <>
@@ -28,6 +43,7 @@ export function WallsOverlay({ ctx }: { ctx: CanvasContext }) {
       <DragPreview ctx={ctx} />
       <WallSnapMarker />
       <CornerHandles ctx={ctx} />
+      <MoveArrows ctx={ctx} />
     </>
   );
 }
@@ -97,8 +113,10 @@ function DragPreview({ ctx }: { ctx: CanvasContext }) {
   const walls = useModelStore((s) => s.model?.floors[ctx.floorId]?.data.walls);
   if (!drag || !walls) return null;
   const joints = jointEnds(walls);
-  const moved = new Set(drag.ends.map((e) => endKey(e.wallId, e.end)));
-  const corner = drag.ends.length > 1;
+  // A moved wall keeps its joints; a dragged corner is capped where it still joins.
+  const ends = drag.kind === 'corner' ? drag.ends : [];
+  const moved = new Set(ends.map((e) => endKey(e.wallId, e.end)));
+  const corner = ends.length > 1;
   return drag.preview.map((wall) => (
     <WallShape
       key={wall.id}
@@ -156,4 +174,44 @@ function CornerHandles({ ctx }: { ctx: CanvasContext }) {
       strokeScaleEnabled={false}
     />
   ));
+}
+
+/** A double arrow across the middle of each selected wall, dragged to move the wall along its normal. */
+function MoveArrows({ ctx }: { ctx: CanvasContext }) {
+  const walls = useModelStore((s) => s.model?.floors[ctx.floorId]?.data.walls);
+  const selection = useEditorStore((s) => s.selection);
+  const scale = useEditorStore((s) => s.viewport.scale);
+  const movable = useEditorStore(wallsMovable);
+  const dragging = useWallsStore((s) => s.drag !== null);
+  const selected = useMemo(
+    () =>
+      walls && movable && !dragging
+        ? [...selectedIds(selection, 'walls')].flatMap((id) => {
+            const wall = walls[id];
+            return wall && distance(wall.a, wall.b) > 0 ? [wall] : [];
+          })
+        : [],
+    [walls, selection, movable, dragging],
+  );
+  return selected.map((wall) => {
+    const mid = scaled(add(wall.a, wall.b), 0.5);
+    const n = scaled(leftNormal(sub(wall.b, wall.a)), ARROW_PX / scale);
+    const from = sub(mid, n);
+    const to = add(mid, n);
+    return (
+      <Arrow
+        key={wall.id}
+        {...handle(wallMoveHandle, { wallId: wall.id })}
+        points={[from.x, from.y, to.x, to.y]}
+        pointerAtBeginning
+        pointerLength={7 / scale}
+        pointerWidth={9 / scale}
+        fill={canvasColors.selected}
+        stroke={canvasColors.selected}
+        strokeWidth={2.5}
+        strokeScaleEnabled={false}
+        hitStrokeWidth={HANDLE_PX * 2}
+      />
+    );
+  });
 }

@@ -12,7 +12,7 @@ const wallsOf = (floorId: Id) => modelStore.getState().model?.floors[floorId]?.d
 function target(p: CanvasPointer, ctx: CanvasContext) {
   const walls = wallsOf(ctx.floorId);
   const drag = wallsStore.getState().drag;
-  if (!walls || drag?.floorId !== ctx.floorId) return null;
+  if (!walls || drag?.kind !== 'corner' || drag.floorId !== ctx.floorId) return null;
   const snap = snapPointer(p, ctx, { from: fixedEnds(walls, drag.ends), ignore: drag.moving });
   return { walls, drag, snap, moved: moveEnds(walls, drag.ends, snap.point) };
 }
@@ -34,6 +34,7 @@ export const cornerHandle: Handle<{ wallId: Id; end: WallEnd }> = {
     const ends = cornerAt(walls, origin);
     wallsStore.setState({
       drag: {
+        kind: 'corner',
         floorId: ctx.floorId,
         origin,
         ends,
