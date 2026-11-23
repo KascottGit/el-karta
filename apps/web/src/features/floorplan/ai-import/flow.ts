@@ -46,7 +46,7 @@ type Floor = Pick<FloorRecord, 'id' | 'projectId' | 'data'>;
 const PASS = floorplanPass.id;
 
 /** Provenance source of imported items: the pass and the model it runs by default. */
-export const importSource = () => `ai:${PASS}:${defaultModels[PASS] ?? 'unknown'}`;
+export const importSource = () => `ai:${PASS}:${defaultModels[PASS]?.primary.model ?? 'unknown'}`;
 
 function outputOf<T>(response: AiRunResponse, schema: z.ZodType<T>): T {
   if (response.status === 'rate_limited') throw new ImportError('provider_busy');

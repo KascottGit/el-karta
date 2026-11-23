@@ -1,5 +1,5 @@
-import { defaultModels, runPass, type PassRegistry } from '@el-karta/ai-passes';
-import { createProviderFromEnv } from '@el-karta/ai-providers';
+import { planModels, runPass, type PassRegistry, type RunResult } from '@el-karta/ai-passes';
+import { createProvidersFromEnv, type AiProvider } from '@el-karta/ai-providers';
 import type { Id, SuggestionKinds } from '@el-karta/core';
 import {
   AI_PASS_MAX_BODY_BYTES,
@@ -25,6 +25,11 @@ export interface AiPassDeps {
   kinds: SuggestionKinds;
   /** A client that acts as the caller: anon key plus the caller's Authorization header. */
   clientFor(authorization: string): ElKartaClient;
+  /**
+   * The providers for one run, by id; created per run so the fake provider replays its replies
+   * from the start. Defaults to `createProvidersFromEnv(env)`.
+   */
+  providers?: () => ReadonlyMap<string, AiProvider>;
 }
 
 const cors = {
@@ -138,8 +143,9 @@ async function run(
   const pass = deps.passes.get(body.pass)!;
   const input = pass.inputSchema.safeParse(body.input);
   if (!input.success) throw new Refusal('bad_request', z.prettifyError(input.error));
-  const model = body.model ?? defaultModels[pass.id];
-  if (model === undefined) throw new Refusal('bad_request', `No default model for "${pass.id}"`);
+  const providers = deps.providers ? deps.providers() : providersFromEnv(deps.env);
+  const plan = planModels(pass.id, providers, body.model);
+  if (!plan.ok) throw new Refusal('bad_request', plan.reason);
 
   // Concurrent requests can each pass this check, so the limit may be exceeded by a few runs.
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -149,16 +155,37 @@ async function run(
     throw new Refusal('rate_limited', `At most ${runsPerHour} AI runs per hour`);
   }
 
-  const replies = fakeReplies(deps.env);
-  const provider = createProviderFromEnv(deps.env, replies ? { fakeReplies: replies } : {});
-  const result = await runPass(pass, input.data, { provider, model });
+  // Only a provider failure moves on to the fallback; invalid output would be no better there.
+  let last: { runId: Id; result: RunResult<unknown> } | undefined;
+  for (const { provider, model } of plan.attempts) {
+    const result = await runPass(pass, input.data, { provider, model });
+    last = { runId: await logRun(client, body, provider.id, result), result };
+    if (result.status !== 'error' && result.status !== 'rate_limited') break;
+  }
+  const { runId, result } = last!;
+  return {
+    runId,
+    status: result.status,
+    output: result.output,
+    issues: result.issues,
+    ...(result.error === undefined ? {} : { error: result.error }),
+  };
+}
+
+/** One `ai_runs` row per attempt, so failed attempts count towards the failure rate and the limit. */
+async function logRun(
+  client: ElKartaClient,
+  body: AiRunRequest,
+  provider: string,
+  result: RunResult<unknown>,
+): Promise<Id> {
   const logged = await client
     .from('ai_runs')
     .insert({
       project_id: body.projectId,
       floor_id: body.floorId,
-      pass: pass.id,
-      provider: provider.id,
+      pass: body.pass,
+      provider,
       model: result.model,
       model_version: result.modelVersion ?? null,
       input_tokens: result.usage.inputTokens ?? null,
@@ -172,13 +199,12 @@ async function run(
     .select('id')
     .single();
   if (logged.error) throw new Error(logged.error.message);
-  return {
-    runId: logged.data.id,
-    status: result.status,
-    output: result.output,
-    issues: result.issues,
-    ...(result.error === undefined ? {} : { error: result.error }),
-  };
+  return logged.data.id;
+}
+
+function providersFromEnv(env: AiPassDeps['env']): ReadonlyMap<string, AiProvider> {
+  const replies = fakeReplies(env);
+  return createProvidersFromEnv(env, replies ? { fakeReplies: replies } : {});
 }
 
 function fakeReplies(env: AiPassDeps['env']): unknown[] | undefined {

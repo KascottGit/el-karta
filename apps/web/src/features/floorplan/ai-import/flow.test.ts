@@ -77,7 +77,7 @@ describe('readPlan', () => {
       frame: { x: 0, y: 0, ...PLAN_SIZE },
       imageSize: PLAN_SIZE,
       runIds: [expect.any(String)],
-      source: `ai:floorplan:${defaultModels['floorplan']!}`,
+      source: `ai:floorplan:${defaultModels['floorplan']!.primary.model}`,
     });
     expect(reading.output.rooms.map((r) => r.name)).toEqual(['Sovrum', 'Kök']);
     expect(progress).toEqual([{ step: 'locate' }, { step: 'tile', index: 0, count: 1 }]);

@@ -25,6 +25,25 @@ export default defineConfig({
         test: { name: 'web', root: 'apps/web', include: ['src/**/*.test.{ts,tsx}'] },
       },
       { test: { name: 'tooling', root: 'tooling', include: ['**/*.test.ts'] } },
+      // Deno code; the aliases mirror the import map in supabase/functions/deno.json.
+      {
+        resolve: {
+          alias: {
+            '@el-karta/core': resolve(import.meta.dirname, 'packages/core/src/index.ts'),
+            '@el-karta/ai-passes': resolve(import.meta.dirname, 'packages/ai-passes/src/index.ts'),
+            '@el-karta/ai-providers': resolve(
+              import.meta.dirname,
+              'packages/ai-providers/src/index.ts',
+            ),
+            '@el-karta/data-supabase': resolve(
+              import.meta.dirname,
+              'packages/data-supabase/src/index.ts',
+            ),
+            zod: resolve(import.meta.dirname, 'packages/data-supabase/node_modules/zod'),
+          },
+        },
+        test: { name: 'functions', root: 'supabase/functions', include: ['**/*.test.ts'] },
+      },
       // Renders a PDF page with pdf.js, which takes a few seconds.
       {
         test: { name: 'evals', root: 'evals', include: ['test/**/*.test.ts'], testTimeout: 30_000 },
