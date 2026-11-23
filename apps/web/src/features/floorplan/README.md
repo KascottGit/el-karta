@@ -54,6 +54,8 @@ Escape first cancels a drag in progress. If `onKeyDown` does not handle it, it t
 
 **Validation:** `floorIssues(floor)` (`validation/floor-issues.ts`) validates a floor once per edit and is cached per floor data. Features filter it for their items, as `walls/wall-issues.ts` and `areas/area-issues.ts` do, and draw flagged items in `issueColors` from `canvas/theme.ts`. List the issues of the selected items in their side panel with `IssueList` (`validation/issue-list.tsx`), after grouping them with `summarizeIssues`. Openings whose wall is missing (`opening.wall-missing`) are not drawn, since there is no wall to place them on; the editor removes a wall's openings with the wall, so only imported or remote data has them.
 
+**Opening moves and resizes** are pure functions in `openings/resize.ts`, shared by the 2D handles and the 3D gizmos: `slideOpeningTo`, `moveOpeningEdge` (`start` is the edge at `offset`, `end` the one at `offset + width`), `setOpeningTop` and `setOpeningSill` (windows only, keeping the top). Each takes an `OpeningFrame` (the wall, the other openings on it and the floor height, from `openingFrame`), clamps to the wall, its height, the neighbours and the minimum sizes, and rounds the changed value to whole centimetres when asked (2D asks while snapping is on and Alt is not held).
+
 **Rooms and zones follow wall centrelines.** A room polygon, whether filled from walls (`fillRoom` in core) or drawn with snapping, runs along the centre lines of the walls around it, so its area includes half the thickness of those walls and neighbouring rooms share their sides. See ADR 0006.
 
 ### Handles (draggable points)
@@ -125,6 +127,7 @@ Both commit once, on Enter or blur, and only when the text changed.
 | Delete, Backspace                                                | Delete the selection                                                           |
 | Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z, Ctrl + Y                     | Undo, redo                                                                     |
 | Drag on the selected wall, or its double arrow                   | Move the wall along its normal; joined walls follow (`walls/move-wall.ts`)     |
+| Drag an edge bar of the only selected door, window or passage    | Change its width from that side; the other edge stays (`openings/resize.ts`)   |
 | Single key                                                       | The tool or action with that `shortcut` (V select, F zoom to fit, O move wall) |
 
 Browsers do not say whether a wheel event comes from a mouse or a trackpad, so the wheel rows follow a fixed rule (`canvas/wheel.ts`):
