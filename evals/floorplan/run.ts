@@ -15,6 +15,7 @@ const here = import.meta.dirname;
 export const FLOORPLAN_COLUMNS = [
   'date',
   'plan',
+  'provider',
   'model',
   'modelVersion',
   'mode',
@@ -33,6 +34,7 @@ export const FLOORPLAN_COLUMNS = [
   'wallLengthError',
   'inputTokens',
   'outputTokens',
+  'costUsd',
   'calls',
   'durationMs',
   'error',
@@ -149,6 +151,7 @@ export async function runFloorplanEval(options: FloorplanEvalOptions): Promise<F
     const row: FloorplanRow = {
       date: date.toISOString(),
       plan: plan.id,
+      provider: options.provider.id,
       model: options.model,
       modelVersion: result.modelVersion,
       mode: options.mode,
@@ -157,6 +160,7 @@ export async function runFloorplanEval(options: FloorplanEvalOptions): Promise<F
       ...scores,
       inputTokens: result.usage.inputTokens,
       outputTokens: result.usage.outputTokens,
+      costUsd: result.costUsd?.toFixed(6),
       calls: result.calls,
       durationMs,
       error: result.error,
