@@ -7,9 +7,11 @@ import type { CanvasContext } from '@/features/floorplan/canvas/extension';
 import { setSnapping } from '@/features/floorplan/snapping/snapping';
 import { pointer, projectWith, pt, testCtx } from '@/features/floorplan/walls/test-fixtures';
 import { deviceDragStore } from '@/features/devices/device-drag';
+import { footprintCorners } from '@/features/devices/placement';
 import { furnishingStore } from './furnishing-store';
 import {
   asFurniture,
+  knobPlacement,
   normalizeDegrees,
   roomAt,
   rotationTowards,
@@ -166,5 +168,23 @@ describe('furniture handles', () => {
     furnitureMove.onDragCancel!({ id: desk.id }, ctx());
     expect(deviceDragStore.getState().drag).toBeNull();
     expect(only().placement.at).toEqual(pt(2, 2));
+  });
+});
+
+describe('knobPlacement', () => {
+  it('puts the knob behind the back edge, where turning towards it keeps the rotation', () => {
+    for (const degrees of [0, 30, 90, 135, 200, 315]) {
+      const center = pt(2, 3);
+      const size = { x: 1.4, y: 0.7, z: 0.75 };
+      const footprint = { center, size, rotation: (degrees * Math.PI) / 180 };
+      const corners = footprintCorners(footprint);
+      // footprintCorners lists the -y edge first.
+      const backMid = pt((corners[0]!.x + corners[1]!.x) / 2, (corners[0]!.y + corners[1]!.y) / 2);
+      const { edge, knob } = knobPlacement(footprint, 0.5);
+      expect(edge.x).toBeCloseTo(backMid.x);
+      expect(edge.y).toBeCloseTo(backMid.y);
+      expect(Math.hypot(knob.x - edge.x, knob.y - edge.y)).toBeCloseTo(0.5);
+      expect(rotationTowards(center, knob, 0)).toBeCloseTo(degrees);
+    }
   });
 });

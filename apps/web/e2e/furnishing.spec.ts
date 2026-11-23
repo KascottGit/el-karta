@@ -174,6 +174,17 @@ test.describe('on a phone', () => {
     await tapButton(page, 'Gör om');
     await expect(width).toHaveValue('1,8');
 
+    // Unselected, the desk has no handles, so a finger drag across it pans the view.
+    await selectItems(page, []);
+    const panFrom = view(moved);
+    const viewportBefore = await readViewport(page);
+    await fingerDrag(cdp, panFrom, { x: panFrom.x + 80, y: panFrom.y + 40 });
+    expect((await desk())!.placement.at).toEqual(moved);
+    const viewportAfter = await readViewport(page);
+    expect(viewportAfter.x - viewportBefore.x).toBeCloseTo(80, 0);
+    expect(viewportAfter.y - viewportBefore.y).toBeCloseTo(40, 0);
+    await selectItems(page, [{ collection: 'devices', id: placed.id }]);
+
     // The desk stays selected in 3D, where it is a box that a tap reaches.
     await tapButton(page, '3D');
     await expect(view3dCanvas(page)).toBeVisible();
@@ -194,3 +205,22 @@ const openFloorId = (page: Page) =>
     };
     return editorStore.getState().floorId;
   }, EDITOR_STORE);
+
+const readViewport = (page: Page) =>
+  page.evaluate(async (url) => {
+    const { editorStore } = (await import(/* @vite-ignore */ url)) as {
+      editorStore: { getState(): { viewport: { x: number; y: number } } };
+    };
+    return editorStore.getState().viewport;
+  }, EDITOR_STORE);
+
+const selectItems = (page: Page, items: { collection: string; id: string }[]) =>
+  page.evaluate(
+    async ([url, selection]) => {
+      const { editorStore } = (await import(/* @vite-ignore */ url)) as {
+        editorStore: { getState(): { select(items: unknown[]): void } };
+      };
+      editorStore.getState().select(selection);
+    },
+    [EDITOR_STORE, items] as const,
+  );

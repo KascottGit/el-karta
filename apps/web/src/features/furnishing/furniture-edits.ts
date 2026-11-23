@@ -12,6 +12,7 @@ import {
 } from '@el-karta/core';
 import { FURNITURE_SIZES, isFurniture, type FurnitureType } from '@el-karta/plugin-furnishing';
 import type { SelectionItem } from '@/features/floorplan/canvas/selection';
+import type { SizedFootprint } from '@/features/devices/placement';
 
 /** A piece of furniture: a device of the furnishing plugin standing on the floor. */
 export type Furniture = Device & {
@@ -47,6 +48,22 @@ export const normalizeDegrees = (degrees: number) => {
   const d = degrees % 360;
   return d < 0 ? d + 360 : d === 0 ? 0 : d;
 };
+
+/**
+ * Where the rotation knob of a footprint sits: `gap` metres behind its back edge (its local -y
+ * side), with the middle of that edge, for the line drawn between them.
+ */
+export function knobPlacement(
+  { center, size, rotation }: SizedFootprint,
+  gap: number,
+): { edge: Pt; knob: Pt } {
+  const back = { x: Math.sin(rotation), y: -Math.cos(rotation) };
+  const reach = size.y / 2 + gap;
+  return {
+    edge: { x: center.x + (back.x * size.y) / 2, y: center.y + (back.y * size.y) / 2 },
+    knob: { x: center.x + back.x * reach, y: center.y + back.y * reach },
+  };
+}
 
 /**
  * The rotation that turns the item's back (its local -y side, where the rotation handle sits)

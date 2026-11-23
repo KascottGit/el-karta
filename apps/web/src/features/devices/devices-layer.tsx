@@ -10,7 +10,7 @@ import { selectable } from '@/features/floorplan/canvas/hit';
 import { selectedIds } from '@/features/floorplan/canvas/selection';
 import { useRenderWindow } from '@/features/floorplan/canvas/use-render-window';
 import { deviceAppearance, type MarkerShape } from './appearance';
-import { useDraggedDevice } from './device-drag';
+import { useDraggedDevice, withoutDragged } from './device-drag';
 import { deviceColor, deviceIssues, type DeviceIssue } from './device-issues';
 import { deviceMarks, markBounds, type DeviceMark } from './device-marks';
 import { Footprint, Markers } from './device-shapes';
@@ -41,10 +41,7 @@ export function DevicesLayer({ ctx }: { ctx: CanvasContext }) {
   const culled = useMemo(() => (marks ? cullMarks(marks, view) : NO_MARKS), [marks, view]);
   // The device being dragged is drawn by `DraggedDevice` on the overlays meanwhile.
   const dragged = useDraggedDevice(ctx.floorId)?.id;
-  const visible = useMemo(
-    () => (dragged === undefined ? culled : culled.filter((m) => m.device.id !== dragged)),
-    [culled, dragged],
-  );
+  const visible = useMemo(() => withoutDragged(culled, dragged), [culled, dragged]);
   const selected = useMemo(() => selectedIds(selection, 'devices'), [selection]);
 
   const colorOf = useMemo(() => (mark: DeviceMark) => deviceColor(issues, mark.device), [issues]);

@@ -20,3 +20,10 @@ export const setDeviceDrag = (drag: DeviceDrag | null) => {
 /** The preview of the device being dragged on this floor, or null. */
 export const useDraggedDevice = (floorId: Id): Device | null =>
   useStore(deviceDragStore, (s) => (s.drag?.floorId === floorId ? s.drag.device : null));
+
+/** `items` without the dragged device, so the layer does not draw it twice; the same array when nothing is dragged. */
+export const withoutDragged = <T extends { device: { id: Id } }>(
+  items: readonly T[],
+  draggedId: Id | undefined,
+): readonly T[] =>
+  draggedId === undefined ? items : items.filter((m) => m.device.id !== draggedId);

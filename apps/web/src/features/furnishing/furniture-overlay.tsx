@@ -13,7 +13,7 @@ import { Footprint } from '@/features/devices/device-shapes';
 import { footprintCorners, sizedFootprint } from '@/features/devices/placement';
 import { useFurnishingStore } from './furnishing-store';
 import { furnitureMove, furnitureRotate } from './furniture-handles';
-import { asFurniture, selectedFurniture, type Furniture } from './furniture-edits';
+import { asFurniture, knobPlacement, selectedFurniture, type Furniture } from './furniture-edits';
 
 /** Screen pixels from the item's back edge to the rotation knob. */
 export const KNOB_GAP_PX = 28;
@@ -53,12 +53,7 @@ const ItemHandles = memo(function ItemHandles({ item, scale }: { item: Furniture
   const footprint = sizedFootprint(item);
   const corners = useMemo(() => footprint && footprintCorners(footprint), [footprint]);
   if (!footprint || !corners) return null;
-  const { center, size, rotation } = footprint;
-  // The knob sits behind the item, along its local -y axis.
-  const reach = size.y / 2 + KNOB_GAP_PX / scale;
-  const back = { x: Math.sin(rotation), y: -Math.cos(rotation) };
-  const edge = { x: center.x + (back.x * size.y) / 2, y: center.y + (back.y * size.y) / 2 };
-  const knob = { x: center.x + back.x * reach, y: center.y + back.y * reach };
+  const { edge, knob } = knobPlacement(footprint, KNOB_GAP_PX / scale);
   return (
     <>
       <Body id={item.id} corners={corners} />
