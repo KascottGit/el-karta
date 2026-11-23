@@ -214,6 +214,7 @@
   },
   "walls": {
     "tool": "Vägg",
+    "moveTool": "Flytta vägg",
     "newWalls": "Nya väggar",
     "interior": "Innervägg",
     "exterior": "Yttervägg",

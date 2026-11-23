@@ -24,7 +24,7 @@ export function View3dControls({ floorId }: { floorId: Id }) {
   };
 
   return (
-    <div className="absolute top-2 right-2 z-10 flex gap-1">
+    <div className="absolute top-2 left-2 z-10 flex gap-1">
       {floors.length > 1 && (
         <Popover.Root>
           <Popover.Trigger asChild>
@@ -35,7 +35,7 @@ export function View3dControls({ floorId }: { floorId: Id }) {
           </Popover.Trigger>
           <Popover.Portal>
             <Popover.Content
-              align="end"
+              align="start"
               sideOffset={4}
               collisionPadding={16}
               className="z-50 w-[min(16rem,calc(100vw-2rem))] space-y-3 rounded-lg border bg-popover p-3 text-sm text-popover-foreground shadow-md"

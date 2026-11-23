@@ -1,6 +1,14 @@
-import { expect, test, type CDPSession, type Page } from '@playwright/test';
-import { EDITOR_STORE, readOpenFloor, readSelection, worldToPage, type Pt } from './app-modules';
+import { expect, test, type Page } from '@playwright/test';
+import {
+  EDITOR_STORE,
+  readEditor,
+  readOpenFloor,
+  readSelection,
+  worldToPage,
+  type Pt,
+} from './app-modules';
 import { openSynthetic } from './editor';
+import { fingerDrag } from './input';
 import { itemOnPage, view3dCanvas, view3dHighlighted } from './view3d';
 
 interface Furniture {
@@ -38,22 +46,6 @@ const inside = (p: Pt, polygon: Pt[]) => {
   }
   return hit;
 };
-
-const touch = (cdp: CDPSession, type: 'touchStart' | 'touchMove' | 'touchEnd', points: Pt[]) =>
-  cdp.send('Input.dispatchTouchEvent', {
-    type,
-    touchPoints: points.map((p, id) => ({ ...p, id })),
-  });
-
-async function fingerDrag(cdp: CDPSession, from: Pt, to: Pt) {
-  await touch(cdp, 'touchStart', [from]);
-  for (let i = 1; i <= 10; i++) {
-    await touch(cdp, 'touchMove', [
-      { x: from.x + ((to.x - from.x) * i) / 10, y: from.y + ((to.y - from.y) * i) / 10 },
-    ]);
-  }
-  await touch(cdp, 'touchEnd', []);
-}
 
 const readDevices = async (page: Page) =>
   (
@@ -177,10 +169,10 @@ test.describe('on a phone', () => {
     // Unselected, the desk has no handles, so a finger drag across it pans the view.
     await selectItems(page, []);
     const panFrom = view(moved);
-    const viewportBefore = await readViewport(page);
+    const viewportBefore = (await readEditor(page)).viewport;
     await fingerDrag(cdp, panFrom, { x: panFrom.x + 80, y: panFrom.y + 40 });
     expect((await desk())!.placement.at).toEqual(moved);
-    const viewportAfter = await readViewport(page);
+    const viewportAfter = (await readEditor(page)).viewport;
     expect(viewportAfter.x - viewportBefore.x).toBeCloseTo(80, 0);
     expect(viewportAfter.y - viewportBefore.y).toBeCloseTo(40, 0);
     await selectItems(page, [{ collection: 'devices', id: placed.id }]);
@@ -204,14 +196,6 @@ const openFloorId = (page: Page) =>
       editorStore: { getState(): { floorId: string } };
     };
     return editorStore.getState().floorId;
-  }, EDITOR_STORE);
-
-const readViewport = (page: Page) =>
-  page.evaluate(async (url) => {
-    const { editorStore } = (await import(/* @vite-ignore */ url)) as {
-      editorStore: { getState(): { viewport: { x: number; y: number } } };
-    };
-    return editorStore.getState().viewport;
   }, EDITOR_STORE);
 
 const selectItems = (page: Page, items: { collection: string; id: string }[]) =>

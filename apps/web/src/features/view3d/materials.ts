@@ -1,20 +1,29 @@
-import { DoubleSide, MeshBasicMaterial, MeshLambertMaterial } from 'three';
+import type { Opening } from '@el-karta/core';
+import { DoubleSide, MeshBasicMaterial, MeshLambertMaterial, type Material } from 'three';
 import { canvasColors } from '@/features/floorplan/canvas/theme';
 
 const colors = {
   wall: '#f8fafc',
   slab: '#cbd5e1',
+  door: '#b08968',
+  glass: '#7dd3fc',
   background: '#f1f5f9',
 } as const;
 
 export const view3dBackground = colors.background;
+
+const gizmoMaterial = (color: string) =>
+  new MeshBasicMaterial({ color, transparent: true, depthTest: false, depthWrite: false });
 
 let shared:
   | {
       wall: MeshLambertMaterial;
       slab: MeshLambertMaterial;
       device: MeshLambertMaterial;
+      opening: Readonly<Record<Opening['kind'], Material>>;
       highlight: MeshBasicMaterial;
+      gizmo: MeshBasicMaterial;
+      gizmoActive: MeshBasicMaterial;
     }
   | undefined;
 
@@ -32,6 +41,18 @@ export function materials() {
     }),
     // White, so each instance shows its own colour.
     device: new MeshLambertMaterial({ color: '#ffffff' }),
+    opening: {
+      door: new MeshLambertMaterial({ color: colors.door }),
+      window: new MeshLambertMaterial({
+        color: colors.glass,
+        transparent: true,
+        opacity: 0.35,
+        depthWrite: false,
+      }),
+      // Not drawn, but raycast: three.js skips invisible materials when rendering and never when
+      // raycasting, so a tap in a passage's gap picks it.
+      passage: new MeshBasicMaterial({ visible: false }),
+    },
     highlight: new MeshBasicMaterial({
       color: canvasColors.selected,
       transparent: true,
@@ -41,6 +62,9 @@ export function materials() {
       polygonOffsetFactor: -1,
       polygonOffsetUnits: -1,
     }),
+    // Drawn over everything, so a handle inside a wall or behind another can still be grabbed.
+    gizmo: gizmoMaterial(canvasColors.selected),
+    gizmoActive: gizmoMaterial(canvasColors.snap),
   };
   return shared;
 }

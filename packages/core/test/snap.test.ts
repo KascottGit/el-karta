@@ -43,11 +43,14 @@ describe('snapPoint', () => {
     expect(snap.targets[0]).toMatchObject({ kind: 'endpoint', end: expect.any(String) as string });
   });
 
-  it('catches a wall end anywhere inside a thick corner, even beyond the tolerance', () => {
+  it('catches a wall end only within the tolerance, however thick the wall', () => {
     const b = new ModelBuilder();
     b.wall(0, pt(0, 0), pt(4, 0), 0.6);
     const data = b.build().floors[b.floors[0]!.id]!.data;
-    expect(snapPoint(data, pt(0.2, 0.15), { tolerance: 0.05 }).point).toEqual(pt(0, 0));
+    expect(snapPoint(data, pt(0.03, 0.03), { tolerance: 0.05 }).point).toEqual(pt(0, 0));
+    const inside = snapPoint(data, pt(0.2, 0.15), { tolerance: 0.05 });
+    expect(inside.kind).toBe('wall');
+    close(inside.point, pt(0.2, 0));
   });
 
   it('snaps to extra points such as the start of the polyline being drawn', () => {

@@ -30,25 +30,31 @@ class MergedBuilder {
   readonly #itemOf: number[] = [];
   readonly #ranges = new Map<Id, TriangleRange>();
   #item = -1;
+  #range: TriangleRange | null = null;
 
   /** Starts the triangles of one item; all of an item's triangles must be added together. */
   item(id: Id) {
     this.#item = this.#ids.length;
     this.#ids.push(id);
-    this.#ranges.set(id, { start: this.#itemOf.length, count: 0 });
+    this.#range = { start: this.#itemOf.length, count: 0 };
+    this.#ranges.set(id, this.#range);
   }
 
-  vertex(p: readonly number[], n: readonly number[]): number {
-    this.#positions.push(p[0] ?? 0, p[1] ?? 0, p[2] ?? 0);
-    this.#normals.push(n[0] ?? 0, n[1] ?? 0, n[2] ?? 0);
+  get vertices(): number {
+    return this.#positions.length / 3;
+  }
+
+  /** A vertex at `(x, y, z)` with normal `(nx, ny, nz)`, both in three.js coordinates. */
+  vertex(x: number, y: number, z: number, nx: number, ny: number, nz: number): number {
+    this.#positions.push(x, y, z);
+    this.#normals.push(nx, ny, nz);
     return this.#positions.length / 3 - 1;
   }
 
   triangle(a: number, b: number, c: number) {
     this.#index.push(a, b, c);
     this.#itemOf.push(this.#item);
-    const range = this.#ranges.get(this.#ids[this.#item] ?? '');
-    if (range) range.count++;
+    if (this.#range) this.#range.count++;
   }
 
   build(): MergedMesh {
@@ -67,56 +73,71 @@ class MergedBuilder {
   }
 }
 
-const UNIT = [
-  [1, 0, 0],
-  [0, 1, 0],
-  [0, 0, 1],
-] as const;
-const QUAD = [
-  [-1, -1],
-  [1, -1],
-  [1, 1],
-  [-1, 1],
-] as const;
+type Triple = readonly [number, number, number];
+
+/**
+ * The six faces of a box centred on the origin with half-size 1: each face's outward normal and
+ * its corners, counter-clockwise from outside in plan coordinates.
+ */
+const FACES: readonly { normal: Triple; corners: readonly Triple[] }[] = [0, 1, 2].flatMap((axis) =>
+  [1, -1].map((sign) => {
+    const at = (u: number, v: number): Triple => {
+      const p = [0, 0, 0];
+      p[axis] = sign;
+      p[(axis + 1) % 3] = u;
+      p[(axis + 2) % 3] = v;
+      return [p[0]!, p[1]!, p[2]!];
+    };
+    const quad = [at(-1, -1), at(1, -1), at(1, 1), at(-1, 1)];
+    const normal: Triple = [axis === 0 ? sign : 0, axis === 1 ? sign : 0, axis === 2 ? sign : 0];
+    return { normal, corners: sign > 0 ? quad : quad.reverse() };
+  }),
+);
 
 /**
  * Adds a box as six quads with their own vertices, so each face is lit flat. The faces are wound
  * counter-clockwise from outside in plan coordinates; `toThree` mirrors that, so the triangles
- * are emitted in reverse.
+ * are emitted in reverse. Runs for every wall piece on every rebuild, including each pointer move
+ * of a gizmo drag, so it allocates nothing per vertex.
  */
 function addBox(b: MergedBuilder, { center, size, rotation }: Box) {
   const cos = Math.cos(rotation);
   const sin = Math.sin(rotation);
-  const turn = (x: number, y: number, z: number): [number, number, number] => [
-    x * cos - y * sin,
-    x * sin + y * cos,
-    z,
-  ];
-  const half = [size.x / 2, size.y / 2, size.z / 2];
-  for (let axis = 0; axis < 3; axis++) {
-    const n = UNIT[axis]!;
-    const t1 = UNIT[(axis + 1) % 3]!;
-    const t2 = UNIT[(axis + 2) % 3]!;
-    for (const sign of [1, -1]) {
-      const corners = sign > 0 ? QUAD : [...QUAD].reverse();
-      const [nx, ny, nz] = turn(n[0] * sign, n[1] * sign, n[2] * sign);
-      const normal = [nx, nz, ny];
-      const verts = corners.map(([u, v]) => {
-        const local = [0, 1, 2].map(
-          (k) => (n[k]! * sign + u * t1[k]! + v * t2[k]!) * (half[k] ?? 0),
-        );
-        const [x, y, z] = turn(local[0]!, local[1]!, local[2]!);
-        return b.vertex(toThree({ x: center.x + x, y: center.y + y, z: center.z + z }), normal);
-      });
-      const [v0 = 0, v1 = 0, v2 = 0, v3 = 0] = verts;
-      b.triangle(v0, v2, v1);
-      b.triangle(v0, v3, v2);
+  const hx = size.x / 2;
+  const hy = size.y / 2;
+  const hz = size.z / 2;
+  for (const { normal, corners } of FACES) {
+    // Plan (x, y, z) is three.js (x, z, y).
+    const nx = normal[0] * cos - normal[1] * sin;
+    const ny = normal[0] * sin + normal[1] * cos;
+    const v0 = b.vertices;
+    for (const [sx, sy, sz] of corners) {
+      const x = sx * hx;
+      const y = sy * hy;
+      b.vertex(
+        center.x + x * cos - y * sin,
+        center.z + sz * hz,
+        center.y + x * sin + y * cos,
+        nx,
+        normal[2],
+        ny,
+      );
     }
+    b.triangle(v0, v0 + 2, v0 + 1);
+    b.triangle(v0, v0 + 3, v0 + 2);
   }
 }
 
-/** Merges boxes, grouped by the item each belongs to. */
-export function mergeBoxes<T extends Box>(boxes: readonly T[], idOf: (box: T) => Id): MergedMesh {
+/**
+ * Merges boxes, grouped by the item each belongs to. With `materialOf`, items are ordered by their
+ * material index and the geometry gets one draw group per index, for a mesh with a material array.
+ * All of an item's boxes must have the same material.
+ */
+export function mergeBoxes<T extends Box>(
+  boxes: readonly T[],
+  idOf: (box: T) => Id,
+  materialOf?: (box: T) => number,
+): MergedMesh {
   const byItem = new Map<Id, T[]>();
   for (const box of boxes) {
     const id = idOf(box);
@@ -124,15 +145,26 @@ export function mergeBoxes<T extends Box>(boxes: readonly T[], idOf: (box: T) =>
     if (list) list.push(box);
     else byItem.set(id, [box]);
   }
+  const items = [...byItem];
+  const material = ([, list]: (typeof items)[number]) => materialOf?.(list[0]!) ?? 0;
+  if (materialOf) items.sort((p, q) => material(p) - material(q));
   const b = new MergedBuilder();
-  for (const [id, list] of byItem) {
+  for (const [id, list] of items) {
     b.item(id);
     for (const box of list) addBox(b, box);
   }
-  return b.build();
+  const mesh = b.build();
+  if (materialOf) {
+    for (const item of items) {
+      const range = mesh.ranges.get(item[0])!;
+      const index = material(item);
+      const last = mesh.geometry.groups.at(-1);
+      if (last?.materialIndex === index) last.count += range.count * 3;
+      else mesh.geometry.addGroup(range.start * 3, range.count * 3, index);
+    }
+  }
+  return mesh;
 }
-
-const UP = [0, 1, 0];
 
 /** Triangulates each room's outline at the floor's surface, facing up. */
 export function mergeSlabs(slabs: readonly RoomSlab[]): MergedMesh {
@@ -143,7 +175,7 @@ export function mergeSlabs(slabs: readonly RoomSlab[]): MergedMesh {
       [],
     );
     b.item(roomId);
-    const first = outline.map((p) => b.vertex(toThree({ ...p, z: 0 }), UP));
+    const first = outline.map((p) => b.vertex(p.x, 0, p.y, 0, 1, 0));
     for (const [i = 0, j = 0, k = 0] of triangles) {
       const [p, q, r] = [outline[i], outline[j], outline[k]];
       if (!p || !q || !r) continue;

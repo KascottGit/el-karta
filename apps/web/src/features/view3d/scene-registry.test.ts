@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { projectWith } from '@/features/floorplan/walls/test-fixtures';
 import { FloorFixture, pt } from './geometry/test-fixtures';
 import { floorMeshes } from './meshes/floor-meshes';
+import { materials } from './materials';
 import { floorObjects } from './meshes/objects';
 import { SceneRegistry } from './scene-registry';
 
@@ -14,6 +15,9 @@ function scene(base = 0) {
   const fixture = new FloorFixture(2.5);
   const south = fixture.wall(pt(0, 4), pt(6, 4), { thickness: 0.2 });
   const room = fixture.room([pt(0, 0), pt(6, 0), pt(6, 4), pt(0, 4)]);
+  const window = fixture.opening(south.id, 'window', 0.5, 1, 1.2, 0.9);
+  const door = fixture.opening(south.id, 'door', 1.8, 0.9, 2.1);
+  const passage = fixture.opening(south.id, 'passage', 4.5, 1, 2.1);
   // Left of a → b (+x) is plan -y: the inside of the room, hidden behind the wall from the south.
   const inside = fixture.device({
     kind: 'wall',
@@ -45,12 +49,12 @@ function scene(base = 0) {
   camera.position.set(3, base + 14, 10);
   camera.lookAt(3, base + 0.5, 2);
   camera.updateMatrixWorld();
-  const item = (collection: 'walls' | 'rooms' | 'devices', id: string) => ({
+  const item = (collection: 'walls' | 'openings' | 'rooms' | 'devices', id: string) => ({
     floorId,
     collection,
     id,
   });
-  return { registry, camera, item, south, room, inside, outside };
+  return { registry, camera, item, south, room, inside, outside, window, door, passage };
 }
 
 describe('SceneRegistry', () => {
@@ -66,6 +70,17 @@ describe('SceneRegistry', () => {
         expect(at, target.collection).not.toBeNull();
         expect(registry.pick(camera, SIZE, at!.x, at!.y)).toEqual(target);
       }
+    }
+  });
+
+  it('picks a window, a door and a passage, though the passage is not drawn', () => {
+    expect(materials().opening.passage.visible).toBe(false);
+    const { registry, camera, item, window, door, passage } = scene();
+    for (const opening of [window, door, passage]) {
+      const target = item('openings', opening.id);
+      const at = registry.screenPosition(camera, SIZE, target);
+      expect(at, opening.kind).not.toBeNull();
+      expect(registry.pick(camera, SIZE, at!.x, at!.y)).toEqual(target);
     }
   });
 

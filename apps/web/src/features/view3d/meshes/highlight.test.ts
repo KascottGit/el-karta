@@ -10,6 +10,8 @@ function floor() {
   const fixture = new FloorFixture(2.5);
   const wall = fixture.wall(pt(0, 0), pt(4, 0), { thickness: 0.2 });
   fixture.wall(pt(0, 3), pt(4, 3), { thickness: 0.2 });
+  const passage = fixture.opening(wall.id, 'passage', 0.5, 1, 2.1);
+  const window = fixture.opening(wall.id, 'window', 2, 1.2, 1.2, 0.9);
   const room = fixture.room([pt(0, 0), pt(4, 0), pt(4, 3), pt(0, 3)]);
   const desk = fixture.device(
     { kind: 'floor', at: pt(2, 1.5), size: { x: 1.2, y: 0.6, z: 0.7 } },
@@ -17,7 +19,7 @@ function floor() {
   );
   const { model, floorId } = projectWith();
   const record: FloorRecord = { ...model.floors[floorId]!, data: fixture.data };
-  return { meshes: floorMeshes(record), wall, room, desk };
+  return { meshes: floorMeshes(record), wall, room, desk, passage, window };
 }
 
 const boundsOf = (h: ReturnType<typeof highlightGeometry>) =>
@@ -44,6 +46,25 @@ describe('highlightGeometry', () => {
     expect([box.min.x, box.max.x]).toEqual([expect.closeTo(-e), expect.closeTo(4 + e)]);
     expect([box.min.z, box.max.z]).toEqual([expect.closeTo(-0.1 - e), expect.closeTo(0.1 + e)]);
     expect([box.min.y, box.max.y]).toEqual([expect.closeTo(-e), expect.closeTo(2.5 + e)]);
+  });
+
+  it('covers a selected passage’s volume and a selected window’s pane', () => {
+    const { meshes, passage, window } = floor();
+    const e = HIGHLIGHT_INFLATE;
+    const h = highlightGeometry(meshes, [{ collection: 'openings', id: passage.id }]);
+    expect(h?.items).toEqual([{ collection: 'openings', id: passage.id }]);
+    const volume = boundsOf(h);
+    expect([volume.min.x, volume.max.x]).toEqual([
+      expect.closeTo(0.5 - e),
+      expect.closeTo(1.5 + e),
+    ]);
+    expect([volume.min.z, volume.max.z]).toEqual([
+      expect.closeTo(-0.1 - e),
+      expect.closeTo(0.1 + e),
+    ]);
+    expect([volume.min.y, volume.max.y]).toEqual([expect.closeTo(-e), expect.closeTo(2.1 + e)]);
+    const pane = boundsOf(highlightGeometry(meshes, [{ collection: 'openings', id: window.id }]));
+    expect([pane.min.y, pane.max.y]).toEqual([expect.closeTo(0.9 - e), expect.closeTo(2.1 + e)]);
   });
 
   it('lifts a selected room’s slab and covers a selected device box', () => {

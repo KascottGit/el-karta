@@ -1,4 +1,5 @@
 import type { FloorCollection, Id } from '@el-karta/core';
+import type { HandleName } from './gizmos/handle-names';
 
 export interface View3dItem {
   floorId: Id;
@@ -17,6 +18,15 @@ export interface View3dDevHook {
   builds: () => Readonly<Record<Id, number>>;
   /** The selected items the 3D view currently highlights. */
   highlighted: () => View3dItem[];
+  /**
+   * A handle of the gizmo shown for the selected wall or opening: its centre in CSS pixels relative
+   * to the 3D canvas, and for a handle dragged along an axis the unit direction on screen that
+   * drags it the positive way (along the wall from `a`, along its left normal, or up). Null when
+   * there is no such handle in view.
+   */
+  gizmoHandle: (
+    name: HandleName,
+  ) => { x: number; y: number; axis: { x: number; y: number } | null } | null;
 }
 
 declare global {

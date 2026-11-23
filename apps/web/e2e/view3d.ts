@@ -1,7 +1,8 @@
 import { expect, type Page } from '@playwright/test';
 import type { View3dItem } from '../src/features/view3d/dev-hook-types';
+import type { HandleName } from '../src/features/view3d/gizmos/handle-names';
 
-export type { View3dItem };
+export type { HandleName, View3dItem };
 
 export const view3dCanvas = (page: Page) => page.getByTestId('view3d-canvas').locator('canvas');
 
@@ -59,6 +60,19 @@ export async function firstOnPage(page: Page, items: readonly View3dItem[]) {
 
 /** How many times each floor's merged geometry has been built. */
 export const view3dBuilds = (page: Page) => page.evaluate(() => window.__view3d?.builds() ?? {});
+
+/**
+ * Where a handle of the gizmo shown for the selected wall or opening is, in page pixels, and the
+ * unit direction on screen that drags it the positive way; waits until the view has settled.
+ */
+export async function gizmoHandleOnPage(page: Page, name: HandleName) {
+  await expect(view3dCanvas(page)).toBeVisible();
+  return settled(async () => {
+    const handle = await page.evaluate((n) => window.__view3d?.gizmoHandle(n) ?? null, name);
+    const at = handle && (await toPage(page, handle));
+    return handle && at ? { ...at, axis: handle.axis } : null;
+  });
+}
 
 /** The selected items the 3D view highlights. */
 export const view3dHighlighted = (page: Page) =>

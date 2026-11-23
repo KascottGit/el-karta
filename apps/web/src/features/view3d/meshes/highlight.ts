@@ -75,9 +75,9 @@ function addInstances(out: Collector, meshes: FloorMeshes, ids: ReadonlySet<stri
 }
 
 /**
- * The selected walls, rooms and devices of one floor as a separate geometry, standing slightly out
- * of their surfaces. Built from the floor's meshes without changing them, so selecting never
- * rebuilds the merged geometry. Null when none of the selection is drawn on this floor.
+ * The selected walls, openings, rooms and devices of one floor as a separate geometry, standing
+ * slightly out of their surfaces. Built from the floor's meshes without changing them, so selecting
+ * never rebuilds the merged geometry. Null when none of the selection is drawn on this floor.
  */
 export function highlightGeometry(
   meshes: FloorMeshes,
@@ -88,6 +88,10 @@ export function highlightGeometry(
   const items: SelectionItem[] = [
     ...addMerged(out, meshes.walls, selectedIds(selection, 'walls')).map((id) => ({
       collection: 'walls' as const,
+      id,
+    })),
+    ...addMerged(out, meshes.openings, selectedIds(selection, 'openings')).map((id) => ({
+      collection: 'openings' as const,
       id,
     })),
     ...addMerged(out, meshes.slabs, selectedIds(selection, 'rooms')).map((id) => ({

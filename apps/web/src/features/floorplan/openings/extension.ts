@@ -1,7 +1,7 @@
 import type { ModelState } from '@/model/store';
 import type { EditorState } from '../editor-store';
 import type { EditorExtension } from '../canvas/extension';
-import { openingSlide } from './opening-handle';
+import { openingEdgeHandle, openingSlide } from './opening-handle';
 import { OpeningPropsPanel, OpeningToolPanel } from './opening-panels';
 import { isOpeningTool, OPENING_TOOLS } from './opening-tools';
 import { OpeningsLayer } from './openings-layer';
@@ -14,11 +14,11 @@ const hasOpeningSelected = (editor: EditorState, model: ModelState) => {
   );
 };
 
-/** Doors, windows and passages: a tool for each, sliding them along their wall, and their side panels. */
+/** Doors, windows and passages: a tool for each, sliding and widening them along their wall, and their side panels. */
 export const openingsExtension: EditorExtension = {
   id: 'openings',
   tools: OPENING_TOOLS,
-  handles: [openingSlide],
+  handles: [openingSlide, openingEdgeHandle],
   layers: [
     { id: 'openings', layer: 'openings', order: 0, Component: OpeningsLayer },
     { id: 'openings-overlay', layer: 'overlays', order: 1, Component: OpeningsOverlay },

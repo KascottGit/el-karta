@@ -7,8 +7,9 @@ import { view3dBackground } from './materials';
 import { Scene } from './scene';
 
 /**
- * The read-only 3D view of the editor's floor and the floors shown with it (ADR 0008). Loaded
- * lazily, so three.js is only downloaded when someone opens it.
+ * The 3D view of the editor's floor and the floors shown with it (ADR 0008), where walls and
+ * openings can be moved and resized with gizmos (ADR 0009). Loaded lazily, so three.js is only
+ * downloaded when someone opens it.
  */
 export function View3d({
   floorId,
