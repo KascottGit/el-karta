@@ -266,9 +266,14 @@
       "wall-missing": "Väggen som dörren, fönstret eller passagen sitter i finns inte."
     },
     "placement": {
+      "wall-missing": "Väggen som enheten sitter på finns inte.",
       "offset-beyond-wall": "En enhet sitter bortom väggens ände.",
       "outside-room_one": "{{count}} takmonterad enhet ligger utanför rummet.",
-      "outside-room_other": "{{count}} takmonterade enheter ligger utanför rummet."
+      "outside-room_other": "{{count}} takmonterade enheter ligger utanför rummet.",
+      "room-missing": "Rummet vars tak enheten sitter i finns inte.",
+      "parent-missing": "Centralen eller behållaren som enheten sitter i finns inte.",
+      "container-cycle": "Enheten sitter i sig själv via sina behållare.",
+      "slot-taken": "Plats {{slot}} är redan upptagen av en annan enhet."
     },
     "room": {
       "polygon-too-few-points": "Rummet behöver minst tre hörn.",
@@ -302,6 +307,10 @@
       "scale-unconfirmed": "Skalan bygger på ritningens skalangivelse, men bilden kan vara beskuren. Kontrollera ett mått.",
       "room-merged_one": "{{count}} rumsnamn hamnade i samma yta och slogs ihop. Kontrollera om en vägg saknas.",
       "room-merged_other": "{{count}} rumsnamn hamnade i samma yta och slogs ihop. Kontrollera om en vägg saknas."
+    },
+    "device": {
+      "room-missing": "Rummet som enheten hör till finns inte.",
+      "zone-missing": "Zonen som enheten hör till finns inte."
     }
   },
   "background": {
@@ -351,7 +360,6 @@
     "setScale": "Sätt skala",
     "scaleApplied": "Skalan är satt.",
     "metres": "{{value}} m",
-    "degrees": "°",
     "estimated": {
       "title": "Uppskattad skala – kontrollera ett mått"
     },
@@ -364,7 +372,8 @@
   },
   "fields": {
     "mixed": "Olika",
-    "metres": "m"
+    "metres": "m",
+    "degrees": "°"
   },
   "ai": {
     "import": {
@@ -452,5 +461,71 @@
       "saveAccepted": "Förslagen lades in i planen men kunde inte markeras som godkända. Försök igen – inget läggs in två gånger.",
       "saveRejected": "Förslagen kunde inte avvisas. Försök igen."
     }
+  },
+  "devices": {
+    "device": "Enhet",
+    "selectedCount_one": "{{count}} enhet markerad",
+    "selectedCount_other": "{{count}} enheter markerade",
+    "label": "Namn",
+    "type": "Typ",
+    "room": "Rum",
+    "noLabel": "Namnlös",
+    "noRoom": "Inget rum",
+    "notDrawn": "Enheten syns inte på ritningen eftersom dess placering saknas.",
+    "types": {
+      "generic": "Enhet",
+      "power": {
+        "main_panel": "Huvudcentral",
+        "sub_panel": "Undercentral",
+        "breaker": "Säkring",
+        "outlet": "Vägguttag",
+        "switch": "Strömbrytare",
+        "ceiling_light": "Taklampa"
+      },
+      "furnishing": {
+        "desk": "Skrivbord",
+        "table": "Bord",
+        "shelf": "Hylla",
+        "rack_shelving": "Lagerhylla",
+        "cabinet": "Skåp",
+        "bed": "Säng",
+        "sofa": "Soffa"
+      }
+    }
+  },
+  "view3d": {
+    "viewMode": {
+      "label": "Vy",
+      "2d": "2D",
+      "3d": "3D",
+      "split": "2D + 3D"
+    },
+    "canvas": "3D-vy av våningen",
+    "loading": "Laddar 3D-vyn …",
+    "noWebgl": "3D-vyn kan inte visas eftersom webbläsaren saknar stöd för WebGL.",
+    "zoomToFit": "Zooma till allt",
+    "floors": {
+      "button": "Våningar",
+      "current": "Denna våning",
+      "all": "Alla våningar",
+      "some": "Välj våningar",
+      "exploded": "Isärdragen"
+    }
+  },
+  "furnishing": {
+    "name": "Möbler",
+    "tool": "Möbel",
+    "new": "Ny möbel",
+    "hint": "Välj typ och klicka där möbeln ska stå. Dra en markerad möbel för att flytta den och den runda knoppen för att vrida den.",
+    "touchHint": "Välj typ och tryck där möbeln ska stå. Dra en markerad möbel för att flytta den och den runda knoppen för att vrida den.",
+    "furniture": "Möbel",
+    "selectedCount_one": "{{count}} möbel markerad",
+    "selectedCount_other": "{{count}} möbler markerade",
+    "type": "Typ",
+    "label": "Namn",
+    "width": "Bredd",
+    "depth": "Djup",
+    "height": "Höjd",
+    "rotation": "Vridning"
   }
 }

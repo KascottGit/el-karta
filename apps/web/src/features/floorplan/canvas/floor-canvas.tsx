@@ -3,7 +3,7 @@ import { memo, useEffect, useRef, type RefObject } from 'react';
 import { Group, Layer, Stage } from 'react-konva';
 import { editorStore, useEditorStore } from '../editor-store';
 import type { CanvasContext, CanvasLayer, ResolvedExtensions } from './extension';
-import type { PointerInput, PointerKind } from './gestures';
+import { pointerInput, type PointerInput } from './gestures';
 import { handleAt, invalidateHitGraph } from './hit';
 import { createPointerDispatch } from './pointer-dispatch';
 import { panBy, zoomAt, type Viewport } from './viewport';
@@ -20,9 +20,6 @@ const KONVA_LAYERS: readonly (readonly CanvasLayer[])[] = [
 const WHEEL_ZOOM_SPEED = 0.0015;
 const PINCH_WHEEL_ZOOM_SPEED = 0.01;
 const LINE_HEIGHT_PX = 16;
-
-const pointerKind = (type: string): PointerKind =>
-  type === 'touch' || type === 'pen' ? type : 'mouse';
 
 /**
  * The Konva stage: renders registered layer content and routes input to tools, handles and the view.
@@ -116,22 +113,7 @@ export const FloorCanvas = memo(function FloorCanvas({
             : (registry.tool(editorStore.getState().tool).cursor ?? 'default');
     };
 
-    const input = (e: PointerEvent): PointerInput => {
-      const rect = el.getBoundingClientRect();
-      return {
-        id: e.pointerId,
-        kind: pointerKind(e.pointerType),
-        button: e.button,
-        buttons: e.buttons,
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-        time: e.timeStamp,
-        panKey: spaceHeld,
-        shiftKey: e.shiftKey,
-        altKey: e.altKey,
-        modKey: e.ctrlKey || e.metaKey,
-      };
-    };
+    const input = (e: PointerEvent): PointerInput => pointerInput(e, el, spaceHeld);
 
     const onDown = (e: PointerEvent) => {
       dispatch.down(input(e));

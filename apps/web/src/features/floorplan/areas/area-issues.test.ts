@@ -1,6 +1,7 @@
 import { generateProject, type Pt } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
-import { areaIssues, worstSeverity } from './area-issues';
+import { worstSeverity } from '../validation/severity';
+import { areaIssues } from './area-issues';
 
 const pt = (x: number, y: number): Pt => ({ x, y });
 

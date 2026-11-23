@@ -395,7 +395,7 @@ Every run: select context → call the model with structured output → parse wi
 
 ## Milestones
 
-Done: M0–M4. **Order from here:** M9 → provider review → M11 → M5 → M6 → M7 → M8 → M10 → M12 → M13 → M14 → M15 → M16. M9 and M11 come first, so each says what it pulls forward from the milestones it skips.
+Done: M0–M4, M9. **Order from here:** provider review → M11 → M5 → M6 → M7 → M8 → M10 → M12 → M13 → M14 → M15 → M16. M9 and M11 come first, so each says what it pulls forward from the milestones it skips.
 
 ### M0 – Scaffold
 pnpm monorepo with the structure above; Node and pnpm versions pinned (`.nvmrc`, `packageManager`). Vite + React + TS strict, Tailwind + shadcn/ui, React Router, i18next, ESLint with import-boundary rules + Prettier, Vitest, PWA. `AGENTS.md` (conventions, commands, boundaries, "minimal comments" rule), `CLAUDE.md` pointing to it, `docs/decisions/` with ADR 0001 recording this stack. GitHub Actions: CI (typecheck, lint, test, build) on every push, and deploy to GitHub Pages from `main` as described under Hosting. Dependabot configured. Supabase CLI initialised, local stack runs, `.env.example` committed, `.env.local` git-ignored.

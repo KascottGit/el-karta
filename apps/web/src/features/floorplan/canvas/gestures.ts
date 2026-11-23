@@ -33,6 +33,27 @@ export interface GestureHandlers {
   pinch(prevA: Pt, prevB: Pt, a: Pt, b: Pt): void;
 }
 
+const pointerKind = (type: string): PointerKind =>
+  type === 'touch' || type === 'pen' ? type : 'mouse';
+
+/** A DOM pointer event as gesture input, in CSS pixels relative to `el`. */
+export function pointerInput(e: PointerEvent, el: Element, panKey: boolean): PointerInput {
+  const rect = el.getBoundingClientRect();
+  return {
+    id: e.pointerId,
+    kind: pointerKind(e.pointerType),
+    button: e.button,
+    buttons: e.buttons,
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
+    time: e.timeStamp,
+    panKey,
+    shiftKey: e.shiftKey,
+    altKey: e.altKey,
+    modKey: e.ctrlKey || e.metaKey,
+  };
+}
+
 export const DRAG_THRESHOLD: Readonly<Record<PointerKind, number>> = { mouse: 3, pen: 4, touch: 8 };
 const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_DISTANCE: Readonly<Record<PointerKind, number>> = { mouse: 6, pen: 12, touch: 24 };

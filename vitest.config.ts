@@ -14,6 +14,13 @@ export default defineConfig({
       },
       { test: { name: 'ai-passes', root: 'packages/ai-passes', include: ['test/**/*.test.ts'] } },
       {
+        test: {
+          name: 'plugin-furnishing',
+          root: 'packages/plugin-furnishing',
+          include: ['test/**/*.test.ts'],
+        },
+      },
+      {
         resolve: { alias: { '@': resolve(import.meta.dirname, 'apps/web/src') } },
         test: { name: 'web', root: 'apps/web', include: ['src/**/*.test.{ts,tsx}'] },
       },

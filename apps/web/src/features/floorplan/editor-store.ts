@@ -42,8 +42,11 @@ export interface EditorState {
    */
   fitted: { bounds: Rect | null } | null;
   drawing: Drawing | null;
-  /** Clears selection and drawing for another floor. The viewport stays, since floors are stacked. */
-  openFloor: (floorId: Id) => void;
+  /**
+   * Clears selection and drawing for another floor, or selects `selection` there (a tap on another
+   * floor in 3D). The viewport stays, since floors are stacked.
+   */
+  openFloor: (floorId: Id, selection?: readonly SelectionItem[]) => void;
   setTool: (tool: string) => void;
   select: (items: readonly SelectionItem[]) => void;
   setViewport: (viewport: Viewport) => void;
@@ -72,8 +75,8 @@ export function createEditorStore() {
       fitted: null,
       drawing: null,
 
-      openFloor: (floorId) => {
-        if (get().floorId !== floorId) set({ floorId, selection: [], drawing: null });
+      openFloor: (floorId, selection = []) => {
+        if (get().floorId !== floorId) set({ floorId, selection, drawing: null });
       },
       setTool: (tool) => {
         set({ tool, drawing: null, fitted: null });
