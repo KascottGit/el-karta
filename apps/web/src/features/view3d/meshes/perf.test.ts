@@ -1,22 +1,8 @@
 import { generateProject } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
+import { fastest } from '../fastest';
 import { floorMeshes } from './floor-meshes';
 import { highlightGeometry } from './highlight';
-
-/**
- * The fastest of a few timed runs: the full suite runs many test files in parallel, and one run can
- * lose its CPU for longer than the budget.
- */
-function fastest<T>(runs: number, setup: () => T, work: (input: T) => void) {
-  let best = Infinity;
-  for (let i = 0; i < runs; i++) {
-    const input = setup();
-    const start = performance.now();
-    work(input);
-    best = Math.min(best, performance.now() - start);
-  }
-  return best;
-}
 
 describe('3D mesh performance', () => {
   // Measured at about 80 ms for the ten floors (30,480 wall triangles), validation included.

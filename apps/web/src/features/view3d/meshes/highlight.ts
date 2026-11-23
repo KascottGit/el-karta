@@ -75,9 +75,9 @@ function addInstances(out: Collector, meshes: FloorMeshes, ids: ReadonlySet<stri
 }
 
 /**
- * The selected walls, openings, rooms and devices of one floor as a separate geometry, standing slightly out
- * of their surfaces. Built from the floor's meshes without changing them, so selecting never
- * rebuilds the merged geometry. Null when none of the selection is drawn on this floor.
+ * The selected walls, openings, rooms and devices of one floor as a separate geometry, standing
+ * slightly out of their surfaces. Built from the floor's meshes without changing them, so selecting
+ * never rebuilds the merged geometry. Null when none of the selection is drawn on this floor.
  */
 export function highlightGeometry(
   meshes: FloorMeshes,

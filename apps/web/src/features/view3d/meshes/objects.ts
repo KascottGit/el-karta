@@ -20,7 +20,8 @@ function instancedMesh(floorId: Id, instances: DeviceInstances): InstancedMesh {
 
 /**
  * The three.js objects of a floor's meshes, each pickable: walls, openings and slabs as one mesh
- * each, and one instanced mesh per device shape. They share the floor's geometry, so making them is cheap.
+ * each, and one instanced mesh per device shape. They share the floor's geometry, so making them
+ * is cheap.
  */
 export function floorObjects(meshes: FloorMeshes): Object3D[] {
   const { wall, slab, opening } = materials();
