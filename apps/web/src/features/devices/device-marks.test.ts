@@ -47,10 +47,9 @@ describe('deviceMarks', () => {
     const marks = deviceMarks(floor.data);
     expect(marks[on.id]).toMatchObject({
       at: { x: 1, y: -0.1 },
-      approximate: false,
       footprint: null,
     });
-    expect(marks[beyond.id]).toMatchObject({ at: { x: 4, y: -0.1 }, approximate: true });
+    expect(marks[beyond.id]).toMatchObject({ at: { x: 4, y: -0.1 } });
     expect(marks[lost.id]).toBeUndefined();
     expect(marks[breaker.id]).toBeUndefined();
     expect(marks[panel.id]).toMatchObject({ at: { x: 1, y: 1 }, footprint: null });

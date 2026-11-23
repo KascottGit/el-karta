@@ -52,9 +52,3 @@ export function areaIssues(floor: FloorRecord): ReadonlyMap<Id, readonly AreaIss
   cache.set(floor.data, byArea);
   return byArea;
 }
-
-/** The most severe issue level on an area, for colouring its outline. */
-export function worstSeverity(issues: readonly AreaIssue[] | undefined): IssueSeverity | null {
-  if (!issues?.length) return null;
-  return issues.some((i) => i.severity === 'error') ? 'error' : 'warning';
-}

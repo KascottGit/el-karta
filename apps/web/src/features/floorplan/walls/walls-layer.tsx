@@ -1,3 +1,4 @@
+import { worstSeverity } from '../validation/severity';
 import type { Id, Wall } from '@el-karta/core';
 import { memo, useMemo } from 'react';
 import { Line } from 'react-konva';
@@ -63,7 +64,7 @@ export function WallsLayer({ ctx }: { ctx: CanvasContext }) {
               id={wall.id}
               // At the end beyond which openings or devices lie.
               at={flagged.some((i) => i.code === 'wall.zero-length') ? wall.a : wall.b}
-              severity={flagged.some((i) => i.severity === 'error') ? 'error' : 'warning'}
+              severity={worstSeverity(flagged) ?? 'warning'}
               radiusPx={MARKER_PX}
             />
           ) : null;

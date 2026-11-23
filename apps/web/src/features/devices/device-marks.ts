@@ -10,8 +10,6 @@ export interface DeviceMark {
   at: Pt;
   /** The corners of a device drawn at its own size; null for a marker. */
   footprint: readonly Pt[] | null;
-  /** Its placement cannot be resolved, so it sits at an approximate position. */
-  approximate: boolean;
 }
 
 interface Entry {
@@ -41,13 +39,12 @@ function markOf(floor: FloorData, device: Device): DeviceMark | null {
       device,
       at: footprint.center,
       footprint: footprintCorners(footprint),
-      approximate: false,
     };
   }
   const drawn = drawnPosition(floor, device);
   if (!drawn) return null;
   const { x, y } = drawn.position;
-  return { device, at: { x, y }, footprint: null, approximate: drawn.flagged };
+  return { device, at: { x, y }, footprint: null };
 }
 
 /**

@@ -1,4 +1,5 @@
-import type { Id, IssueSeverity, Pt } from '@el-karta/core';
+import { worstSeverity } from '@/features/floorplan/validation/severity';
+import type { Id, Pt } from '@el-karta/core';
 import type Konva from 'konva';
 import { memo, useMemo } from 'react';
 import { Line, Shape } from 'react-konva';
@@ -28,9 +29,6 @@ const FOOTPRINT_ALPHA = 0.25;
 // Any colour: hit shapes are drawn in their hit colour, never on screen.
 const HIT_FILL = '#000000';
 
-const worst = (issues: readonly DeviceIssue[] | undefined): IssueSeverity | null =>
-  !issues?.length ? null : issues.some((i) => i.severity === 'error') ? 'error' : 'warning';
-
 /** Markers that look the same, so one sprite paints them all. */
 interface MarkerGroup {
   style: MarkerStyle;
@@ -57,7 +55,7 @@ export function DevicesLayer({ ctx }: { ctx: CanvasContext }) {
 
   const colorOf = useMemo(
     () => (mark: DeviceMark) => {
-      const severity = worst(issues.get(mark.device.id));
+      const severity = worstSeverity(issues.get(mark.device.id));
       return severity ? issueColors[severity] : deviceAppearance(mark.device).color;
     },
     [issues],
@@ -200,7 +198,7 @@ const Footprint = memo(function Footprint({
       {...selectable('devices', id)}
       points={points}
       closed
-      fill={selected ? canvasColors.selectedFill : withAlpha(color, FOOTPRINT_ALPHA)}
+      fill={withAlpha(selected ? canvasColors.selected : color, FOOTPRINT_ALPHA)}
       stroke={selected ? canvasColors.selected : color}
       strokeWidth={selected ? SELECTED_OUTLINE_PX : OUTLINE_PX}
       strokeScaleEnabled={false}

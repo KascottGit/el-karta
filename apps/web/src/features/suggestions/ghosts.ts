@@ -1,3 +1,4 @@
+import { worstSeverity } from '@/features/floorplan/validation/severity';
 import {
   closestOnSegment,
   distance,
@@ -29,9 +30,6 @@ export function parsePayload(kinds: SuggestionKinds, suggestion: Suggestion): un
     return null;
   }
 }
-
-export const worstSeverity = (issues: Suggestion['issues']): IssueSeverity | null =>
-  issues.length === 0 ? null : issues.some((i) => i.severity === 'error') ? 'error' : 'warning';
 
 /** A built ghost and the wall it was placed on, if it looked one up. */
 type Built = { ghost: Ghost | null; on: { id: Id; wall: WallLike | undefined } | null };
