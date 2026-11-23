@@ -1,4 +1,4 @@
-import type { FloorData, FloorRecord, Id } from '@el-karta/core';
+import { OPENING_KINDS, type FloorData, type FloorRecord, type Id } from '@el-karta/core';
 import { deviceIssues } from '@/features/devices/device-issues';
 import { issueColors } from '@/features/floorplan/canvas/theme';
 import { worstSeverity } from '@/features/floorplan/validation/severity';
@@ -12,6 +12,8 @@ export interface FloorMeshes {
   floorId: Id;
   geometry: FloorGeometry;
   walls: MergedMesh;
+  /** Door leaves, window panes and passage volumes, one draw group per kind (`OPENING_KINDS`). */
+  openings: MergedMesh;
   slabs: MergedMesh;
   devices: readonly DeviceInstances[];
 }
@@ -27,6 +29,11 @@ function build(floor: FloorRecord): FloorMeshes {
     floorId: floor.id,
     geometry,
     walls: mergeBoxes(geometry.walls, (piece) => piece.wallId),
+    openings: mergeBoxes(
+      geometry.openings,
+      (piece) => piece.openingId,
+      (piece) => OPENING_KINDS.indexOf(piece.kind),
+    ),
     slabs: mergeSlabs(geometry.slabs),
     devices: deviceInstances(geometry.devices, (t) => {
       const severity = worstSeverity(issues.get(t.deviceId));
@@ -54,5 +61,6 @@ export const buildCounts = (): Readonly<Record<Id, number>> => Object.fromEntrie
 
 export function disposeFloorMeshes(meshes: FloorMeshes) {
   meshes.walls.geometry.dispose();
+  meshes.openings.geometry.dispose();
   meshes.slabs.geometry.dispose();
 }

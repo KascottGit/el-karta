@@ -1,4 +1,4 @@
-import type { Id } from '@el-karta/core';
+import type { FloorCollection, Id } from '@el-karta/core';
 import { Matrix4, Raycaster, Vector2, Vector3, type Camera, type Object3D } from 'three';
 import { sameItem, type SelectionItem } from '@/features/floorplan/canvas/selection';
 import type { View3dItem } from './dev-hook-types';
@@ -90,14 +90,17 @@ export class SceneRegistry {
     const entry = this.floors.get(item.floorId);
     if (!entry) return null;
     const { meshes, group } = entry;
-    const candidates =
-      item.collection === 'walls'
-        ? trianglePoints(meshes.walls, item.id)
-        : item.collection === 'rooms'
-          ? trianglePoints(meshes.slabs, item.id)
-          : item.collection === 'devices'
-            ? instancePositions(meshes, item.id)
-            : [];
+    const mergedOf: Partial<Record<FloorCollection, MergedMesh>> = {
+      walls: meshes.walls,
+      openings: meshes.openings,
+      rooms: meshes.slabs,
+    };
+    const merged = mergedOf[item.collection];
+    const candidates = merged
+      ? trianglePoints(merged, item.id)
+      : item.collection === 'devices'
+        ? instancePositions(meshes, item.id)
+        : [];
     camera.updateMatrixWorld();
     group.updateWorldMatrix(true, false);
     for (const local of candidates) {

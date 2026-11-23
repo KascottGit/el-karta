@@ -1,4 +1,4 @@
-import type { Id } from '@el-karta/core';
+import { OPENING_KINDS, type Id } from '@el-karta/core';
 import { InstancedBufferAttribute, InstancedMesh, Mesh, type Object3D } from 'three';
 import { materials } from '../materials';
 import { instanceTemplate, type DeviceInstances } from './devices';
@@ -19,14 +19,19 @@ function instancedMesh(floorId: Id, instances: DeviceInstances): InstancedMesh {
 }
 
 /**
- * The three.js objects of a floor's meshes, each pickable: walls and slabs as one mesh each, and
- * one instanced mesh per device shape. They share the floor's geometry, so making them is cheap.
+ * The three.js objects of a floor's meshes, each pickable: walls, openings and slabs as one mesh
+ * each, and one instanced mesh per device shape. They share the floor's geometry, so making them is cheap.
  */
 export function floorObjects(meshes: FloorMeshes): Object3D[] {
-  const { wall, slab } = materials();
+  const { wall, slab, opening } = materials();
   const walls = new Mesh(meshes.walls.geometry, wall);
   walls.userData['pick'] = mergedTarget(meshes.floorId, 'walls', meshes.walls);
+  const openings = new Mesh(
+    meshes.openings.geometry,
+    OPENING_KINDS.map((kind) => opening[kind]),
+  );
+  openings.userData['pick'] = mergedTarget(meshes.floorId, 'openings', meshes.openings);
   const slabs = new Mesh(meshes.slabs.geometry, slab);
   slabs.userData['pick'] = mergedTarget(meshes.floorId, 'rooms', meshes.slabs);
-  return [walls, slabs, ...meshes.devices.map((d) => instancedMesh(meshes.floorId, d))];
+  return [walls, openings, slabs, ...meshes.devices.map((d) => instancedMesh(meshes.floorId, d))];
 }

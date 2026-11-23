@@ -1,4 +1,4 @@
-import type { Id, Pt, Vec3 } from '@el-karta/core';
+import type { Id, Opening, Pt, Vec3 } from '@el-karta/core';
 import type { MarkerShape } from '@/features/devices/appearance';
 
 /**
@@ -15,6 +15,15 @@ export interface Box {
 
 export interface WallPiece extends Box {
   wallId: Id;
+}
+
+/**
+ * What fills an opening's cut-out, centred on the wall's centre line: a door leaf, a window pane,
+ * or for a passage a volume as thick as the wall that is picked but not drawn.
+ */
+export interface OpeningPiece extends Box {
+  openingId: Id;
+  kind: Opening['kind'];
 }
 
 /** A room's floor slab: its outline at the floor's surface. Triangulated by the renderer. */
@@ -56,6 +65,7 @@ export interface Bounds3 {
 /** Everything drawn for one floor, in floor-local coordinates. */
 export interface FloorGeometry {
   walls: WallPiece[];
+  openings: OpeningPiece[];
   slabs: RoomSlab[];
   devices: DeviceTransform[];
   bounds: Bounds3 | null;
