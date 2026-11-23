@@ -259,7 +259,7 @@ function BackgroundSettings({
         />
         <DecimalField
           label={t('background.rotation')}
-          unit={t('background.degrees')}
+          unit={t('fields.degrees')}
           value={placement.rotation}
           digits={1}
           signed

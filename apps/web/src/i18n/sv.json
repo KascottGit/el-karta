@@ -360,7 +360,6 @@
     "setScale": "Sätt skala",
     "scaleApplied": "Skalan är satt.",
     "metres": "{{value}} m",
-    "degrees": "°",
     "estimated": {
       "title": "Uppskattad skala – kontrollera ett mått"
     },
@@ -373,7 +372,8 @@
   },
   "fields": {
     "mixed": "Olika",
-    "metres": "m"
+    "metres": "m",
+    "degrees": "°"
   },
   "ai": {
     "import": {
@@ -511,5 +511,21 @@
       "some": "Välj våningar",
       "exploded": "Isärdragen"
     }
+  },
+  "furnishing": {
+    "name": "Möbler",
+    "tool": "Möbel",
+    "new": "Ny möbel",
+    "hint": "Välj typ och klicka där möbeln ska stå. Dra en markerad möbel för att flytta den och den runda knoppen för att vrida den.",
+    "touchHint": "Välj typ och tryck där möbeln ska stå. Dra en markerad möbel för att flytta den och den runda knoppen för att vrida den.",
+    "furniture": "Möbel",
+    "selectedCount_one": "{{count}} möbel markerad",
+    "selectedCount_other": "{{count}} möbler markerade",
+    "type": "Typ",
+    "label": "Namn",
+    "width": "Bredd",
+    "depth": "Djup",
+    "height": "Höjd",
+    "rotation": "Vridning"
   }
 }

@@ -1,5 +1,8 @@
-import type { FloorRecord, Id, Issue } from '@el-karta/core';
+import type { Device, FloorRecord, Id, Issue } from '@el-karta/core';
+import { issueColors } from '@/features/floorplan/canvas/theme';
 import { floorIssues } from '@/features/floorplan/validation/floor-issues';
+import { worstSeverity } from '@/features/floorplan/validation/severity';
+import { deviceAppearance } from './appearance';
 
 /** Validator codes about a device: its placement and the room and zone it refers to. */
 export const DEVICE_ISSUE_CODES = [
@@ -43,3 +46,12 @@ export function deviceIssues(floor: FloorRecord): ReadonlyMap<Id, readonly Devic
   cache.set(floor.data, byDevice);
   return byDevice;
 }
+
+/** A device's colour on the plan: its worst issue's, or its appearance's. */
+export const deviceColor = (
+  issues: ReadonlyMap<Id, readonly DeviceIssue[]>,
+  device: Pick<Device, 'id' | 'domain' | 'type'>,
+): string => {
+  const severity = worstSeverity(issues.get(device.id));
+  return severity ? issueColors[severity] : deviceAppearance(device).color;
+};

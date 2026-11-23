@@ -6,6 +6,7 @@ import { Label } from '@/ui/label';
 import type { CanvasContext } from '../canvas/extension';
 import { useCanvasState } from '../canvas/use-canvas-state';
 import { CommitInput } from '../fields/commit-input';
+import { selectClass } from '../fields/select';
 import { DecimalField } from '../fields/decimal-field';
 import { formatDecimal, positive } from '../fields/numbers';
 import { SnappingToggle } from '../snapping/snapping-toggle';
@@ -15,7 +16,6 @@ import { areaIssues } from './area-issues';
 import { selectedArea } from './selected-area';
 
 const fieldClass = 'flex flex-col gap-1.5';
-const selectClass = 'h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm';
 
 export function RoomPanel({ ctx }: { ctx: CanvasContext }) {
   const { t } = useTranslation();
