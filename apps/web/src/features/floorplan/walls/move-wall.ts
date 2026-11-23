@@ -22,10 +22,14 @@ export const PARALLEL_SIN = Math.sin(Math.PI / 180);
 
 /** Wall ends at one point on the moved wall's line that stay together while it moves. */
 interface Joint {
+  /** `end`: an end of the moved wall; `onto`: a T onto the moved wall's middle. */
+  kind: 'end' | 'onto';
   at: Pt;
   ends: readonly EndRef[];
   /** The unit direction the point slides along to reach the moved line, or null to move with the wall. */
   along: Pt | null;
+  /** For an `end` on another wall's middle: that wall, which the end must stay on. */
+  hostId: Id | null;
 }
 
 /** What moving one wall along its normal drags along. Found once per drag; see `moveWall`. */
@@ -55,12 +59,12 @@ function onMiddle(wall: Wall, p: Pt) {
   );
 }
 
-/** The candidate direction most nearly perpendicular to `dir`, or null if all are about parallel to it. */
-function steepest(candidates: readonly Pt[], dir: Pt): Pt | null {
-  let best: Pt | null = null;
+/** The wall most nearly perpendicular to `dir`, or null if all are about parallel to it. */
+function steepest(candidates: readonly Wall[], dir: Pt): Wall | null {
+  let best: Wall | null = null;
   let bestSin = PARALLEL_SIN;
   for (const c of candidates) {
-    const sin = Math.abs(cross(c, dir));
+    const sin = Math.abs(cross(dirOf(c), dir));
     if (sin >= bestSin) {
       best = c;
       bestSin = sin;
@@ -84,32 +88,42 @@ export function planWallMove(walls: Readonly<Record<Id, Wall>>, wallId: Id): Wal
   const dir = dirOf(wall);
   const seen = new Set<string>();
   const joints: Joint[] = [];
-  const addJoint = (at: Pt, hosts: readonly Wall[]) => {
+  const addJoint = (kind: Joint['kind'], at: Pt, hosts: readonly Wall[]) => {
     const ends = cornerAt(walls, at);
     for (const e of ends) seen.add(endKey(e.wallId, e.end));
     const others = ends.filter((e) => e.wallId !== wallId).flatMap((e) => walls[e.wallId] ?? []);
-    const along = steepest(hosts.map(dirOf), dir) ?? steepest(others.map(dirOf), dir);
-    joints.push({ at, ends, along });
+    const host = steepest(hosts, dir);
+    const guide = host ?? steepest(others, dir);
+    joints.push({ kind, at, ends, along: guide && dirOf(guide), hostId: host?.id ?? null });
   };
 
   for (const end of ['a', 'b'] as const) {
     const at = wall[end];
     const hosts = Object.values(walls).filter((w) => w.id !== wallId && onMiddle(w, at));
-    addJoint(at, hosts);
+    addJoint('end', at, hosts);
   }
   for (const other of Object.values(walls)) {
     if (other.id === wallId) continue;
     for (const end of ['a', 'b'] as const) {
-      if (!seen.has(endKey(other.id, end)) && onMiddle(wall, other[end])) addJoint(other[end], []);
+      if (!seen.has(endKey(other.id, end)) && onMiddle(wall, other[end]))
+        addJoint('onto', other[end], []);
     }
   }
   const moving = new Set([wallId, ...joints.flatMap((j) => j.ends.map((e) => e.wallId))]);
   return { wall, normal: leftNormal(dir), joints, moving };
 }
 
+/** Whether `p` lies along the wall between its ends (it is on the wall's line). */
+function within(wall: Wall, p: Pt) {
+  const t = dot(sub(p, wall.a), dirOf(wall));
+  return t >= -JOINT_TOLERANCE && t <= distance(wall.a, wall.b) + JOINT_TOLERANCE;
+}
+
 /**
  * The walls changed by moving the planned wall `offset` metres along its normal, or null if a
- * wall would get shorter than `MIN_WALL_LENGTH` or turn around. Joined walls keep their direction.
+ * wall would get shorter than `MIN_WALL_LENGTH` or turn around, or a T would come apart: an end
+ * slid past the end of the wall it sits on, or a wall ending on the moved wall's middle now
+ * meeting its line beyond the moved wall's ends. Joined walls keep their direction.
  */
 export function applyWallMove(
   walls: Readonly<Record<Id, Wall>>,
@@ -126,6 +140,14 @@ export function applyWallMove(
   });
   const moved = moveEndGroups(walls, moves);
   if (!moved) return null;
+  const movedWall = moved.find((w) => w.id === wall.id);
+  const apart = joints.some(({ kind, hostId }, i) => {
+    const { to } = moves[i]!;
+    if (kind === 'onto') return !!movedWall && !within(movedWall, to);
+    const host = hostId === null ? undefined : walls[hostId];
+    return !!host && !within(host, to);
+  });
+  if (apart) return null;
   const turned = moved.some((w) => {
     const before = walls[w.id];
     return before && dot(sub(w.b, w.a), sub(before.b, before.a)) <= 0;

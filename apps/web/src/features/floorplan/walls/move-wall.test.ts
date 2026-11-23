@@ -95,6 +95,20 @@ describe('moveWall', () => {
     expectPt(slid['top']?.b, pt(5, 1));
   });
 
+  it('is null when its end would slide past the end of the wall it sits on', () => {
+    const host = wall(pt(4, -0.5), pt(4, 0.5), 0.2, 'host');
+    expect(moveWall(record(top, host), 'top', 0.4)).not.toBeNull();
+    expect(moveWall(record(top, host), 'top', 1)).toBeNull();
+  });
+
+  it('is null when a slanted wall ending on its middle would meet it beyond its ends', () => {
+    // Ends on the top at (3.5, 0); moved down, its line crosses the top further right.
+    const slanted = wall(pt(5, 3), pt(3.5, 0), 0.2, 'slanted');
+    const moved = byId(moveWall(record(top, slanted), 'top', -0.8));
+    expectPt(moved['slanted']?.b, pt(3.9, 0.8));
+    expect(moveWall(record(top, slanted), 'top', -1.5)).toBeNull();
+  });
+
   it('is null when a neighbour would get too short or turn around', () => {
     const side = wall(pt(4, 0), pt(4, 3), 0.2, 'side');
     expect(moveWall(record(top, side), 'top', -2.995)).toBeNull();

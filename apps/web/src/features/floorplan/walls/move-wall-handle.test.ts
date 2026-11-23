@@ -114,9 +114,19 @@ describe('move-wall tool', () => {
 });
 
 describe('wallsMovable', () => {
-  it('holds for the select and move-wall tools while nothing is drawn', () => {
-    const state = editorStore.getState();
+  it('holds for one selected item with the select and move-wall tools while nothing is drawn', () => {
+    const state = {
+      ...editorStore.getState(),
+      selection: [{ collection: 'walls' as const, id: 'top' }],
+    };
     expect(wallsMovable(state)).toBe(true);
+    expect(wallsMovable({ ...state, selection: [] })).toBe(false);
+    expect(
+      wallsMovable({
+        ...state,
+        selection: [...state.selection, { collection: 'walls', id: 'side' }],
+      }),
+    ).toBe(false);
     expect(wallsMovable({ ...state, tool: MOVE_WALL_TOOL })).toBe(true);
     expect(wallsMovable({ ...state, tool: 'wall' })).toBe(false);
     expect(wallsMovable({ ...state, drawing: { points: [pt(0, 0)], hover: null } })).toBe(false);

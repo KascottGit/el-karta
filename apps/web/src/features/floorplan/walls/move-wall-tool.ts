@@ -6,13 +6,19 @@ import { cancelWallMove, dragWallMove, endWallMove, startWallMove } from './move
 
 export const MOVE_WALL_TOOL = 'move-wall';
 
-/** Whether selected walls can be moved by dragging them: with the select or move-wall tool, while nothing is drawn. */
+/**
+ * Whether a selected wall can be moved by dragging its body or arrow: it is the only selected item,
+ * the select or move-wall tool is active and nothing is drawn.
+ */
 export const wallsMovable = (s: EditorState) =>
-  s.drawing === null && (s.tool === DEFAULT_TOOL || s.tool === MOVE_WALL_TOOL);
+  s.selection.length === 1 &&
+  s.drawing === null &&
+  (s.tool === DEFAULT_TOOL || s.tool === MOVE_WALL_TOOL);
 
 /**
  * Moves any wall it is dragged on along the wall's normal, without selecting it first; a drag that
- * starts off a wall pans. A tap selects, as with the select tool.
+ * starts off a wall pans. A drag on a door, window or passage still slides it along its wall,
+ * since handles take drags before any tool. A tap selects, as with the select tool.
  */
 export const moveWallTool: Tool = {
   id: MOVE_WALL_TOOL,
