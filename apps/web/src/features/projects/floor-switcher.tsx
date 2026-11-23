@@ -1,20 +1,20 @@
 import { floorsInOrder, type Building, type Id } from '@el-karta/core';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router';
 import { useModelStore } from '@/model/store';
 import { buildingsInOrder } from './buildings';
 
-/**
- * Switches the editor to another floor by changing the URL. Shown only on the editor route of the
- * loaded project; the dev synthetic page has no per-floor URL.
- */
-export function FloorSwitcher({ floorId }: { floorId: Id }) {
+/** Switches the editor to another floor through the page's `onOpenFloor`. */
+export function FloorSwitcher({
+  floorId,
+  onOpenFloor,
+}: {
+  floorId: Id;
+  onOpenFloor: (floorId: Id) => void;
+}) {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
-  const { projectId } = useParams();
   const model = useModelStore((s) => s.model);
 
-  if (!model || model.project.id !== projectId || Object.keys(model.floors).length < 2) return null;
+  if (!model || Object.keys(model.floors).length < 2) return null;
   const buildings = buildingsInOrder(model, i18n.language);
   const options = (building: Building) =>
     floorsInOrder(model, building.id)
@@ -30,7 +30,9 @@ export function FloorSwitcher({ floorId }: { floorId: Id }) {
       aria-label={t('editor.floor')}
       className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
       value={floorId}
-      onChange={(event) => void navigate(`/projects/${projectId}/floors/${event.target.value}`)}
+      onChange={(event) => {
+        onOpenFloor(event.target.value);
+      }}
     >
       {buildings.length > 1
         ? buildings.map((building) => (
