@@ -37,12 +37,14 @@ describe('floorMeshes', () => {
     const wallId = Object.keys(floor.data.walls)[0]!;
     const roomId = Object.keys(floor.data.rooms)[0]!;
     const deviceId = meshes.devices[0]!.ids[0]!;
+    const openingId = Object.keys(floor.data.openings)[0]!;
     const highlight = highlightGeometry(meshes, [
       { collection: 'walls', id: wallId },
+      { collection: 'openings', id: openingId },
       { collection: 'rooms', id: roomId },
       { collection: 'devices', id: deviceId },
     ]);
-    expect(highlight?.items).toHaveLength(3);
+    expect(highlight?.items).toHaveLength(4);
     expect(floorMeshes(floor)).toBe(meshes);
     expect(buildCounts()[floor.id]).toBe(built);
   });

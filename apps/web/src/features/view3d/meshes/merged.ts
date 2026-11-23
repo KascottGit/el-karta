@@ -115,8 +115,16 @@ function addBox(b: MergedBuilder, { center, size, rotation }: Box) {
   }
 }
 
-/** Merges boxes, grouped by the item each belongs to. */
-export function mergeBoxes<T extends Box>(boxes: readonly T[], idOf: (box: T) => Id): MergedMesh {
+/**
+ * Merges boxes, grouped by the item each belongs to. With `materialOf`, items are ordered by their
+ * material index and the geometry gets one draw group per index, for a mesh with a material array.
+ * All of an item's boxes must have the same material.
+ */
+export function mergeBoxes<T extends Box>(
+  boxes: readonly T[],
+  idOf: (box: T) => Id,
+  materialOf?: (box: T) => number,
+): MergedMesh {
   const byItem = new Map<Id, T[]>();
   for (const box of boxes) {
     const id = idOf(box);
@@ -124,12 +132,25 @@ export function mergeBoxes<T extends Box>(boxes: readonly T[], idOf: (box: T) =>
     if (list) list.push(box);
     else byItem.set(id, [box]);
   }
+  const items = [...byItem];
+  const material = ([, list]: (typeof items)[number]) => materialOf?.(list[0]!) ?? 0;
+  if (materialOf) items.sort((p, q) => material(p) - material(q));
   const b = new MergedBuilder();
-  for (const [id, list] of byItem) {
+  for (const [id, list] of items) {
     b.item(id);
     for (const box of list) addBox(b, box);
   }
-  return b.build();
+  const mesh = b.build();
+  if (materialOf) {
+    for (const item of items) {
+      const range = mesh.ranges.get(item[0])!;
+      const index = material(item);
+      const last = mesh.geometry.groups.at(-1);
+      if (last?.materialIndex === index) last.count += range.count * 3;
+      else mesh.geometry.addGroup(range.start * 3, range.count * 3, index);
+    }
+  }
+  return mesh;
 }
 
 const UP = [0, 1, 0];

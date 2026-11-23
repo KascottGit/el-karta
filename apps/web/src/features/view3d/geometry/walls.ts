@@ -1,5 +1,4 @@
 import {
-  add,
   EPSILON,
   normalize,
   scale,
@@ -17,19 +16,13 @@ import {
   type WallEnd,
 } from '@/features/floorplan/walls/wall-outline';
 import type { WallPiece } from './types';
+import { boxAlongWall, openingHole, type Hole } from './wall-frame';
 
 /** Shorter pieces than this (1 mm) are dropped; they only come from openings touching each other. */
 const MIN_PIECE = 0.001;
 
 /** Sine of the largest angle (about 1°) at which two joined walls still count as one straight line. */
 const STRAIGHT = 0.02;
-
-interface Hole {
-  start: number;
-  end: number;
-  bottom: number;
-  top: number;
-}
 
 /**
  * Every wall of the floor as boxes, split around its openings. A wall end that meets another
@@ -118,24 +111,19 @@ function piecesOfWall(
 ): void {
   const length = wallLength(wall);
   if (length < EPSILON) return;
-  const holes = openings.flatMap((o) => holeOf(o, length, height));
+  const holes = openings.flatMap((o) => openingHole(o, length, height) ?? []);
   const from = extendA ? -wall.thickness / 2 : 0;
   const to = length + (extendB ? wall.thickness / 2 : 0);
   const cuts = [...new Set([from, to, ...holes.flatMap((h) => [h.start, h.end])])].sort(
     (p, q) => p - q,
   );
 
-  const dir = normalize(sub(wall.b, wall.a));
-  const rotation = Math.atan2(dir.y, dir.x);
   const emit = (start: number, end: number, solids: readonly [number, number][]) => {
     if (end - start < MIN_PIECE) return;
-    const mid = add(wall.a, scale(dir, (start + end) / 2));
     for (const [bottom, top] of solids) {
       out.push({
         wallId: wall.id,
-        center: { x: mid.x, y: mid.y, z: (bottom + top) / 2 },
-        size: { x: end - start, y: wall.thickness, z: top - bottom },
-        rotation,
+        ...boxAlongWall(wall, { start, end, bottom, top }, wall.thickness),
       });
     }
   };
@@ -156,16 +144,6 @@ function piecesOfWall(
   if (runSolids) emit(runStart, to, runSolids);
 }
 
-/** The opening's cut-out, clamped to the wall. `offset` is the opening's start, measured from `a`. */
-function holeOf(opening: Opening, length: number, height: number): Hole[] {
-  const start = clamp(opening.offset, 0, length);
-  const end = clamp(opening.offset + opening.width, 0, length);
-  const sill = opening.sill ?? 0;
-  const bottom = clamp(sill, 0, height);
-  const top = clamp(sill + opening.height, 0, height);
-  return end - start > EPSILON && top - bottom > EPSILON ? [{ start, end, bottom, top }] : [];
-}
-
 /** The z ranges of [0, height] left solid around the holes. */
 function solidRanges(holes: readonly Hole[], height: number): [number, number][] {
   const ranges: [number, number][] = [];
@@ -180,5 +158,3 @@ function solidRanges(holes: readonly Hole[], height: number): [number, number][]
 
 const sameRanges = (p: readonly [number, number][], q: readonly [number, number][]) =>
   p.length === q.length && p.every(([b, t], i) => b === q[i]![0] && t === q[i]![1]);
-
-const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));

@@ -68,6 +68,25 @@ describe('mergeBoxes', () => {
     expect(mesh.ids[mesh.itemOf[24]!]).toBe('b');
     expect(mesh.itemOf).toHaveLength(36);
   });
+  it('orders items by material and gives each material one draw group', () => {
+    const boxes = [
+      { ...box('a'), material: 1 },
+      { ...box('b'), material: 0 },
+      { ...box('c'), material: 1 },
+      { ...box('b', { center: { x: 9, y: 9, z: 1 } }), material: 0 },
+    ];
+    const mesh = mergeBoxes(
+      boxes,
+      (b) => b.id,
+      (b) => b.material,
+    );
+    expect(mesh.ids).toEqual(['b', 'a', 'c']);
+    expect(mesh.geometry.groups).toEqual([
+      { start: 0, count: 72, materialIndex: 0 },
+      { start: 72, count: 72, materialIndex: 1 },
+    ]);
+    expect(mergeBoxes(boxes, (b) => b.id).geometry.groups).toEqual([]);
+  });
 });
 
 describe('mergeSlabs', () => {
