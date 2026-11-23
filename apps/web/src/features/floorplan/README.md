@@ -114,17 +114,18 @@ Both commit once, on Enter or blur, and only when the text changed.
 
 ## Input
 
-| Input                                                            | Effect                                                            |
-| ---------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Mouse wheel on Windows and Linux (notches)                       | Zoom at the pointer                                               |
-| Trackpad pinch, Ctrl/Cmd + wheel                                 | Zoom at the pointer                                               |
-| Trackpad two-finger scroll, mouse wheel on macOS, Shift + wheel  | Pan                                                               |
-| Middle-button drag, Space + drag, a drag no handle or tool takes | Pan                                                               |
-| Two fingers                                                      | Pinch-zoom and pan                                                |
-| Escape                                                           | Cancel a drag, else see Tools above                               |
-| Delete, Backspace                                                | Delete the selection                                              |
-| Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z, Ctrl + Y                     | Undo, redo                                                        |
-| Single key                                                       | The tool or action with that `shortcut` (V select, F zoom to fit) |
+| Input                                                            | Effect                                                                         |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Mouse wheel on Windows and Linux (notches)                       | Zoom at the pointer                                                            |
+| Trackpad pinch, Ctrl/Cmd + wheel                                 | Zoom at the pointer                                                            |
+| Trackpad two-finger scroll, mouse wheel on macOS, Shift + wheel  | Pan                                                                            |
+| Middle-button drag, Space + drag, a drag no handle or tool takes | Pan                                                                            |
+| Two fingers                                                      | Pinch-zoom and pan                                                             |
+| Escape                                                           | Cancel a drag, else see Tools above                                            |
+| Delete, Backspace                                                | Delete the selection                                                           |
+| Ctrl/Cmd + Z, Ctrl/Cmd + Shift + Z, Ctrl + Y                     | Undo, redo                                                                     |
+| Drag on the selected wall, or its double arrow                   | Move the wall along its normal; joined walls follow (`walls/move-wall.ts`)     |
+| Single key                                                       | The tool or action with that `shortcut` (V select, F zoom to fit, O move wall) |
 
 Browsers do not say whether a wheel event comes from a mouse or a trackpad, so the wheel rows follow a fixed rule (`canvas/wheel.ts`):
 
