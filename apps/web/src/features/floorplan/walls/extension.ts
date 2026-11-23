@@ -3,6 +3,8 @@ import type { EditorState } from '../editor-store';
 import type { EditorExtension } from '../canvas/extension';
 import { union } from '../canvas/rect';
 import { cornerHandle } from './corner-handle';
+import { wallMoveHandle } from './move-wall-handle';
+import { moveWallTool } from './move-wall-tool';
 import { WallPropsPanel, WallToolPanel } from './wall-panels';
 import { wallBounds } from './wall-outline';
 import { WALL_TOOL, wallTool } from './wall-tool';
@@ -16,11 +18,11 @@ const hasWallSelected = (editor: EditorState, model: ModelState) => {
   return !!walls && editor.selection.some((s) => s.collection === 'walls' && s.id in walls);
 };
 
-/** Walls: the wall tool, corner handles, the walls layer and the wall side panels. */
+/** Walls: the wall and move-wall tools, corner and move handles, the walls layer and the wall side panels. */
 export const wallsExtension: EditorExtension = {
   id: 'walls',
-  tools: [wallTool],
-  handles: [cornerHandle],
+  tools: [wallTool, moveWallTool],
+  handles: [cornerHandle, wallMoveHandle],
   layers: [
     {
       id: 'walls',

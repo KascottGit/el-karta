@@ -41,24 +41,38 @@ export const fixedEnds = (walls: Readonly<Record<Id, Wall>>, ends: readonly EndR
     return wall ? [wall[otherEnd(end)]] : [];
   });
 
+/** Wall ends that move together to one point. */
+export interface EndMove {
+  ends: readonly EndRef[];
+  to: Pt;
+}
+
 /**
- * The walls with the given ends moved to `to`, or null if that would leave one of them shorter
- * than `MIN_WALL_LENGTH`. A wall with both ends in `ends` moves both.
+ * The walls with each group of ends moved to its point, or null if that would leave one of them
+ * shorter than `MIN_WALL_LENGTH`. A wall with both ends moving moves both.
  */
-export function moveEnds(
+export function moveEndGroups(
   walls: Readonly<Record<Id, Wall>>,
-  ends: readonly EndRef[],
-  to: Pt,
+  moves: readonly EndMove[],
 ): Wall[] | null {
   const moved = new Map<Id, Wall>();
-  for (const { wallId, end } of ends) {
-    const wall = moved.get(wallId) ?? walls[wallId];
-    if (!wall) continue;
-    moved.set(wallId, { ...wall, [end]: { x: to.x, y: to.y } });
+  for (const { ends, to } of moves) {
+    for (const { wallId, end } of ends) {
+      const wall = moved.get(wallId) ?? walls[wallId];
+      if (!wall) continue;
+      moved.set(wallId, { ...wall, [end]: { x: to.x, y: to.y } });
+    }
   }
   const result = [...moved.values()];
   return result.some((w) => distance(w.a, w.b) < MIN_WALL_LENGTH) ? null : result;
 }
+
+/** `moveEndGroups` for a single corner moved to `to`. */
+export const moveEnds = (
+  walls: Readonly<Record<Id, Wall>>,
+  ends: readonly EndRef[],
+  to: Pt,
+): Wall[] | null => moveEndGroups(walls, [{ ends, to }]);
 
 export const putWalls = (floorId: Id, walls: readonly Wall[]): Edit =>
   combine(...walls.map((wall) => putSpaceItem(floorId, 'walls', wall)));
