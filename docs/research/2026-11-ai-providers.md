@@ -34,6 +34,18 @@ Checked on Anthropic's models overview, the Haiku 5.5 model page, the pricing pa
 - Structured output (`output_config.format`, JSON Schema) is supported. Objects must have `additionalProperties: false`; numeric bounds, string lengths and `oneOf` are not supported, which the provider handles with the SDK's schema transform.
 - Same newer tokenizer as Claude 4.7 and later: about 30 % more tokens than Haiku 4.5 for the same text, so measure real counts.
 
+### Anthropic API terms, checked 2026-11-23
+
+Against PLAN.md "Data and provider terms":
+
+- **Training:** inputs and outputs of the commercial API are not used for training by default; only data the customer explicitly reports as feedback or opts in.
+- **DPA:** under the Commercial Terms Anthropic is the processor and the customer the controller. The DPA is part of the Commercial Terms; check the current version (and its SCCs for transfers out of the EEA) before customer data.
+- **Retention:** prompts and outputs are not retained by default (Covered Models such as Fable and Mythos need 30 days; Haiku 5.5 is not one). Structured outputs cache only the JSON schema, for up to 24 hours. Flagged content may be kept up to 2 years. Zero data retention is available on request through sales.
+- **Where data is processed:** `inference_geo` is `"global"` (default: US, Europe, Asia or Australia) or `"us"` (1.1x price). There is **no EU-only inference**, and workspace data at rest is stored in the US only. So the first-party API does not meet "ideally processing in the EEA".
+- **EU option if needed:** Claude Haiku on Google Cloud (Google managed, Vertex AI EU regions) or Amazon Bedrock EU regions, where the cloud provider is the processor. It would be one more `AiProvider` (`@anthropic-ai/vertex-sdk` or the Bedrock client) behind the same interface. Prices and Haiku 5.5's availability in those EU regions need checking first.
+
+Conclusion: fine for test data now. Before customer data, decide between the first-party API (US storage, DPA with SCCs) and an EU-region cloud deployment.
+
 ## DeepSeek V4.1
 
 Technically it fits: `deepseek-flash` takes images (resized to at most about 1024 tokens each), is among the cheapest options, and supports JSON output and tool calls. Peak hours are 01–04 and 06–10 UTC on weekdays; off-peak is half price.
@@ -59,6 +71,11 @@ Each needs an `AiProvider` implementation in `packages/ai-providers`. Score them
 - Garante and DeepSeek: https://thedpo.eu/en/decisions/a8ad032c-f045-409e-a449-958de8c7374f
 - DeepSeek on EU infrastructure: https://optinest.de/ai-infrastructure/models/open-weights/running-deepseek-models-on-european-infrastructure
 - Claude Haiku 5.5: https://platform.claude.com/docs/en/models/haiku-5-5/overview
+- Anthropic data retention: https://platform.claude.com/docs/en/manage-claude/api-and-data-retention
+- Anthropic data residency: https://platform.claude.com/docs/en/manage-claude/data-residency
+- Anthropic server locations: https://privacy.claude.com/en/articles/7996890-where-are-your-servers-located-do-you-host-your-models-on-eu-servers
+- Anthropic training on commercial data: https://privacy.claude.com/en/articles/7996868-is-my-data-used-for-model-training
+- Anthropic as processor: https://privacy.claude.com/en/articles/9267385-does-anthropic-act-as-a-data-processor-or-controller
 - Claude models overview: https://platform.claude.com/docs/en/about-claude/models/overview
 - Claude pricing: https://platform.claude.com/docs/en/about-claude/pricing
 - Claude structured outputs: https://platform.claude.com/docs/en/build-with-claude/structured-outputs
