@@ -1,6 +1,8 @@
 # Floor editor
 
-`floor-editor.tsx` is the page body. It has a header (back link, floor name, floor switcher, save status) and the `EditorWorkspace` (`canvas/editor-workspace.tsx`), which holds the toolbar, the Konva canvas and the side panel. ADR 0006 explains the design.
+`floor-editor.tsx` is the page body. It has a header (back link, floor name, floor switcher, view switch, save status) and the `EditorWorkspace` (`canvas/editor-workspace.tsx`), which holds the toolbar, the Konva canvas, the 3D view and the side panel. ADR 0006 explains the design.
+
+The view mode (`view-mode.ts`, `?view=2d|3d|split`) shows the Konva canvas, the lazy-loaded 3D view (`features/view3d/`, ADR 0008) or both side by side on screens `md` and wider; on phones split shows only 3D. The page passes `onOpenFloor(floorId)` to the editor, which the floor switcher and a tap on another floor in 3D use: the editor route navigates to the floor's URL, the dev synthetic page sets `?floor=`, and both keep the other search parameters.
 
 ## State
 

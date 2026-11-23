@@ -492,5 +492,24 @@
         "sofa": "Soffa"
       }
     }
+  },
+  "view3d": {
+    "viewMode": {
+      "label": "Vy",
+      "2d": "2D",
+      "3d": "3D",
+      "split": "2D + 3D"
+    },
+    "canvas": "3D-vy av våningen",
+    "loading": "Laddar 3D-vyn …",
+    "noWebgl": "3D-vyn kan inte visas eftersom webbläsaren saknar stöd för WebGL.",
+    "zoomToFit": "Zooma till allt",
+    "floors": {
+      "button": "Våningar",
+      "current": "Denna våning",
+      "all": "Alla våningar",
+      "some": "Välj våningar",
+      "exploded": "Isärdragen"
+    }
   }
 }

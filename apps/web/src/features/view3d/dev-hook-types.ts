@@ -15,6 +15,8 @@ export interface View3dDevHook {
   screenPosition: (item: View3dItem) => { x: number; y: number } | null;
   /** How many times each floor's merged geometry was built, keyed by floor id. */
   builds: () => Readonly<Record<Id, number>>;
+  /** The selected items the 3D view currently highlights. */
+  highlighted: () => View3dItem[];
 }
 
 declare global {
