@@ -34,6 +34,9 @@ import {
 } from './meshes/floor-meshes';
 import { highlightGeometry } from './meshes/highlight';
 import { floorObjects } from './meshes/objects';
+import { GizmoController } from './gizmos/controller';
+import { Gizmo } from './gizmos/gizmo';
+import { usePreviewData } from './gizmos/preview-store';
 import { SceneRegistry } from './scene-registry';
 import { selectPicked } from './select';
 
@@ -75,7 +78,10 @@ const Highlight = memo(function Highlight({
   ) : null;
 });
 
-/** One floor: its merged walls and slabs, its device instances and its selection highlight. */
+/**
+ * One floor: its merged walls and slabs, its device instances, its selection highlight and the
+ * gizmo of a selected wall or opening. During a gizmo drag it is drawn from the drag's preview.
+ */
 const FloorObject = memo(function FloorObject({
   floorId,
   base,
@@ -85,7 +91,12 @@ const FloorObject = memo(function FloorObject({
   base: number;
   registry: SceneRegistry;
 }) {
-  const floor = useModelStore((s) => s.model?.floors[floorId]);
+  const committed = useModelStore((s) => s.model?.floors[floorId]);
+  const preview = usePreviewData(floorId);
+  const floor = useMemo(
+    () => (committed && preview ? { ...committed, data: preview } : committed),
+    [committed, preview],
+  );
   const meshes = useMemo(() => (floor ? floorMeshes(floor) : null), [floor]);
   const objects = useMemo(() => (meshes ? floorObjects(meshes) : []), [meshes]);
   const group = useRef<Group>(null);
@@ -121,6 +132,7 @@ const FloorObject = memo(function FloorObject({
         <primitive key={o.uuid} object={o} dispose={null} />
       ))}
       <Highlight floorId={floorId} meshes={meshes} registry={registry} />
+      {floor && <Gizmo floorId={floorId} data={floor.data} registry={registry} />}
     </group>
   );
 });
@@ -178,7 +190,10 @@ function CameraRig({
   return null;
 }
 
-/** Taps pick and select; drags and pinches are left to the orbit controls. */
+/**
+ * Taps pick and select; drags and pinches are left to the orbit controls, except a press on a
+ * gizmo handle, which turns the orbit controls off until it is released and drags the handle.
+ */
 function Interaction({
   registry,
   onOpenFloor,
@@ -190,6 +205,8 @@ function Interaction({
   const canvas = useThree((s) => s.gl.domElement);
   // The element the orbit controls listen on and capture pointers to.
   const el = useThree((s) => (s.events.connected as HTMLElement | undefined) ?? canvas);
+  const controls = useThree((s) => s.controls as Controls | null);
+  const [gizmos] = useState(() => new GizmoController(registry));
   const openFloor = useRef(onOpenFloor);
   useEffect(() => {
     openFloor.current = onOpenFloor;
@@ -202,42 +219,81 @@ function Interaction({
         openFloor.current(id);
       });
     };
+    const unlessHandle = (p: PointerInput) => {
+      if (!gizmos.holds(p.id)) choose(p);
+    };
     const noop = () => undefined;
     const gestures = createGestureController({
-      hover: noop,
-      tap: choose,
-      doubleTap: choose,
-      dragStart: () => false,
-      drag: noop,
-      dragEnd: noop,
-      dragCancel: noop,
+      hover: (p) => {
+        el.style.cursor = gizmos.handleAt(get(), p.x, p.y, p.kind) ? 'grab' : '';
+      },
+      tap: unlessHandle,
+      doubleTap: unlessHandle,
+      dragStart: (start) => gizmos.holds(start.id) && gizmos.start(get(), start),
+      drag: (p) => {
+        gizmos.move(get(), p);
+      },
+      dragEnd: (p) => {
+        gizmos.end(get(), p);
+      },
+      dragCancel: () => {
+        gizmos.cancel();
+      },
       pan: noop,
       pinch: noop,
     });
     const input = (e: PointerEvent): PointerInput => pointerInput(e, canvas, false);
+    const lift = (p: PointerInput) => {
+      if (!gizmos.holds(p.id)) return;
+      gizmos.release(p.id);
+      if (controls) controls.enabled = true;
+      el.style.cursor = '';
+    };
+    // Capture phase, so a press on a handle turns the orbit controls off before they see it.
     const onDown = (e: PointerEvent) => {
-      gestures.down(input(e));
+      const p = input(e);
+      if (p.button === 0 && gizmos.press(get(), p)) {
+        if (controls) controls.enabled = false;
+        el.setPointerCapture(e.pointerId);
+        el.style.cursor = 'grabbing';
+      }
+      gestures.down(p);
     };
     const onMove = (e: PointerEvent) => {
       gestures.move(input(e));
     };
     const onUp = (e: PointerEvent) => {
-      gestures.up(input(e));
+      const p = input(e);
+      gestures.up(p);
+      lift(p);
     };
     const onCancel = (e: PointerEvent) => {
-      gestures.cancel(input(e));
+      const p = input(e);
+      gestures.cancel(p);
+      lift(p);
     };
-    el.addEventListener('pointerdown', onDown);
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('pointercancel', onCancel);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || !gizmos.dragging) return;
+      // Before the editor's shortcuts, which would also clear the selection.
+      e.preventDefault();
+      e.stopPropagation();
+      gestures.cancelDrag();
+    };
+    el.addEventListener('pointerdown', onDown, true);
+    el.addEventListener('pointermove', onMove, true);
+    el.addEventListener('pointerup', onUp, true);
+    el.addEventListener('pointercancel', onCancel, true);
+    window.addEventListener('keydown', onKey, true);
     return () => {
-      el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('pointercancel', onCancel);
+      gestures.cancelDrag();
+      if (controls) controls.enabled = true;
+      el.removeEventListener('pointerdown', onDown, true);
+      el.removeEventListener('pointermove', onMove, true);
+      el.removeEventListener('pointerup', onUp, true);
+      el.removeEventListener('pointercancel', onCancel, true);
+      window.removeEventListener('keydown', onKey, true);
     };
-  }, [el, canvas, get, registry]);
+  }, [el, canvas, get, registry, controls, gizmos]);
 
   useEffect(() => {
     setView3dDevHook({
@@ -247,11 +303,15 @@ function Interaction({
       },
       builds: buildCounts,
       highlighted: () => registry.highlighted(),
+      gizmoHandle: (name) => {
+        const at = gizmos.handlePosition(get(), name);
+        return at && { ...at, axis: gizmos.handleAxis(get(), name) };
+      },
     });
     return () => {
       setView3dDevHook(undefined);
     };
-  }, [get, registry]);
+  }, [get, registry, gizmos]);
 
   return null;
 }
