@@ -22,7 +22,7 @@ Terminology: "panel" in code = distribution board (elcentral); "sub-panel" = und
 
 ## How to work on this (instructions for Claude Code)
 
-- Work **one milestone at a time**, in order. When a milestone is done: run typecheck, lint and tests, commit, then stop and summarize what was built, what's left and any decisions you made.
+- Work **one milestone at a time**, in the order given under Milestones (not by number). When a milestone is done: run typecheck, lint and tests, commit, then stop and summarize what was built, what's left and any decisions you made.
 - Follow the design principles above. When you generalize an existing feature, say so in the summary.
 - **Import boundaries:** `packages/core` never imports from plugins, apps or data adapters. Plugins depend on core only. This is enforced by lint (M0). Milestone 14 (network plugin) is the test: it must not require changes to `packages/core`.
 - Write unit tests for all model, geometry, graph, validator and agent-tool logic. UI tests only where cheap.
@@ -374,7 +374,7 @@ Every run: select context → call the model with structured output → parse wi
 
 **Context, not everything:** a pass gets the subset that matters (the selected room and its neighbours, existing features there, the most relevant earlier photos), not the whole building. This keeps cost, latency and confusion down in large buildings.
 
-**Provider adapter:** `supabase/functions/_shared/ai/` exposes one interface (`generateStructured({ model, system, messages, images, schema })`) with implementations for Gemini, Claude and OpenAI. Each pass picks its model in config: a fast, cheap vision model for photo detection; a stronger model for panel and wiring reasoning if evals show it's needed. The adapter handles retries with backoff on rate limits (429), per-user rate limiting and usage logging.
+**Provider adapter:** `packages/ai-providers` exposes one interface (`generateStructured({ model, system, messages, images, schema })`, ADR 0007). Gemini is implemented; candidates for more providers are in `docs/research/2026-11-ai-providers.md`. Each pass picks its model in config: a fast, cheap vision model for photo detection; a stronger model for panel and wiring reasoning if evals show it's needed. The adapter handles retries with backoff on rate limits (429), per-user rate limiting and usage logging.
 
 **Data and provider terms:**
 - During testing, use only test data (our own homes, made-up or public floor plans). Free tiers of some providers (e.g. the Gemini API free tier) may use prompts and images to improve their products.
@@ -394,6 +394,8 @@ Every run: select context → call the model with structured output → parse wi
 - A short, permanent note in the app: El-karta is for documentation and planning; work on the fixed installation must be done by an authorised electrician.
 
 ## Milestones
+
+Done: M0–M4. **Order from here:** M9 → provider review → M11 → M5 → M6 → M7 → M8 → M10 → M12 → M13 → M14 → M15 → M16. M9 and M11 come first, so each says what it pulls forward from the milestones it skips.
 
 ### M0 – Scaffold
 pnpm monorepo with the structure above; Node and pnpm versions pinned (`.nvmrc`, `packageManager`). Vite + React + TS strict, Tailwind + shadcn/ui, React Router, i18next, ESLint with import-boundary rules + Prettier, Vitest, PWA. `AGENTS.md` (conventions, commands, boundaries, "minimal comments" rule), `CLAUDE.md` pointing to it, `docs/decisions/` with ADR 0001 recording this stack. GitHub Actions: CI (typecheck, lint, test, build) on every push, and deploy to GitHub Pages from `main` as described under Hosting. Dependabot configured. Supabase CLI initialised, local stack runs, `.env.example` committed, `.env.local` git-ignored.
@@ -420,8 +422,8 @@ Provider adapter (start with one provider; Gemini free tier with test data only 
 **Done when:** a villa and the medium office project can be fully modelled, including a sub-panel on another floor fed from the main panel and switches controlling lights.
 
 ### M6 – Linked highlighting, search and lists
-Selecting a device, breaker, panel or list row highlights the full circuit in the plan, panel view, tree and list, and jumps to the right floor. Upstream path shown. Selecting a light shows its switch and vice versa. Global search by label, room, zone and grid position. Circuit list (gruppförteckning) per panel with filters; export as CSV and a print-styled page for PDF.
-**Done when:** clicking an outlet in the large synthetic project shows its full upstream path and every device on that circuit within the performance budget.
+Selecting a device, breaker, panel or list row highlights the full circuit in the plan, the 3D view (M9), panel view, tree and list, and jumps to the right floor. Upstream path shown. Selecting a light shows its switch and vice versa. Global search by label, room, zone and grid position. Circuit list (gruppförteckning) per panel with filters; export as CSV and a print-styled page for PDF.
+**Done when:** clicking an outlet in the large synthetic project shows its full upstream path and every device on that circuit, in 2D and 3D, within the performance budget.
 
 ### M7 – Bulk tools
 Multi-select (box select, shift/long-press). Copy/paste. Array placement (row or grid with spacing). Naming templates with auto-increment (e.g. `UC2-F{n}`). Bulk assign to a breaker. CSV import of an existing circuit list (panel, breaker, rating, description) to create the panel view. Build these as generic operations on devices, not power-specific code.
@@ -432,14 +434,20 @@ Flow: choose a breaker → "I've switched it off" → tap every device that went
 **Done when:** one circuit can be mapped on a phone in about a minute in a basement with no signal, and shows up on the laptop afterwards.
 
 ### M9 – 3D view and furniture
-Walls extruded from the 2D plan using wall, room and floor heights; doors and windows cut out as openings; floors stacked; devices as instanced icons at their resolved positions; orbit/zoom on touch and mouse. Show one floor, a few floors, or all (exploded view). Clicking in 3D uses the same selection state; a selected circuit is highlighted across floors. Small `plugin-furnishing` (desk, table, shelf, rack shelving, cabinet, bed, sofa as simple boxes) to make rooms recognisable; it must need no core changes.
-**Done when:** the same highlighted circuit is visible in 2D and 3D, the large synthetic project stays usable in 3D on a laptop, and the furniture plugin was added without touching `packages/core`.
+Walls extruded from the 2D plan using wall, room and floor heights; doors and windows cut out as openings; floors stacked; devices as instanced icons at their resolved positions (generic markers per device type until M5 adds the power icons); orbit/zoom on touch and mouse. Show one floor, a few floors, or all (exploded view). Clicking in 3D uses the same selection state as the 2D editor, so selecting a wall, room or device in one view selects it in the other; tapping a room or wall in 3D is also how M11 picks what a photo shows. Small `plugin-furnishing` (desk, table, shelf, rack shelving, cabinet, bed, sofa as simple boxes) to make rooms recognisable; it must need no core changes. Comes before M5 and M6, so circuit highlighting in 3D is part of M6.
+**Done when:** an item selected in 2D is selected in 3D and the other way round, the large synthetic project stays usable in 3D on a laptop, and the furniture plugin was added without touching `packages/core`.
 
 ### M10 – Provenance, route certainty and evidence
 Provenance shown on everything (manual, detected, suggested, confirmed; source; confidence) with filters such as "show unconfirmed items". Optional drawn cable route on the plan (may continue on another floor) with route certainty and styling. Photo attachments on devices, connections, rooms and walls, with `region` recording what each photo shows (uploaded to Supabase Storage, compressed on the client first).
 **Done when:** a route without evidence can't be shown as verified, any item shows where it came from, and each room can carry photos linked to the walls they show.
 
+### Provider review (before M11)
+Add `AiProvider` implementations for the shortlist in `docs/research/2026-11-ai-providers.md` (Gemini 3.1 Flash-Lite, Claude Haiku 5.5, Mistral Small 4, and DeepSeek V4.1-Flash on an EU host, never DeepSeek's own API with real data), with a provider switch in config and in `pnpm eval`. Run the floor-plan evals on each and record score, cost per call (from `ai_runs`), latency and failure rate. Check each provider's terms against "Data and provider terms" above.
+**Done when:** the floor-plan eval results are recorded per provider and model, and an ADR names the default provider and model per pass and a fallback provider for outages.
+
 ### M11 – AI: photo detection
+**Pulled forward** (because M11 now comes before M5 and M10): from M5, `packages/plugin-power` with the device types photos can detect (outlet, switch, ceiling light, wall light) and placing, moving and deleting devices on walls and ceilings in the 2D editor; from M10, photo attachments with `region` (upload, client-side compression, linked to a room and wall). M5 and M10 then build on these instead of starting over. The eval runs on every provider kept after the provider review.
+
 Photo pass on the M4 pipeline. User takes or uploads a photo and taps the room or wall it shows (2D or 3D). The pass gets that room's walls, openings, features and 1–3 earlier photos of the room, and returns detected features with wall-relative placement, plus suggested corrections to openings and ceiling height. Results appear in the generic suggestions UI.
 **Done when:** a photo of a kitchen wall gives correctly typed outlets and switches on the right wall, roughly in the right place, that need only minor moves; eval set of 30+ photos scored for type and count accuracy.
 
