@@ -49,6 +49,12 @@ const httpStatus: Record<AiPassErrorCode, number> = {
   internal: 500,
 };
 
+/**
+ * Wall-clock budget of one run across all its attempts, below the Edge Function limit (150 s on
+ * the free plan). With a fallback, the primary may use half and the fallback the rest.
+ */
+export const RUN_BUDGET_MS = 140_000;
+
 class Refusal extends Error {
   constructor(
     readonly code: AiPassErrorCode,
@@ -155,16 +161,27 @@ async function run(
     throw new Refusal('rate_limited', `At most ${runsPerHour} AI runs per hour`);
   }
 
-  // Only a provider failure moves on to the fallback; invalid output would be no better there.
-  let last: { runId: Id; result: RunResult<unknown> } | undefined;
-  for (const { provider, model } of plan.attempts) {
-    const result = await runPass(pass, input.data, { provider, model });
-    last = { runId: await logRun(client, body, provider.id, result), result };
-    if (result.status !== 'error' && result.status !== 'rate_limited') break;
+  // The primary gets at most its share of the budget, so a fallback still has time to answer.
+  const start = Date.now();
+  let last: { runId: Id; provider: string; result: RunResult<unknown> } | undefined;
+  for (const [index, { provider, model }] of plan.attempts.entries()) {
+    const share = (index + 1) / plan.attempts.length;
+    const deadline = start + RUN_BUDGET_MS * share;
+    const result = await runPass(pass, input.data, { provider, model, deadline });
+    last = {
+      runId: await logRun(client, body, provider.id, result),
+      provider: provider.id,
+      result,
+    };
+    // Only an outage moves on; a bad request, a refusal or invalid output would fail there too.
+    if (result.providerFailure !== 'unavailable' && result.providerFailure !== 'rate_limited')
+      break;
   }
-  const { runId, result } = last!;
+  const { runId, provider, result } = last!;
   return {
     runId,
+    provider,
+    model: result.model,
     status: result.status,
     output: result.output,
     issues: result.issues,

@@ -59,6 +59,9 @@ export type AiRunStatus = 'ok' | 'invalid' | 'error' | 'rate_limited';
 export interface AiRunResponse {
   /** The last attempt's run: the fallback's when the primary provider failed. */
   runId: Id;
+  /** Provider and model of that attempt, for the provenance of what it suggested. */
+  provider: string;
+  model: string;
   status: AiRunStatus;
   /** The parsed pass output, or null when the model gave nothing usable. */
   output: unknown;

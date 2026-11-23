@@ -38,6 +38,7 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
       {
         ...options,
         label: 'Gemini',
+        deadline: request.deadline,
         statusOf: (error) => (error instanceof ApiError ? error.status : undefined),
       },
     );

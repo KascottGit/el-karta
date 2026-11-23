@@ -58,6 +58,7 @@ export function createAnthropicProvider(options: AnthropicOptions): AiProvider {
       {
         ...options,
         label: 'Claude',
+        deadline: request.deadline,
         statusOf,
       },
     );

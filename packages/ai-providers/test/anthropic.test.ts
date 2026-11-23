@@ -254,7 +254,7 @@ describe('createAnthropicProvider timeouts', () => {
     });
     const error = await provider.generateStructured(request).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(ProviderError);
-    expect((error as ProviderError).kind).toBe('error');
+    expect((error as ProviderError).kind).toBe('unavailable');
     expect((error as ProviderError).message).toMatch(/within 0.02 s/);
     expect(attempts).toBe(3);
   });

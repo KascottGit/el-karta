@@ -17,6 +17,11 @@ export interface GenerateRequest {
   images: ImageInput[];
   /** JSON Schema for structured output, from `z.toJSONSchema`. */
   jsonSchema: Record<string, unknown>;
+  /**
+   * Epoch milliseconds (`Date.now()`) after which no attempt starts; each attempt's timeout is cut
+   * to the time left. Lets a caller with a wall-clock limit keep time for a fallback.
+   */
+  deadline?: number;
 }
 
 export interface Usage {
@@ -32,7 +37,12 @@ export interface GenerateResponse {
   usage: Usage;
 }
 
-export type ProviderErrorKind = 'rate_limited' | 'error';
+/**
+ * `rate_limited` (429) and `unavailable` (overload, 5xx the retries did not get past, timeouts)
+ * are outages, where another provider may answer; `error` is anything else (bad request, refusal,
+ * cut-off or empty answer).
+ */
+export type ProviderErrorKind = 'rate_limited' | 'unavailable' | 'error';
 
 export class ProviderError extends Error {
   override name = 'ProviderError';

@@ -32,7 +32,7 @@ export async function runPass<In, Out, Opts>(
   let modelVersion: string | undefined;
 
   const finish = (
-    fields: Pick<RunResult<Out>, 'status' | 'output' | 'issues'> & { error?: string },
+    fields: Pick<RunResult<Out>, 'status' | 'output' | 'issues' | 'error' | 'providerFailure'>,
   ): RunResult<Out> => ({
     ...fields,
     validationRetries,
@@ -71,6 +71,7 @@ export async function runPass<In, Out, Opts>(
         messages,
         images: prompt.images,
         jsonSchema,
+        ...(options.deadline === undefined ? {} : { deadline: options.deadline }),
       });
       addUsage(usage, response.usage);
       if (response.modelVersion !== undefined) modelVersion = response.modelVersion;
@@ -108,9 +109,16 @@ export async function runPass<In, Out, Opts>(
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const status =
-      error instanceof ProviderError && error.kind === 'rate_limited' ? 'rate_limited' : 'error';
-    return finish({ status, output: null, issues: [], error: message });
+    if (!(error instanceof ProviderError)) {
+      return finish({ status: 'error', output: null, issues: [], error: message });
+    }
+    return finish({
+      status: error.kind === 'rate_limited' ? 'rate_limited' : 'error',
+      output: null,
+      issues: [],
+      error: message,
+      providerFailure: error.kind,
+    });
   }
 }
 

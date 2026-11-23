@@ -1,9 +1,14 @@
 import { createPassRegistry } from '@el-karta/ai-passes';
-import { createFakeProvider, ProviderError, type AiProvider } from '@el-karta/ai-providers';
+import {
+  createFakeProvider,
+  ProviderError,
+  type AiProvider,
+  type GenerateRequest,
+} from '@el-karta/ai-providers';
 import { createSuggestionKinds } from '@el-karta/core';
 import type { ElKartaClient } from '@el-karta/data-supabase';
-import { describe, expect, it } from 'vitest';
-import { createAiPassHandler } from './handler.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createAiPassHandler, RUN_BUDGET_MS } from './handler.ts';
 import { testEchoPass } from './test-pass.ts';
 
 type Row = Record<string, unknown>;
@@ -36,7 +41,7 @@ function fakeClient(runs: Row[]): ElKartaClient {
 }
 
 /** A fake provider under a real provider's id, so `planModels` treats it as that provider. */
-const providerAs = (id: string, replies: unknown[]): AiProvider & { calls: unknown[] } => {
+const providerAs = (id: string, replies: unknown[]): AiProvider & { calls: GenerateRequest[] } => {
   const fake = createFakeProvider(replies);
   return {
     id,
@@ -79,7 +84,28 @@ function setup(providers: AiProvider[] | undefined, env: Record<string, string> 
 }
 
 const ok = { labels: ['Kök'] };
-const down = new ProviderError('error', 'Claude did not answer within 120 s');
+const down = new ProviderError('unavailable', 'Claude did not answer within 70 s');
+
+describe('ai-pass run time budget', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('gives the primary half the budget and the fallback the rest, or one attempt all of it', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(1_000_000);
+    const anthropic = providerAs('anthropic', [down]);
+    const gemini = providerAs('gemini', [ok]);
+    await setup([anthropic, gemini]).run();
+    expect(anthropic.calls).toMatchObject([{ deadline: 1_000_000 + RUN_BUDGET_MS / 2 }]);
+    expect(gemini.calls).toMatchObject([{ deadline: 1_000_000 + RUN_BUDGET_MS }]);
+
+    const alone = providerAs('gemini', [ok]);
+    await setup([alone]).run();
+    expect(alone.calls).toMatchObject([{ deadline: 1_000_000 + RUN_BUDGET_MS }]);
+    expect(RUN_BUDGET_MS).toBeLessThan(150_000);
+  });
+});
 
 describe('ai-pass run with a fallback provider', () => {
   it('runs on the primary provider and logs one run', async () => {
@@ -88,7 +114,13 @@ describe('ai-pass run with a fallback provider', () => {
     const { run, runs } = setup([anthropic, gemini]);
     const { status, body } = await run();
     expect(status).toBe(200);
-    expect(body).toMatchObject({ runId: 'run-1', status: 'ok', output: ok });
+    expect(body).toMatchObject({
+      runId: 'run-1',
+      provider: 'anthropic',
+      model: 'claude-haiku-5-5',
+      status: 'ok',
+      output: ok,
+    });
     expect(runs).toMatchObject([{ provider: 'anthropic', model: 'claude-haiku-5-5' }]);
     expect(gemini.calls).toHaveLength(0);
   });
@@ -97,7 +129,13 @@ describe('ai-pass run with a fallback provider', () => {
     const gemini = providerAs('gemini', [ok]);
     const { run, runs } = setup([providerAs('anthropic', [down]), gemini]);
     const { body } = await run();
-    expect(body).toMatchObject({ runId: 'run-2', status: 'ok', output: ok });
+    expect(body).toMatchObject({
+      runId: 'run-2',
+      provider: 'gemini',
+      model: 'gemini-3-flash-preview',
+      status: 'ok',
+      output: ok,
+    });
     expect(runs).toMatchObject([
       { provider: 'anthropic', model: 'claude-haiku-5-5', status: 'error', error: down.message },
       { provider: 'gemini', model: 'gemini-3-flash-preview', status: 'ok' },
@@ -118,6 +156,17 @@ describe('ai-pass run with a fallback provider', () => {
     const { body } = await run();
     expect(body).toMatchObject({ status: 'invalid' });
     expect(runs).toMatchObject([{ provider: 'anthropic', status: 'invalid' }]);
+    expect(gemini.calls).toHaveLength(0);
+  });
+
+  it.each([
+    ['a bad request', new ProviderError('error', '400 invalid_request_error')],
+    ['a refusal', new ProviderError('error', 'Claude stopped without an answer (refusal)')],
+  ])('does not fall back on %s', async (_name, failure) => {
+    const gemini = providerAs('gemini', [ok]);
+    const { run, runs } = setup([providerAs('anthropic', [failure]), gemini]);
+    expect((await run()).body).toMatchObject({ status: 'error', provider: 'anthropic' });
+    expect(runs).toMatchObject([{ provider: 'anthropic', status: 'error' }]);
     expect(gemini.calls).toHaveLength(0);
   });
 

@@ -19,7 +19,7 @@ export const PlanReading = z.object({
   page: PageEvidence.optional(),
   /** The `floorplan` runs it came from. */
   runIds: z.array(Id),
-  /** Provenance source of its suggestions, `ai:floorplan:<model>`. */
+  /** Provenance source of its suggestions, `ai:floorplan:<model>[+<model>…]` (`importSource`). */
   source: z.string(),
   /** Issues left after a run's retry (`invalid` runs), shown with the suggestions. */
   issues: z.array(SuggestionIssue).default([]),
