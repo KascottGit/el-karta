@@ -37,6 +37,9 @@ export const toCentimetres = (v: number) => Math.round(v * 100) / 100;
 
 const wallHeight = (frame: OpeningFrame) => frame.wall.height ?? frame.floorHeight;
 
+/** Drops the floating-point noise of a difference of rounded values (1.45 - 1.28), so stored values stay tidy. */
+const tidy = (v: number) => Math.round(v * 1e9) / 1e9;
+
 /**
  * The opening slid along its wall to start at `offset`, clamped to the wall and nudged beside its
  * neighbours (`fitOffset`). With `round`, the offset is first rounded to whole centimetres. Null if
@@ -88,7 +91,8 @@ export function moveOpeningEdge(
   const { min, max } = room(frame, opening);
   const start = opening.offset;
   const end = opening.offset + opening.width;
-  const fixed = edge === 'start' ? end : start;
+  // An opening a wall move left hanging past the wall's end is brought back by its fixed edge too.
+  const fixed = Math.min(max, Math.max(min, edge === 'start' ? end : start));
   const limit = edge === 'start' ? fixed - min : max - fixed;
   if (limit < MIN_OPENING_WIDTH - EPSILON) return null;
   const wanted = edge === 'start' ? fixed - at : at - fixed;
@@ -96,7 +100,9 @@ export function moveOpeningEdge(
     limit,
     Math.max(MIN_OPENING_WIDTH, round ? toCentimetres(wanted) : wanted),
   );
-  return edge === 'start' ? { ...opening, offset: fixed - width, width } : { ...opening, width };
+  return edge === 'start'
+    ? { ...opening, offset: tidy(fixed - width), width }
+    : { ...opening, offset: fixed, width };
 }
 
 /**
@@ -139,5 +145,5 @@ export function setOpeningSill(
   const limit = top - MIN_OPENING_HEIGHT;
   if (limit < -EPSILON) return null;
   const next = Math.min(Math.max(0, limit), Math.max(0, round ? toCentimetres(sill) : sill));
-  return { ...opening, sill: next, height: top - next };
+  return { ...opening, sill: next, height: tidy(top - next) };
 }

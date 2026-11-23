@@ -143,6 +143,21 @@ describe('moveOpeningEdge', () => {
     const diagonal = wall(pt(3, 4), pt(0, 0), 0.2, 'w');
     expect(moveOpeningEdge(frame([], diagonal), opening('d', 1), 'end', 9)?.width).toBe(4);
   });
+
+  it('brings an opening hanging past the wall end back by either edge', () => {
+    const hanging = opening('d', 4.5, 1);
+    expect(moveOpeningEdge(frame(), hanging, 'end', 4.8, true)).toMatchObject({
+      offset: 4.5,
+      width: 0.3,
+    });
+    expect(moveOpeningEdge(frame(), hanging, 'start', 4)).toMatchObject({ offset: 4, width: 1 });
+  });
+
+  it('stores a start edge worked out from rounded values without floating-point noise', () => {
+    const moved = moveOpeningEdge(frame(), opening('d', 0.45, 1), 'start', 0.17, true);
+    expect(moved?.offset).toBe(0.17);
+    expect(moved?.width).toBe(1.28);
+  });
 });
 
 describe('setOpeningTop', () => {
