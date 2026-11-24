@@ -1,5 +1,6 @@
 import {
   deviceTypeKey,
+  wallFrame,
   type PhotoDetectableInput,
   type PhotoInput,
   type PhotoSuggestOptions,
@@ -16,6 +17,9 @@ import {
   type Suggestion,
 } from '@el-karta/core';
 import type { Attachment } from '@el-karta/data-supabase';
+
+/** How far past the room's stretch of a wall a device or opening still counts as in the room. */
+const STRETCH_SLACK = 0.05;
 
 /** What the photo pass gets besides the images (M11 decision 7). */
 export type PhotoContext = Omit<PhotoInput, 'image' | 'earlier'>;
@@ -87,10 +91,19 @@ export function photoContext(
   const walls = roomWalls(floor, room.id, region.wallId);
   if (walls.length === 0) return null;
   const faces = new Map(walls.map((w) => [w.id, w.side]));
+  // A wall may border other rooms on the same face; only its stretch in this room is in the photo.
+  const frames = new Map(walls.map((w) => [w.id, wallFrame(w, room.polygon)]));
+  const onStretch = (wallId: Id, from: number, to: number) => {
+    const frame = frames.get(wallId);
+    return (
+      frame !== undefined && to >= frame.start - STRETCH_SLACK && from <= frame.end + STRETCH_SLACK
+    );
+  };
   const types = new Set(detectable.map(deviceTypeKey));
   const inRoom = (d: Device) => {
     const p = d.placement;
-    if (p.kind === 'wall') return faces.get(p.wallId) === p.side;
+    if (p.kind === 'wall')
+      return faces.get(p.wallId) === p.side && onStretch(p.wallId, p.offset, p.offset);
     if (p.kind === 'ceiling') return p.roomId === room.id;
     return false;
   };
@@ -105,7 +118,7 @@ export function photoContext(
     walls,
     targetWallId: region.wallId !== undefined && faces.has(region.wallId) ? region.wallId : null,
     openings: Object.values(floor.openings)
-      .filter((o) => faces.has(o.wallId))
+      .filter((o) => onStretch(o.wallId, o.offset, o.offset + o.width))
       .map((o) => ({
         id: o.id,
         wallId: o.wallId,

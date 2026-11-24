@@ -58,8 +58,7 @@ export function wallSpan(wall: WallLike, offset: number, width: number): { a: Pt
 
 const metres = (v: number) => formatDecimal(v, 2);
 /** With both decimals, so a change from 1,00 to 1,20 m reads as one. */
-const fixedMetres = (v: number) =>
-  new Intl.NumberFormat('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+const fixedMetres = (v: number) => formatDecimal(v, 2, 2);
 
 const change = (t: TFunction, from: number, to: number) =>
   t('suggestions.describe.change', { from: fixedMetres(from), to: fixedMetres(to) });

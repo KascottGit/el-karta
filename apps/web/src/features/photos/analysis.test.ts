@@ -72,6 +72,22 @@ describe('photoContext', () => {
     expect(context.detectable).toEqual(detectable);
   });
 
+  it('leaves out devices and openings on the stretch of a wall that faces another room', () => {
+    const { data } = kitchen();
+    // The top wall runs on past the kitchen (0–4 m) along the hall (4–8 m), on the same face.
+    const top = data.walls[ID.outer]!;
+    data.walls[ID.outer] = { ...top, b: { x: 8, y: 0 } };
+    data.openings[WALLED.window] = { ...data.openings[WALLED.window]!, offset: 5.5 };
+    const at = (id: string, offset: number): Device => ({
+      ...outlet(id),
+      placement: { kind: 'wall', wallId: ID.outer, offset, side: 'right', height: 0.25 },
+    });
+    data.devices = { mine: at('mine', 1), edge: at('edge', 4), hall: at('hall', 6) };
+    const context = photoContext(data, { roomId: ID.kitchen, wallId: ID.outer }, detectable)!;
+    expect(context.devices.map((d) => d.id).sort()).toEqual(['edge', 'mine']);
+    expect(context.openings.map((o) => o.id)).toEqual([WALLED.door]);
+  });
+
   it('takes the floor height without a room height, and no target for the room in general', () => {
     const { data } = kitchen();
     const context = photoContext(data, { roomId: ID.kitchen }, detectable)!;

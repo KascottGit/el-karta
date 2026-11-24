@@ -44,10 +44,14 @@ export function analyse(
   photos: readonly Attachment[],
   file: Blob | null = null,
 ): Promise<void> {
-  setAnalysis({ step: 'preparing', photoId: photo.id });
   const run = queue.then(async () => {
+    // Set only once this analysis starts, so a queued one does not hide the running one's steps.
+    setAnalysis({ step: 'preparing', photoId: photo.id });
     const floor = modelStore.getState().model?.floors[floorId];
-    if (!floor) return;
+    if (!floor) {
+      setAnalysis({ step: 'failed', photoId: photo.id, error: 'no_room' });
+      return;
+    }
     const deps: AnalysisDeps = {
       ...services,
       source: suggestionsStore.getState().source,

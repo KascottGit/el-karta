@@ -9,9 +9,16 @@ export function parseDecimal(text: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-/** For number fields: Swedish decimal comma, no grouping, an ASCII minus so it reads back. */
-export function formatDecimal(value: number, digits: number): string {
-  return new Intl.NumberFormat('sv-SE', { maximumFractionDigits: digits, useGrouping: false })
+/**
+ * For number fields: Swedish decimal comma, no grouping, an ASCII minus so it reads back; at least
+ * `minDigits` decimals (none by default).
+ */
+export function formatDecimal(value: number, digits: number, minDigits = 0): string {
+  return new Intl.NumberFormat('sv-SE', {
+    minimumFractionDigits: minDigits,
+    maximumFractionDigits: digits,
+    useGrouping: false,
+  })
     .format(value)
     .replace(/−/g, '-');
 }
