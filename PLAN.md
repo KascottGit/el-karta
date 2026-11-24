@@ -374,7 +374,7 @@ Every run: select context → call the model with structured output → parse wi
 
 **Context, not everything:** a pass gets the subset that matters (the selected room and its neighbours, existing features there, the most relevant earlier photos), not the whole building. This keeps cost, latency and confusion down in large buildings.
 
-**Provider adapter:** `packages/ai-providers` exposes one interface (`generateStructured({ model, system, messages, images, schema })`, ADR 0007). Gemini is implemented; candidates for more providers are in `docs/research/2026-11-ai-providers.md`. Each pass picks its model in config: a fast, cheap vision model for photo detection; a stronger model for panel and wiring reasoning if evals show it's needed. The adapter handles retries with backoff on rate limits (429), per-user rate limiting and usage logging.
+**Provider adapter:** `packages/ai-providers` exposes one interface (`generateStructured({ model, system, messages, images, schema })`, ADR 0007). Anthropic (Claude Haiku 5.5, the default) and Gemini (the fallback for outages) are implemented (ADR 0010); other candidates are in `docs/research/2026-11-ai-providers.md`. Each pass picks its model in config: a fast, cheap vision model for photo detection; a stronger model for panel and wiring reasoning if evals show it's needed. The adapter handles retries with backoff on rate limits (429), per-user rate limiting and usage logging.
 
 **Data and provider terms:**
 - During testing, use only test data (our own homes, made-up or public floor plans). Free tiers of some providers (e.g. the Gemini API free tier) may use prompts and images to improve their products.
@@ -395,7 +395,7 @@ Every run: select context → call the model with structured output → parse wi
 
 ## Milestones
 
-Done: M0–M4, M9, M9b. **Order from here:** provider review → M11 → M5 → M6 → M7 → M8 → M10 → M12 → M13 → M14 → M15 → M16. M9 and M11 come first, so each says what it pulls forward from the milestones it skips.
+Done: M0–M4, M9, M9b, provider review. **Order from here:** M11 → M5 → M6 → M7 → M8 → M10 → M12 → M13 → M14 → M15 → M16. M9 and M11 come first, so each says what it pulls forward from the milestones it skips.
 
 ### M0 – Scaffold
 pnpm monorepo with the structure above; Node and pnpm versions pinned (`.nvmrc`, `packageManager`). Vite + React + TS strict, Tailwind + shadcn/ui, React Router, i18next, ESLint with import-boundary rules + Prettier, Vitest, PWA. `AGENTS.md` (conventions, commands, boundaries, "minimal comments" rule), `CLAUDE.md` pointing to it, `docs/decisions/` with ADR 0001 recording this stack. GitHub Actions: CI (typecheck, lint, test, build) on every push, and deploy to GitHub Pages from `main` as described under Hosting. Dependabot configured. Supabase CLI initialised, local stack runs, `.env.example` committed, `.env.local` git-ignored.
@@ -453,6 +453,7 @@ Provenance shown on everything (manual, detected, suggested, confirmed; source; 
 ### Provider review (before M11)
 Add `AiProvider` implementations for the shortlist in `docs/research/2026-11-ai-providers.md` (Gemini 3.1 Flash-Lite, Claude Haiku 5.5, Mistral Small 4, and DeepSeek V4.1-Flash on an EU host, never DeepSeek's own API with real data), with a provider switch in config and in `pnpm eval`. Run the floor-plan evals on each and record score, cost per call (from `ai_runs`), latency and failure rate. Check each provider's terms against "Data and provider terms" above.
 **Done when:** the floor-plan eval results are recorded per provider and model, and an ADR names the default provider and model per pass and a fallback provider for outages.
+**Outcome:** the person chose Claude Haiku 5.5; only the Anthropic provider was added. Haiku is the default for every pass and Gemini 3 Flash the fallback for outages (ADR 0010, results in `evals/results/floorplan-summary.md`).
 
 ### M11 – AI: photo detection
 **Pulled forward** (because M11 now comes before M5 and M10): from M5, `packages/plugin-power` with the device types photos can detect (outlet, switch, ceiling light, wall light) and placing, moving and deleting devices on walls and ceilings in the 2D editor; from M10, photo attachments with `region` (upload, client-side compression, linked to a room and wall). M5 and M10 then build on these instead of starting over. The eval runs on every provider kept after the provider review.

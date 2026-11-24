@@ -1,6 +1,6 @@
 # Provider review (before M11)
 
-Status: **approved, in progress**. Milestone branch: `provider-review`.
+Status: **done** (2026-11-24): ADR 0010, results in `evals/results/floorplan-summary.md`. Milestone branch: `provider-review`.
 
 From PLAN.md: Add `AiProvider` implementations for the shortlist in `docs/research/2026-11-ai-providers.md` (Gemini 3.1 Flash-Lite, Claude Haiku 5.5, Mistral Small 4, and DeepSeek V4.1-Flash on an EU host, never DeepSeek's own API with real data), with a provider switch in config and in `pnpm eval`. Run the floor-plan evals on each and record score, cost per call (from `ai_runs`), latency and failure rate. Check each provider's terms against "Data and provider terms".
 
