@@ -8,6 +8,7 @@ import { DecimalField } from '@/features/floorplan/fields/decimal-field';
 import { formatDecimal } from '@/features/floorplan/fields/numbers';
 import { IssueList } from '@/features/floorplan/validation/issue-list';
 import { summarizeIssues } from '@/features/floorplan/validation/issue-summary';
+import { useModelStore } from '@/model/store';
 import { Button } from '@/ui/button';
 import {
   acceptableIds,
@@ -296,7 +297,8 @@ function SuggestionItem({
 }) {
   const { t } = useTranslation();
   const { suggestion, view, payload, blocked } = row;
-  const text = payload === null ? t('suggestions.invalid') : view.describe(payload, t);
+  const floor = useModelStore((s) => s.model?.floors[suggestion.floorId]?.data);
+  const text = payload === null ? t('suggestions.invalid') : view.describe(payload, t, floor);
   const issues = useMemo(
     () =>
       summarizeIssues(

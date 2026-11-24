@@ -1,7 +1,9 @@
 import { add, leftNormal, scale, sub, type Pt } from '@el-karta/core';
 import type Konva from 'konva';
 import { memo, useEffect, useMemo } from 'react';
-import { Line, Shape } from 'react-konva';
+import { Group, Line, Shape } from 'react-konva';
+import { Markers } from '@/features/devices/device-shapes';
+import { markerStyle } from '@/features/devices/marker-style';
 import { labelPlacement } from '@/features/floorplan/areas/bounds';
 import { createCuller } from '@/features/floorplan/canvas/culling';
 import type { CanvasContext } from '@/features/floorplan/canvas/extension';
@@ -24,7 +26,12 @@ const OVERHANG_PX = 4;
 // The canvas background, as the model's openings cut their walls (`openings/opening-shape.tsx`).
 const GAP = '#ffffff';
 
-const ORDER: Readonly<Record<Ghost['shape']['role'], number>> = { area: 0, wall: 1, opening: 2 };
+const ORDER: Readonly<Record<Ghost['shape']['role'], number>> = {
+  area: 0,
+  wall: 1,
+  opening: 2,
+  device: 3,
+};
 
 /**
  * The pending suggestions of the floor, ghosted: dashed, translucent and coloured by confidence or
@@ -120,7 +127,26 @@ const GhostNode = memo(function GhostNode({
     () => (shape.type === 'area' ? labelPlacement(shape.polygon) : null),
     [shape],
   );
+  const markers = useMemo(
+    () =>
+      shape.type === 'marker'
+        ? [
+            {
+              style: markerStyle(shape.shape, color, selected ? 'selected' : 'plain'),
+              at: [shape.at],
+            },
+          ]
+        : null,
+    [shape, color, selected],
+  );
 
+  if (markers) {
+    return (
+      <Group opacity={opacity} listening={false}>
+        <Markers groups={markers} />
+      </Group>
+    );
+  }
   if (sceneFunc) {
     return (
       <Shape sceneFunc={sceneFunc} opacity={opacity} listening={false} perfectDrawEnabled={false} />

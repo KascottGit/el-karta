@@ -3,7 +3,8 @@ import { AiPassError } from '@el-karta/data-supabase';
 import { describe, expect, it } from 'vitest';
 import { withoutAccepted } from './dedupe';
 import { encodeWithin, ENCODINGS, MAX_IMAGE_CHARS } from './encode';
-import { abortable, importErrorCode, ImportError } from './errors';
+import { abortable } from '@/lib/ai-pass';
+import { importErrorCode, ImportError } from './errors';
 
 const accepted = (kind: string, payload: unknown): Suggestion => ({
   id: crypto.randomUUID(),

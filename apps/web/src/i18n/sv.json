@@ -458,7 +458,9 @@
       "zone": "Zoner",
       "scale": "Skala",
       "floor-height": "Våningshöjd",
-      "other": "Övriga"
+      "other": "Övriga",
+      "device": "Enheter",
+      "room-ceiling-height": "Takhöjder"
     },
     "describe": {
       "wall": "Vägg {{length}} m",
@@ -466,7 +468,19 @@
       "room": "{{name}} ({{type}})",
       "scale": "Skala: 1 bildpunkt = {{mm}} mm ({{source}})",
       "floor-height": "Våningshöjd {{height}} m",
-      "other": "Förslag av typen {{kind}}"
+      "other": "Förslag av typen {{kind}}",
+      "deviceCount": "{{type}}, {{count}} st",
+      "correction": "{{item}}: {{changes}}",
+      "change": "{{from}} → {{to}} m",
+      "dimension": {
+        "width": "bredd",
+        "height": "höjd",
+        "sill": "bröstningshöjd"
+      },
+      "dimensionChange": "{{what}} {{change}}",
+      "unchanged": "inga ändrade mått",
+      "ceilingHeight": "Takhöjd i {{room}}",
+      "value": "{{item}}: {{value}} m"
     },
     "errors": {
       "requirementRejected": "Förslaget bygger på ett förslag som redan har avvisats och kan inte godkännas.",
@@ -599,6 +613,28 @@
     "close": "Stäng",
     "delete": "Ta bort foto",
     "confirmDelete": "Ta bort fotot för gott? Enheter som hänvisar till det tappar hänvisningen.",
-    "deleteFailed": "Fotot kunde inte tas bort. Försök igen."
+    "deleteFailed": "Fotot kunde inte tas bort. Försök igen.",
+    "analysis": {
+      "preparing": "Förbereder analysen av fotot …",
+      "reading": "AI:n läser fotot …",
+      "saving": "Sparar förslagen …",
+      "done_one": "{{count}} nytt förslag från fotot.",
+      "done_other": "{{count}} nya förslag från fotot.",
+      "nothing": "Inget nytt hittades på fotot.",
+      "review": "Visa förslagen",
+      "retry": "Försök igen",
+      "rerun": "Analysera igen",
+      "errors": {
+        "rate_limited": "Du har gjort många AI-analyser den senaste timmen. Vänta en stund och försök igen.",
+        "provider_busy": "AI-tjänsten är upptagen just nu. Försök igen om en stund.",
+        "too_large": "Fotot är för stort att skicka till AI:n.",
+        "forbidden": "Du behöver kunna redigera projektet för att analysera foton.",
+        "network": "Ingen kontakt med servern. Kontrollera anslutningen och försök igen.",
+        "internal": "Något gick fel vid analysen. Försök igen.",
+        "no_output": "AI:n gav inget användbart svar. Försök igen.",
+        "no_room": "Rummet fotot hör till finns inte längre, eller har inga väggar.",
+        "image": "Fotot kunde inte hämtas. Försök igen."
+      }
+    }
   }
 }

@@ -1,12 +1,12 @@
 import type { Attachment } from '@el-karta/data-supabase';
 import { useQueryClient } from '@tanstack/react-query';
-import { Trash2, X } from 'lucide-react';
+import { RefreshCw, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/ui/button';
 import { issueColors } from '@/features/floorplan/canvas/theme';
-import { deletePhoto, usePhotoUrl } from './photos-api';
-import { viewPhoto } from './photos-store';
+import { deletePhoto, reanalysePhoto, usePhotoUrl } from './photos-api';
+import { usePhotosStore, viewPhoto } from './photos-store';
 
 /** A photo's image, signed again once if the URL has stopped working. */
 function PhotoImage({
@@ -54,13 +54,20 @@ export function PhotoThumbnail({ photo, label }: { photo: Attachment; label: str
   );
 }
 
-/** The photo at full size, with delete. Deleting asks first. */
+/** The photo at full size, with a new analysis and delete. Deleting asks first. */
 export function PhotoViewer({ photo }: { photo: Attachment }) {
   const { t } = useTranslation();
   const queries = useQueryClient();
   const dialog = useRef<HTMLDialogElement>(null);
   const [deleting, setDeleting] = useState(false);
   const [failed, setFailed] = useState(false);
+  const analysing = usePhotosStore(
+    (s) =>
+      s.analysis.step !== 'idle' &&
+      s.analysis.step !== 'done' &&
+      s.analysis.step !== 'failed' &&
+      s.analysis.photoId === photo.id,
+  );
 
   useEffect(() => {
     const element = dialog.current;
@@ -90,7 +97,18 @@ export function PhotoViewer({ photo }: { photo: Attachment }) {
             {t('photos.deleteFailed')}
           </p>
         )}
-        <div className="flex justify-between gap-2">
+        <div className="flex flex-wrap justify-between gap-2">
+          <Button
+            variant="outline"
+            disabled={analysing}
+            onClick={() => {
+              void reanalysePhoto(queries, photo);
+              viewPhoto(null);
+            }}
+          >
+            <RefreshCw aria-hidden />
+            {t('photos.analysis.rerun')}
+          </Button>
           <Button
             variant="destructive"
             disabled={deleting}

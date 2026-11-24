@@ -15,7 +15,6 @@ import {
   type FloorData,
   type FloorRecord,
   type Id,
-  type Issue,
   type Suggestion,
   type SuggestionDraft,
   type SuggestionIssue,
@@ -25,13 +24,20 @@ import type { QueryClient } from '@tanstack/react-query';
 import type { z } from 'zod';
 import type { SuggestionSource } from '@/features/suggestions/source';
 import type { ProjectJson } from '../background/project-json';
-import type { AiImportBackend } from './backend';
 import { withoutAccepted, type AcceptedItem } from './dedupe';
-import { abortable, ImportError } from './errors';
+import {
+  abortable,
+  AiPassFailure,
+  passOutput,
+  passSource,
+  runIssues,
+  type AiPassBackend,
+} from '@/lib/ai-pass';
+import { ImportError } from './errors';
 import { loadReading, saveReading, type PlanReading, type StoredReading } from './reading';
 
 export interface ImportDeps {
-  backend: AiImportBackend;
+  backend: AiPassBackend;
   /** Where readings are kept between visits. */
   files: ProjectJson;
   /** Lists the floor's suggestions and rejects replaced ones. */
@@ -44,26 +50,16 @@ type Floor = Pick<FloorRecord, 'id' | 'projectId' | 'data'>;
 
 const PASS = floorplanPass.id;
 
-/**
- * Provenance source of imported items: the pass and every model that answered its calls, in the
- * order they first answered (a fallback model joins the primary when it took over some tiles).
- */
-export const importSource = (models: readonly string[]) =>
-  `ai:${PASS}:${[...new Set(models)].join('+')}`;
+/** Provenance source of imported items (`passSource`). */
+export const importSource = (models: readonly string[]) => passSource(PASS, models);
 
 function outputOf<T>(response: AiRunResponse, schema: z.ZodType<T>): T {
-  if (response.status === 'rate_limited') throw new ImportError('provider_busy');
-  if (response.status === 'error') throw new ImportError('internal');
-  const parsed = schema.safeParse(response.output);
-  if (response.output === null || !parsed.success) throw new ImportError('no_output');
-  return parsed.data;
+  try {
+    return passOutput(response, schema);
+  } catch (error) {
+    throw error instanceof AiPassFailure ? new ImportError(error.code) : error;
+  }
 }
-
-const toSuggestionIssue = ({ code, severity, params }: Issue): SuggestionIssue => ({
-  code,
-  severity,
-  ...(params ? { params } : {}),
-});
 
 /**
  * Reads the floor's plan image through the `ai-pass` function: locate, crop, tile, read, merge
@@ -85,9 +81,7 @@ export async function readPlan(
   const issues = new Map<string, SuggestionIssue>();
   const call = async (pass: string, input: unknown) => {
     const response = await abortable(deps.backend.run({ ...ids, pass, input }, signal), signal);
-    if (response.status === 'invalid')
-      for (const issue of response.issues.map(toSuggestionIssue))
-        issues.set(JSON.stringify(issue), issue);
+    for (const issue of runIssues(response)) issues.set(JSON.stringify(issue), issue);
     return response;
   };
   const reading = await readFloorplan(
