@@ -22,6 +22,7 @@ const byType: Readonly<Record<string, DeviceAppearance>> = {
   'power:outlet': { shape: 'circle', color: '#ea580c' },
   'power:switch': { shape: 'diamond', color: '#0891b2' },
   'power:ceiling_light': { shape: 'triangle', color: '#ca8a04' },
+  'power:wall_light': { shape: 'triangle', color: '#d97706' },
 };
 
 export function deviceAppearance(device: Pick<Device, 'domain' | 'type'>): DeviceAppearance {

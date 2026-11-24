@@ -1,14 +1,8 @@
-import {
-  roomAt,
-  updateDevice,
-  type Device,
-  type Edit,
-  type FloorData,
-  type Pt,
-  type Vec3,
-} from '@el-karta/core';
+import { type Device, type Edit, type FloorData, type Pt, type Vec3 } from '@el-karta/core';
 import { FURNITURE_SIZES, isFurniture, type FurnitureType } from '@el-karta/plugin-furnishing';
 import type { SelectionItem } from '@/features/floorplan/canvas/selection';
+import { storeDevice } from '@/features/devices/device-edits';
+import { movedDevice } from '@/features/devices/device-site';
 import type { SizedFootprint } from '@/features/devices/placement';
 
 /** A piece of furniture: a device of the furnishing plugin standing on the floor. */
@@ -64,14 +58,8 @@ export function rotationTowards(center: Pt, pointer: Pt, step: number): number {
  * The item moved to `at`, in the room it then stands in. Moved out of every room it keeps its
  * room, since `updateDevice` cannot clear an optional field.
  */
-export function movedTo(floor: FloorData, item: Furniture, at: Pt): Furniture {
-  const roomId = roomAt(floor, at) ?? item.roomId;
-  return {
-    ...item,
-    ...(roomId === undefined ? {} : { roomId }),
-    placement: { ...item.placement, at },
-  };
-}
+export const movedTo = (floor: FloorData, item: Furniture, at: Pt): Furniture =>
+  asFurniture(movedDevice(floor, item, at, 0) ?? undefined) ?? item;
 
 export const withPlacement = (
   item: Furniture,
@@ -92,7 +80,4 @@ export function withType(item: Furniture, type: FurnitureType): Furniture {
 }
 
 /** One undoable edit that stores `after` over the device with its id. */
-export function storeFurniture(after: Furniture): Edit {
-  const { id, ...changes } = after;
-  return updateDevice(id, changes);
-}
+export const storeFurniture = (after: Furniture): Edit => storeDevice(after);
