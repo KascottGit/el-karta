@@ -1,9 +1,8 @@
-import type { PhotoInput } from '@el-karta/ai-passes';
+import type { PhotoContext, PhotoInput } from '@el-karta/ai-passes';
 import { AI_PASS_MAX_BODY_BYTES } from '@el-karta/data-supabase';
 import { AiPassFailure } from '@/lib/ai-pass';
 import { blobToBase64, encodeRegion, firstFitting, scaleToFit } from '@/lib/image-encoding';
 import { PHOTO_QUALITY, PHOTO_TYPE } from './compress';
-import type { PhotoContext } from './context';
 
 type ImageInput = PhotoInput['image'];
 

@@ -1,9 +1,8 @@
-import { defaultModels, photoPass, type PhotoInput } from '@el-karta/ai-passes';
+import { defaultModels, photoContext, photoPass, type PhotoInput } from '@el-karta/ai-passes';
 import {
   generateProject,
   photoDetectables,
   type Device,
-  type FloorData,
   type Id,
   type Suggestion,
 } from '@el-karta/core';
@@ -13,9 +12,8 @@ import { fakeBackend } from '@/features/floorplan/ai-import/fixtures';
 import { AiPassFailure } from '@/lib/ai-pass';
 import { registry } from '@/plugins';
 import { analysePhoto, analysisErrorCode, AnalysisError, type AnalysisDeps } from './analysis';
-import { earlierPhotos, pendingOnFloor, photoContext, roomWalls } from './context';
 import { EARLIER_SIDES, photoRunInput, type PhotoImage } from './request';
-import { ID, outlet, photo, photoReply, WALLED, walledKitchen } from './test-fixtures';
+import { ID, photo, photoReply, walledKitchen } from './test-fixtures';
 
 const detectable = photoDetectables(registry);
 const never = new AbortController().signal;
@@ -26,131 +24,6 @@ const kitchen = () => {
   const floor = project.model.floors[project.floorId]!;
   return { project, floor, data: floor.data };
 };
-
-describe('roomWalls', () => {
-  it('lists the room’s walls clockwise from the photographed one, each with the face into the room', () => {
-    const { data } = kitchen();
-    const walls = roomWalls(data, ID.kitchen, ID.outer);
-    expect(walls.map((w) => w.id)).toEqual([ID.outer, ID.shared, WALLED.bottom, WALLED.left]);
-    expect(walls.map((w) => w.side)).toEqual(['right', 'right', 'right', 'right']);
-    expect(roomWalls(data, ID.kitchen, WALLED.bottom).map((w) => w.id)).toEqual([
-      WALLED.bottom,
-      WALLED.left,
-      ID.outer,
-      ID.shared,
-    ]);
-    // The hall sees the shared wall from its other face.
-    expect(roomWalls(data, ID.hall)).toEqual([
-      expect.objectContaining({ id: ID.shared, side: 'left' }),
-    ]);
-  });
-});
-
-describe('photoContext', () => {
-  it('gives the room, its walls with their openings (hinge and swing kept) and its devices of detectable types', () => {
-    const { data } = kitchen();
-    data.devices = {
-      mine: outlet('mine'),
-      // Same wall, the hall's face: not in the kitchen.
-      other: {
-        ...outlet('other'),
-        placement: { kind: 'wall', wallId: ID.shared, offset: 1, side: 'left', height: 0.25 },
-      },
-      sofa: { ...outlet('sofa'), domain: 'furnishing', type: 'sofa' },
-    };
-    data.rooms[ID.kitchen]!.ceilingHeight = 2.4;
-    const context = photoContext(data, { roomId: ID.kitchen, wallId: ID.outer }, detectable)!;
-
-    expect(context.room).toMatchObject({ id: ID.kitchen, name: 'Kök', ceilingHeight: 2.4 });
-    expect(context.walls[0]!.id).toBe(ID.outer);
-    expect(context.targetWallId).toBe(ID.outer);
-    expect(context.openings).toEqual([
-      expect.objectContaining({ id: WALLED.window, sill: 0.9 }),
-      expect.objectContaining({ id: WALLED.door, hinge: 'left', swing: 'in' }),
-    ]);
-    expect(context.devices.map((d) => d.id)).toEqual(['mine']);
-    expect(context.detectable).toEqual(detectable);
-  });
-
-  it('leaves out devices and openings on the stretch of a wall that faces another room', () => {
-    const { data } = kitchen();
-    // The top wall runs on past the kitchen (0–4 m) along the hall (4–8 m), on the same face.
-    const top = data.walls[ID.outer]!;
-    data.walls[ID.outer] = { ...top, b: { x: 8, y: 0 } };
-    data.openings[WALLED.window] = { ...data.openings[WALLED.window]!, offset: 5.5 };
-    const at = (id: string, offset: number): Device => ({
-      ...outlet(id),
-      placement: { kind: 'wall', wallId: ID.outer, offset, side: 'right', height: 0.25 },
-    });
-    data.devices = { mine: at('mine', 1), edge: at('edge', 4), hall: at('hall', 6) };
-    const context = photoContext(data, { roomId: ID.kitchen, wallId: ID.outer }, detectable)!;
-    expect(context.devices.map((d) => d.id).sort()).toEqual(['edge', 'mine']);
-    expect(context.openings.map((o) => o.id)).toEqual([WALLED.door]);
-  });
-
-  it('takes the floor height without a room height, and no target for the room in general', () => {
-    const { data } = kitchen();
-    const context = photoContext(data, { roomId: ID.kitchen }, detectable)!;
-    expect(context.room.ceilingHeight).toBe(data.height);
-    expect(context.targetWallId).toBeNull();
-  });
-
-  it('has none for a room that is gone or has no walls', () => {
-    const { data } = kitchen();
-    expect(photoContext(data, { roomId: crypto.randomUUID() }, detectable)).toBeNull();
-    const bare: FloorData = { ...data, walls: {} };
-    expect(photoContext(bare, { roomId: ID.kitchen }, detectable)).toBeNull();
-  });
-});
-
-describe('earlierPhotos', () => {
-  const at = (hour: number) => `2026-11-24T${String(hour).padStart(2, '0')}:00:00Z`;
-  const shot = (n: number, wallId: Id | undefined, hour: number, roomId: Id = ID.kitchen) =>
-    photo(`p${String(n)}`, 'f', wallId ? { roomId, wallId } : { roomId }, at(hour));
-
-  it('sends photos of the same wall first, then the most recent, at most three', () => {
-    const current = shot(0, ID.outer, 12);
-    const photos = [
-      shot(1, ID.shared, 11),
-      shot(2, ID.outer, 8),
-      shot(3, undefined, 10),
-      shot(4, ID.outer, 9),
-      shot(5, ID.outer, 9, ID.hall),
-      current,
-    ];
-    expect(earlierPhotos(photos, current).map((p) => p.id)).toEqual(['p4', 'p2', 'p1']);
-    // A photo of the room in general has no wall to share: the most recent go first.
-    const general = shot(6, undefined, 13);
-    expect(earlierPhotos([...photos, general], general).map((p) => p.id)).toEqual([
-      'p0',
-      'p1',
-      'p3',
-    ]);
-  });
-});
-
-describe('pendingOnFloor', () => {
-  const row = (kind: string, payload: unknown, status: Suggestion['status'] = 'pending') =>
-    ({ id: newId(), kind, payload, status }) as Suggestion;
-
-  it('collects pending devices and the openings and rooms with a correction waiting', () => {
-    const device = outlet('d1');
-    const result = pendingOnFloor(
-      [
-        row('device', device),
-        row('device', outlet('d2'), 'accepted'),
-        row('opening', { id: WALLED.window }),
-        row('room-ceiling-height', { roomId: ID.kitchen, ceilingHeight: 2.5 }),
-        row('device', 'unreadable'),
-      ],
-      (s) => (typeof s.payload === 'object' ? s.payload : null),
-    );
-    expect(result).toEqual({
-      pending: [device],
-      pendingCorrections: { openingIds: [WALLED.window], roomIds: [ID.kitchen] },
-    });
-  });
-});
 
 /** An image whose base64 is `chars(side)` characters long at each size. */
 const sized = (chars: (side: number | null) => number): PhotoImage => ({
