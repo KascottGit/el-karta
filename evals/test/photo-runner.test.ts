@@ -227,6 +227,11 @@ describe('runPhotoEval', () => {
     };
     expect(saved.earlier).toEqual(['villa-kok-1', 'villa-kok-2']);
 
+    // The first photo of the room sees none: photos taken after it are not sent.
+    const first = run([wallReply()], { photos: ['villa-kok-1'], earlier: true });
+    expect((await first.rows)[0]).toMatchObject({ mode: 'earlier', earlier: 0 });
+    expect(first.provider.calls[0]!.images).toHaveLength(1);
+
     // Without --earlier each photo is judged alone.
     const alone = run([wallReply()], { photos: ['villa-kok-3'] });
     expect((await alone.rows)[0]).toMatchObject({ mode: 'alone', earlier: 0 });

@@ -1,5 +1,5 @@
 import { deviceTypeKey, roomWalls, type PhotoDetectableInput } from '@el-karta/ai-passes';
-import { Id, parseFloorRecord, type FloorRecord } from '@el-karta/core';
+import { Id, type FloorRecord } from '@el-karta/core';
 import { z } from 'zod';
 
 export const PhotoManifestEntry = z.object({
@@ -63,12 +63,6 @@ export const PhotoFacit = z
   })
   .strict();
 export type PhotoFacit = z.infer<typeof PhotoFacit>;
-
-/**
- * A floor file in `floors/` is a `FloorRecord` as "Exportera våning" downloads it. It is read with
- * `parseFloorRecord`, so files exported before a schema change are migrated like stored floors.
- */
-export const parsePhotoFloor = (raw: unknown): FloorRecord => parseFloorRecord(raw);
 
 /**
  * What in a facit does not fit its floor or the detectable types: an unknown room or one without

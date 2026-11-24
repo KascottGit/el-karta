@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { parsePhotoFloor } from '@el-karta/evals';
+import { parseFloorRecord } from '@el-karta/core';
 import { expect, test } from '@playwright/test';
 import { DIMENSION, fixture, readBackground, unscaledImageToPage } from './background';
 import { openNewProjectEditor } from './editor';
@@ -26,7 +26,7 @@ test('on a phone, the dev build exports the floor for the photo evals and a scal
   await expect(floorButton).toBeEnabled();
   const [floorDownload] = await Promise.all([page.waitForEvent('download'), floorButton.tap()]);
   expect(floorDownload.suggestedFilename()).toBe('plan-1.json');
-  const floor = parsePhotoFloor(JSON.parse(await readFile(await floorDownload.path(), 'utf8')));
+  const floor = parseFloorRecord(JSON.parse(await readFile(await floorDownload.path(), 'utf8')));
   expect(floor.name).toBe('Plan 1');
   expect(page.url()).toContain(`/projects/${floor.projectId}/floors/${floor.id}`);
 

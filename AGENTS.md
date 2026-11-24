@@ -43,7 +43,7 @@ Run `pnpm typecheck && pnpm lint && pnpm test` before every commit, plus the thr
 - `packages/data-*`: repository implementations. May import `@el-karta/core` only. `data-supabase` holds `SupabaseRepository` and the generated `Database` types.
 - `packages/ai-providers`: one `AiProvider` interface (Anthropic, Gemini, fake). Imports no workspace package.
 - `packages/ai-passes`: AI pass definitions and the runner (ADR 0007). May import `@el-karta/core` and `@el-karta/ai-providers`.
-- `evals/`: AI eval sets and scoring; plan images and photos stay in the git-ignored `floorplans/` and `photos/`. May import `@el-karta/core`, `@el-karta/ai-passes` and `@el-karta/ai-providers` only.
+- `evals/`: AI eval sets and scoring; plan images and photos stay in the git-ignored `floorplans/` and `photos/`. May import `@el-karta/core`, the plugins, `@el-karta/ai-passes` and `@el-karta/ai-providers` only.
 - `apps/web`: the Vite + React app. May import any package.
 - `packages/core` never imports from plugins, data adapters, AI passes or providers, agent tools or apps.
 

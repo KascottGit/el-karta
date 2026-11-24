@@ -29,7 +29,7 @@ Ground truth for the photo pass (M11, ADR 0011): photos of our own home, the flo
 
 `devices` lists every device of a detectable type (outlet, switch, wall light, ceiling light) that is visible in the photo, also ones already in the model. `type` is `<domain>.<type>`. `count` (units in one frame, `Device.count`: 2 for a double outlet), `props`, `offset` and `height` are optional: leave out what was not checked. `offset` is the model's `WallPlacement.offset`: metres along the wall from its `a` end (on the wall's centre line, so a corner is half the other wall's thickness in) to the device's centre; the easiest way to get it is to place the device at the measured spot in the editor and read the offset off the power panel. `height` is metres from the floor to the device's centre. A ceiling device has neither. Measured offsets and heights make the placement scores possible.
 
-`detectable.ts` is a copy of what the app sends as `PhotoInput.detectable` (`photoDetectables(registry)`); evals may not import plugins. A web test (`apps/web/src/features/floorplan/dev/floor-export.test.ts`) fails as soon as it differs from the app's plugins; update the copy then.
+`detectable.ts` builds what the app sends as `PhotoInput.detectable` with the same `photoDetectables` over the same plugins. A web test (`apps/web/src/features/floorplan/dev/floor-export.test.ts`) fails if its plugin list and the app's (`apps/web/src/plugins.ts`) differ; add a new plugin to both.
 
 ## Running
 
@@ -43,7 +43,7 @@ Before any call the runner parses every facit and floor it needs, refuses facit 
 
 1. Builds the context with `photoContext` from `@el-karta/ai-passes` (the same code the app uses) from the exported floor and the facit's `room` and `wall` as the photo's region. The floor's devices are left out, so every visible device has to be found in the photo, as on a first photo of the room; otherwise the pass would drop the ones the model recognises as existing.
 2. Decodes the photo turned upright by its EXIF orientation, scales it to at most 2048 px on the long side and encodes it as JPEG at the app's quality (`PHOTO_MAX_SIDE`, `PHOTO_QUALITY` from `@el-karta/ai-passes`), as the app stores it on upload.
-3. Earlier photos: none by default, so each photo is judged alone (mode `alone`). With `--earlier` (mode `earlier`) it sends up to three other manifest photos of the same home and room, picked with the app's `earlierPhotos` (same wall first, then the most recent; later in the manifest counts as more recent), at 1024 px (`EARLIER_PHOTO_SIDE`). The app shrinks them further only to stay under the Edge Function's 4 MB body cap, which the eval does not have.
+3. Earlier photos: none by default, so each photo is judged alone (mode `alone`). With `--earlier` (mode `earlier`) it sends up to three other manifest photos of the same home and room, taken before it (earlier in the manifest), picked with the app's `earlierPhotos` (same wall first, then the most recent), as the app does when it analyses a photo on upload, at 1024 px (`EARLIER_PHOTO_SIDE`). The app shrinks them further only to stay under the Edge Function's 4 MB body cap, which the eval does not have.
 4. `runPass(photoPass, …)` (the retry on validation errors included), then `photoPass.toSuggestions` with nothing pending.
 5. Scores the device suggestions against the facit.
 

@@ -1,14 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { parseFloorRecord } from '@el-karta/core';
 import { describe, expect, it } from 'vitest';
 import { photoDetectable } from '../photo/detectable.ts';
-import {
-  facitProblems,
-  parsePhotoFloor,
-  PhotoFacit,
-  PhotoManifest,
-  photoName,
-} from '../photo/facit.ts';
+import { facitProblems, PhotoFacit, PhotoManifest, photoName } from '../photo/facit.ts';
 import { kitchenFloor, wallFacit } from './photo-fixtures.ts';
 
 const dir = join(import.meta.dirname, '../photo');
@@ -18,7 +13,7 @@ describe('the committed photo facit', () => {
   it('has a facit for every manifest photo that parses and fits its floor', async () => {
     const manifest = PhotoManifest.parse(await json(join(dir, 'manifest.json')));
     for (const photo of manifest.photos) {
-      const floor = parsePhotoFloor(await json(join(dir, 'floors', `${photo.home}.json`)));
+      const floor = parseFloorRecord(await json(join(dir, 'floors', `${photo.home}.json`)));
       const facit = PhotoFacit.parse(await json(join(dir, 'facit', `${photoName(photo)}.json`)));
       expect(facitProblems(facit, floor, photoDetectable), photo.file).toEqual([]);
     }

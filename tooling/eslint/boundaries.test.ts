@@ -54,18 +54,17 @@ describe('import boundaries', () => {
     ).toEqual(['no-restricted-imports']);
   });
 
-  it('keeps evals away from apps, data adapters and plugins', async () => {
+  it('keeps evals away from apps and data adapters', async () => {
     for (const source of [
       "import { x } from '../../apps/web/src/features/floorplan/background/plan-file.ts';",
       "import { App } from '@el-karta/web';",
       "import { d } from '@el-karta/data-supabase';",
-      "import { p } from '@el-karta/plugin-power';",
     ])
       expect(await lint('evals/floorplan/probe.ts', source)).toEqual(['no-restricted-imports']);
     expect(
       await lint(
         'evals/floorplan/probe.ts',
-        "import { c } from '@el-karta/core';\nimport { p } from '@el-karta/ai-passes';\nimport { q } from '@el-karta/ai-providers';",
+        "import { c } from '@el-karta/core';\nimport { p } from '@el-karta/ai-passes';\nimport { q } from '@el-karta/ai-providers';\nimport { w } from '@el-karta/plugin-power';",
       ),
     ).toEqual([]);
   });

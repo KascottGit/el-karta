@@ -12,14 +12,13 @@ import {
   type PhotoShot,
 } from '@el-karta/ai-passes';
 import { costUsd, type AiProvider } from '@el-karta/ai-providers';
-import type { AttachmentRegion, FloorRecord, Id } from '@el-karta/core';
+import { parseFloorRecord, type AttachmentRegion, type FloorRecord, type Id } from '@el-karta/core';
 import { dirname, join, resolve } from 'node:path';
 import { checkFiles, passChoice, readJson, writeRaw } from '../common.ts';
 import { appendCsv, type CsvValue } from '../csv.ts';
 import { photoDetectable } from './detectable.ts';
 import {
   facitProblems,
-  parsePhotoFloor,
   PhotoFacit,
   PhotoManifest,
   photoName,
@@ -143,7 +142,8 @@ export async function runPhotoEval(options: PhotoEvalOptions): Promise<PhotoRow[
 
   const floors = new Map<string, FloorRecord>();
   for (const home of homes)
-    floors.set(home, parsePhotoFloor(await readJson(join(floorsDir, `${home}.json`))));
+    // A `FloorRecord` as "Exportera våning" downloads it, migrated like a stored floor.
+    floors.set(home, parseFloorRecord(await readJson(join(floorsDir, `${home}.json`))));
   const shots: Shot[] = [];
   const problems: string[] = [];
   for (const [index, entry] of used.entries()) {
@@ -152,8 +152,8 @@ export async function runPhotoEval(options: PhotoEvalOptions): Promise<PhotoRow[
     problems.push(
       ...facitProblems(facit, floors.get(entry.home)!, detectable).map((p) => `${name}: ${p}`),
     );
-    // Later in the manifest counts as more recent, as `createdAt` does in the app.
-    const createdAt = String(index).padStart(6, '0');
+    // Later in the manifest counts as taken later, as `createdAt` does in the app.
+    const createdAt = new Date(index * 1000).toISOString();
     const path = join(imagesDir, entry.file);
     shots.push({ id: name, region: regionOf(facit), createdAt, entry, facit, path });
   }
@@ -168,7 +168,9 @@ export async function runPhotoEval(options: PhotoEvalOptions): Promise<PhotoRow[
     const date = now();
     const photo = await loadPhoto(shot.path);
     const sameHome = shots.filter((s) => s.entry.home === entry.home);
-    const earlier = options.earlier ? earlierPhotos(sameHome, shot) : [];
+    // As on upload in the app, a photo only sees photos taken before it.
+    const before = sameHome.filter((s) => s.createdAt < shot.createdAt);
+    const earlier = options.earlier ? earlierPhotos(before, shot) : [];
     const input: PhotoInput = {
       ...context,
       image: { mimeType: PHOTO_TYPE, data: await photo.encode(PHOTO_MAX_SIDE) },
