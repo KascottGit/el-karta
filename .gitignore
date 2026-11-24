@@ -19,7 +19,7 @@ playwright-report/
 floorplans/
 
 # Photos of our own homes for the photo evals (private; the repo is public)
-photos/
+/photos/
 
 # Raw model outputs from `pnpm eval` (may quote third-party plans)
 evals/results/raw/

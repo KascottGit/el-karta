@@ -1,5 +1,5 @@
 import type { Id } from '@el-karta/core';
-import type { NewAttachment, SignedUrl } from '@el-karta/data-supabase';
+import type { Attachment, AttachmentKind, NewAttachment, SignedUrl } from '@el-karta/data-supabase';
 
 // Loaded on first use, so the editor's extensions can be imported without a Supabase client, as
 // unit tests and the synthetic dev page do.
@@ -10,3 +10,9 @@ export const uploadAttachment = async (attachment: NewAttachment) =>
 
 export const attachmentUrl = async (attachmentId: Id): Promise<SignedUrl> =>
   (await repository()).attachmentUrl(attachmentId);
+
+export const listAttachments = async (floorId: Id, kind: AttachmentKind): Promise<Attachment[]> =>
+  (await repository()).listAttachments(floorId, kind);
+
+export const deleteAttachment = async (attachmentId: Id): Promise<void> =>
+  (await repository()).deleteAttachment(attachmentId);
