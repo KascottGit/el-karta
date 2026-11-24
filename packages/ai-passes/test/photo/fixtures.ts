@@ -141,6 +141,20 @@ export function room(
   };
 }
 
+/** Adds a small high window on A, 0.20–0.70 m from its left end (not reversed), as `O4`. */
+export function withSmallWindow(context: ReturnType<typeof room>): ReturnType<typeof room> {
+  context.openings.push({
+    id: id(24),
+    wallId: WALL.A,
+    kind: 'window',
+    offset: h + 0.2,
+    width: 0.5,
+    height: 0.6,
+    sill: 1.3,
+  });
+  return context;
+}
+
 export const input = (context = room()): PhotoInput => ({
   image: { mimeType: 'image/jpeg', data: 'AAAA' },
   earlier: [],
@@ -150,7 +164,8 @@ export const input = (context = room()): PhotoInput => ({
 export const options = (
   context = room(),
   pending: PhotoSuggestOptions['pending'] = [],
-): PhotoSuggestOptions => ({ ...context, photoId: PHOTO, pending });
+  pendingCorrections: PhotoSuggestOptions['pendingCorrections'] = { openingIds: [], roomIds: [] },
+): PhotoSuggestOptions => ({ ...context, photoId: PHOTO, pending, pendingCorrections });
 
 /** A world point: plan x, y and height z. */
 export interface P3 {

@@ -6,6 +6,7 @@ import {
   type DevicePayload,
   type PhotoFeature,
   type PhotoOutput,
+  type PhotoReference,
 } from '../../src/index.ts';
 import {
   camera,
@@ -22,6 +23,7 @@ import {
   room,
   ROOM,
   WALL,
+  withSmallWindow,
   type Camera,
 } from './fixtures.ts';
 import { deviceBox, references } from './scene.ts';
@@ -187,36 +189,63 @@ describe('interpretPhoto: rough positions', () => {
 
 describe('interpretPhoto: corrections', () => {
   const corrections = (drafts: SuggestionDraft[]) => drafts.filter((d) => d.kind !== 'device');
+  type Corrected = { id: string; width: number; height: number; offset: number; hinge?: string };
+  const parse = (drafts: SuggestionDraft[]) =>
+    corrections(drafts).map((d) => kinds.get(d.kind)!.parse(d.payload) as Corrected);
+  /** A on the rich fixture (three openings) with the window's width and the door's height as given. */
+  const rich = (width = 1.2, doorHeight = 2) => {
+    const context = withSmallWindow(room());
+    context.openings[0] = { ...context.openings[0]!, width, offset: 1.05 };
+    context.openings[1] = { ...context.openings[1]!, height: doorHeight };
+    return context;
+  };
+  const richScene = (truthCeiling = 2.5) =>
+    output({
+      references: references(facingA, withSmallWindow(room({ ceilingHeight: truthCeiling })), [0]),
+    });
 
   it('suggests an opening correction only above 10 cm, keeping the opening id and hinge', () => {
-    const truth = room();
-    const out = output({ references: references(facingA, truth, [0]) });
-    const wrong = (width: number, doorHeight: number) => {
-      const context = room();
-      context.openings[0] = { ...context.openings[0]!, width, offset: 1.05 };
-      context.openings[1] = { ...context.openings[1]!, height: doorHeight };
-      return corrections(interpretPhoto(out, options(context), ids()));
-    };
-    type Corrected = { id: string; width: number; height: number; offset: number; hinge?: string };
-    const parse = (drafts: SuggestionDraft[]) =>
-      drafts.map((d) => kinds.get(d.kind)!.parse(d.payload) as Corrected);
+    const out = richScene();
+    const wrong = (width: number, doorHeight: number) =>
+      parse(interpretPhoto(out, options(rich(width, doorHeight)), ids()));
 
     expect(wrong(1.15, 2)).toEqual([]);
     expect(wrong(1.2, 2.08)).toEqual([]);
 
-    const [window, ...rest] = parse(wrong(1.05, 2));
+    const [window, ...rest] = wrong(1.05, 2);
     expect(rest).toEqual([]);
     expect(window).toMatchObject({ id: OPENING.window, height: 1.2 });
     expect(window!.width).toBeCloseTo(1.2, 2);
     expect(window!.offset).toBeCloseTo(1.05, 2);
 
-    const [door, ...none] = parse(wrong(1.2, 1.85));
+    const [door, ...none] = wrong(1.2, 1.85);
     expect(none).toEqual([]);
     expect(door).toMatchObject({ id: OPENING.door, width: 0.8, hinge: 'left' });
     expect(door!.height).toBeCloseTo(2, 2);
+  });
 
-    // Two contradicted openings: both corrected, and the ceiling is not checked on that wall.
-    expect(wrong(1.05, 1.85).map((d) => d.kind)).toEqual(['opening', 'opening']);
+  it('measures each opening without the others it contradicts', () => {
+    const out = richScene();
+    // The window 40 cm too narrow would skew a fit that kept its corners.
+    const [window, ...rest] = parse(interpretPhoto(out, options(rich(0.8)), ids()));
+    expect(rest).toEqual([]);
+    expect(window!.width).toBeCloseTo(1.2, 2);
+  });
+
+  it('corrects nothing when two of three openings disagree, since any two could be the wrong ones', () => {
+    const out = richScene();
+    const context = withSmallWindow(room());
+    context.openings[0] = { ...context.openings[0]!, width: 1.0 };
+    context.openings[1] = { ...context.openings[1]!, height: 1.8 };
+    expect(parse(interpretPhoto(out, options(context), ids()))).toEqual([]);
+  });
+
+  it('corrects nothing on a wall where either of two openings could be the wrong one', () => {
+    // A has only its floor corners besides the window and the door; the ceiling is wrong too.
+    const out = output({ references: references(facingA, room({ ceilingHeight: 2.7 }), [0]) });
+    const context = room();
+    context.openings[0] = { ...context.openings[0]!, width: 1.0 };
+    expect(corrections(interpretPhoto(out, options(context), ids()))).toEqual([]);
   });
 
   it('suggests the ceiling height only when it differs by more than 5 cm', () => {
@@ -237,15 +266,51 @@ describe('interpretPhoto: corrections', () => {
     });
   });
 
-  it('suggests no correction with fewer than 5 fit points, however large the difference', () => {
+  it('needs two ceiling corners that agree', () => {
+    const refs = references(facingA, room({ ceilingHeight: 2.7 }), [0]);
+    const isTopRight = (r: PhotoReference) => r.what === 'wall_corner' && r.corner === 'top_right';
+    const one = refs.filter((r) => !isTopRight(r));
+    expect(corrections(interpretPhoto(output({ references: one }), options(), ids()))).toEqual([]);
+    const apart = refs.map((r) =>
+      isTopRight(r) ? { ...r, point: { x: r.point.x, y: r.point.y - 30 } } : r,
+    );
+    expect(corrections(interpretPhoto(output({ references: apart }), options(), ids()))).toEqual(
+      [],
+    );
+    expect(
+      corrections(interpretPhoto(output({ references: refs }), options(), ids())),
+    ).toHaveLength(1);
+  });
+
+  it('suggests nothing at 1 % noise when the model is right, and still finds 20 cm errors', () => {
+    const found = (scene: PhotoOutput, context: ReturnType<typeof room>, kind: string) => {
+      let n = 0;
+      for (let seed = 1; seed <= 50; seed++) {
+        const drafts = corrections(interpretPhoto(noisy(scene, seed, 10), options(context), ids()));
+        if (drafts.some((d) => d.kind === kind)) n++;
+      }
+      return n;
+    };
+    const plain = output({ references: references(facingA, room(), [0]) });
+    for (let seed = 1; seed <= 50; seed++) {
+      const fromRich = interpretPhoto(noisy(richScene(), seed, 10), options(rich()), ids());
+      expect(corrections(fromRich)).toEqual([]);
+      expect(corrections(interpretPhoto(noisy(plain, seed, 10), options(), ids()))).toEqual([]);
+    }
+    // Measured on these scenes: 48 and 35 of 50.
+    expect(found(richScene(), rich(1.0), 'opening')).toBeGreaterThanOrEqual(45);
+    expect(found(richScene(2.7), rich(), 'room-ceiling-height')).toBeGreaterThanOrEqual(30);
+  });
+
+  it('suggests no correction with fewer than 5 distinct fit points, however large the difference', () => {
     const truth = room({ ceilingHeight: 2.9 });
-    // The window's four corners and the top wall corners: only 4 points fix the fit.
+    // The window's four corners (each reported twice) and the top wall corners.
     const refs = references(facingA, truth, [0], { floor: false }).filter((r) => r.ref !== 'O2');
     const context = room();
     context.openings[0] = { ...context.openings[0]!, width: 0.8 };
     const drafts = interpretPhoto(
       output({
-        references: refs,
+        references: [...refs, ...refs.filter((r) => r.ref === 'O1')],
         features: [feature({ box: deviceBox(facingA, truth, 0, 0.6, 0.3) })],
       }),
       options(context),
@@ -253,6 +318,14 @@ describe('interpretPhoto: corrections', () => {
     );
     expect(corrections(drafts)).toEqual([]);
     expect(devices(drafts)).toHaveLength(1);
+  });
+
+  it('skips corrections already pending', () => {
+    const out = richScene(2.7);
+    const all = corrections(interpretPhoto(out, options(rich(1.0)), ids()));
+    expect(all.map((d) => d.kind)).toEqual(['opening', 'room-ceiling-height']);
+    const pending = { openingIds: [OPENING.window], roomIds: [ROOM] };
+    expect(corrections(interpretPhoto(out, options(rich(1.0), [], pending), ids()))).toEqual([]);
   });
 });
 
@@ -272,13 +345,7 @@ describe('interpretPhoto: de-duplication', () => {
   it('skips features matched to or near an existing device, or near a pending suggestion', () => {
     const context = room();
     context.devices = [{ id: id(40), domain: 'power', type: 'outlet', placement: existing }];
-    const pending = [
-      {
-        domain: 'power',
-        type: 'outlet',
-        placement: { ...existing, offset: 2.5 },
-      },
-    ];
+    const pending = [{ domain: 'power', type: 'outlet', placement: { ...existing, offset: 2.5 } }];
     const out = output({
       references: refs,
       features: [
@@ -286,7 +353,6 @@ describe('interpretPhoto: de-duplication', () => {
         outlet(0.8),
         outlet(2.6),
         outlet(1.5),
-        outlet(1.55),
         feature({ deviceType: 'power.switch', box: deviceBox(facingA, truth, 0, 0.6, 0.3) }),
       ],
     });
@@ -295,6 +361,50 @@ describe('interpretPhoto: de-duplication', () => {
       ['outlet', 1.5],
       ['switch', 0.6],
     ]);
+  });
+
+  it('keeps close outlets in one photo, dropping only a device reported twice', () => {
+    const out = output({
+      references: refs,
+      features: [outlet(1.5), outlet(1.5), outlet(1.52), outlet(1.7), outlet(1.85)],
+    });
+    const placed = devices(interpretPhoto(out, options(), ids()));
+    expect(placed.map((d) => Math.round(wallPlacement(d).offset * 100) / 100)).toEqual([
+      1.5, 1.7, 1.85,
+    ]);
+  });
+});
+
+describe('interpretPhoto: untrusted fits', () => {
+  it('flags a fitted point well outside the wall face instead of only clamping it', () => {
+    const truth = room();
+    const out = output({
+      references: references(facingA, truth, [0]),
+      features: [
+        feature({ box: deviceBox(facingA, truth, 0, 4.4, 0.3) }),
+        feature({ box: deviceBox(facingA, truth, 0, 4.15, 0.3) }),
+      ],
+    });
+    const [far, near] = interpretPhoto(out, options(), ids());
+    expect(wallPlacement(far!.payload as DevicePayload).offset).toBe(4.05);
+    expect(far!.issues).toEqual([{ code: 'photo.position-rough', severity: 'warning' }]);
+    expect(far!.confidence).toBeCloseTo(0.9 * ROUGH_CONFIDENCE);
+    expect(wallPlacement(near!.payload as DevicePayload).offset).toBe(4.05);
+    expect(near!.issues).toEqual([]);
+  });
+
+  it('places a whole wall roughly when its fit misses its own points', () => {
+    const truth = room();
+    // The model has the door a metre from where the photo shows it.
+    const context = room();
+    context.openings[1] = { ...context.openings[1]!, offset: context.openings[1]!.offset - 1 };
+    const out = output({
+      references: references(facingA, truth, [0]),
+      features: [feature({ box: deviceBox(facingA, truth, 0, 0.6, 0.3) })],
+    });
+    const [draft] = interpretPhoto(out, options(context), ids());
+    expect(draft!.issues).toEqual([{ code: 'photo.position-rough', severity: 'warning' }]);
+    expect(wallPlacement(draft!.payload as DevicePayload).height).toBe(0.25);
   });
 });
 
@@ -384,5 +494,35 @@ describe('interpretPhoto: ceiling lights', () => {
     expect(one.map((d) => d.placement)).toEqual([
       { kind: 'ceiling', roomId: ROOM, at: { x: 3, y: 1.5 } },
     ]);
+  });
+
+  it('never turns a light matched to an existing device into a new one', () => {
+    const lightAt = (n: number, at: { x: number; y: number }) => ({
+      id: id(n),
+      domain: 'power',
+      type: 'ceiling_light',
+      placement: { kind: 'ceiling' as const, roomId: ROOM, at },
+    });
+    const context = room();
+    context.devices = [lightAt(40, { x: 0.9, y: 1.5 })];
+    const matched = { ...light(300), existing: 'E1', confidence: 0.99 };
+
+    expect(
+      devices(interpretPhoto(output({ features: [matched] }), options(context), ids())),
+    ).toEqual([]);
+    const [fresh, ...rest] = interpretPhoto(
+      output({ features: [matched, { ...light(600), confidence: 0.7 }] }),
+      options(context),
+      ids(),
+    );
+    expect(rest).toEqual([]);
+    expect((fresh!.payload as DevicePayload).placement).toMatchObject({ at: { x: 3, y: 1.5 } });
+    expect(fresh!.confidence).toBeCloseTo(0.7 * ROUGH_CONFIDENCE);
+
+    // A second light already in the room accounts for the unmatched one.
+    context.devices.push(lightAt(41, { x: 3, y: 1.5 }));
+    expect(
+      devices(interpretPhoto(output({ features: [matched, light(600)] }), options(context), ids())),
+    ).toEqual([]);
   });
 });

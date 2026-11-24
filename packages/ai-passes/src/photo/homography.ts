@@ -20,15 +20,21 @@ export interface Homography {
 
 export const MIN_FIT_POINTS = 4;
 
+/** The points with any within `tolerance` of an earlier one left out. */
+export function distinctPoints(points: readonly XY[], tolerance: number): XY[] {
+  const distinct: XY[] = [];
+  for (const p of points) {
+    if (!distinct.some((q) => Math.hypot(p.x - q.x, p.y - q.y) <= tolerance)) distinct.push(p);
+  }
+  return distinct;
+}
+
 /**
  * Whether the points fail to fix a homography: fewer than 4 distinct, or all but at most one on a
  * line (within `tolerance`), as with only floor-level points.
  */
 export function degenerate(points: readonly XY[], tolerance: number): boolean {
-  const distinct: XY[] = [];
-  for (const p of points) {
-    if (!distinct.some((q) => Math.hypot(p.x - q.x, p.y - q.y) <= tolerance)) distinct.push(p);
-  }
+  const distinct = distinctPoints(points, tolerance);
   const n = distinct.length;
   if (n < MIN_FIT_POINTS) return true;
   for (let i = 0; i < n; i++) {
@@ -54,7 +60,8 @@ function normaliser(points: readonly XY[]) {
   return { cx, cy, s, apply: (p: XY): XY => ({ x: s * (p.x - cx), y: s * (p.y - cy) }) };
 }
 
-const PLANE_TOLERANCE = 0.03;
+/** Plane points closer than this (metres) are one point. */
+export const PLANE_TOLERANCE = 0.03;
 const IMAGE_TOLERANCE = 3;
 
 /**
@@ -113,4 +120,15 @@ export function applyHomography(homography: Homography, p: XY): XY | null {
     x: (h[0]! * p.x + h[1]! * p.y + h[2]!) / w,
     y: (h[3]! * p.x + h[4]! * p.y + h[5]!) / w,
   };
+}
+
+/** Root mean square distance, on the plane, between where the pairs' image points map and their plane points. */
+export function rmsResidual(homography: Homography, pairs: readonly Correspondence[]): number {
+  let sum = 0;
+  for (const pair of pairs) {
+    const p = applyHomography(homography, pair.image);
+    if (!p) return Infinity;
+    sum += (p.x - pair.plane.x) ** 2 + (p.y - pair.plane.y) ** 2;
+  }
+  return Math.sqrt(sum / pairs.length);
 }
