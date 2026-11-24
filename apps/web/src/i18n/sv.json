@@ -565,6 +565,29 @@
     "name": "Foton",
     "take": "Ta foto",
     "pick": "Välj bild",
-    "pickTarget": "Tryck på ett rum eller en vägg som fotot visar."
+    "pickTarget": "Tryck på ett rum eller en vägg som fotot visar.",
+    "tool": "Foton",
+    "noRoom": "Väggen ligger inte mot något rum. Rita rummet först, så att fotot hör till ett rum.",
+    "takenIn": "Fotot är taget i",
+    "ofWall": "Vald vägg i {{room}}",
+    "ofRoom": "Hela rummet {{room}}",
+    "selectedWall": "Vald vägg",
+    "wall": "Vägg, {{length}} m",
+    "missingWall": "Borttagen vägg",
+    "general": "Rummet i allmänhet",
+    "none": "Inga foton än.",
+    "compressing": "Förbereder bilden …",
+    "uploading": "Laddar upp fotot …",
+    "failed": {
+      "image": "Filen kunde inte läsas som en bild.",
+      "upload": "Fotot kunde inte laddas upp. Försök igen."
+    },
+    "open": "Visa foto {{n}}",
+    "viewer": "Foto",
+    "imageFailed": "Bilden kunde inte visas.",
+    "close": "Stäng",
+    "delete": "Ta bort foto",
+    "confirmDelete": "Ta bort fotot för gott? Enheter som hänvisar till det tappar hänvisningen.",
+    "deleteFailed": "Fotot kunde inte tas bort. Försök igen."
   }
 }

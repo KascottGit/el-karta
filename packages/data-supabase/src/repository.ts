@@ -1,4 +1,5 @@
 import {
+  AttachmentRegion,
   NotFoundError,
   parseFloorRecord,
   parseProjectRecord,
@@ -32,6 +33,21 @@ export interface NewAttachment {
   extension: string;
   contentType: string;
   body: FileBody;
+  /** What a photo shows; validated before anything is stored. */
+  region?: AttachmentRegion;
+}
+
+/** An attachment row as stored. */
+export interface Attachment {
+  id: Id;
+  projectId: Id;
+  floorId: Id | null;
+  kind: AttachmentKind;
+  storagePath: string;
+  /** Null when the row has none, or one that is not a valid `AttachmentRegion`. */
+  region: AttachmentRegion | null;
+  /** ISO timestamp. */
+  createdAt: string;
 }
 
 export interface SignedUrl {
@@ -72,6 +88,19 @@ const floorFromRow = (row: Tables<'floors'>): FloorRecord =>
     version: row.version,
     data: row.data,
   });
+
+const attachmentFromRow = (row: Tables<'attachments'>): Attachment => {
+  const region = row.region === null ? null : AttachmentRegion.safeParse(row.region);
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    floorId: row.floor_id,
+    kind: row.kind as AttachmentKind,
+    storagePath: row.storage_path,
+    region: region?.success ? region.data : null,
+    createdAt: row.created_at,
+  };
+};
 
 const projectFromRow = (row: Tables<'projects'>): ProjectRecord =>
   parseProjectRecord({
@@ -218,6 +247,8 @@ export class SupabaseRepository implements Repository {
    * signed-in user: only owners and editors can. If the row cannot be added, the file is removed.
    */
   async uploadAttachment(attachment: NewAttachment): Promise<{ storagePath: string }> {
+    const region =
+      attachment.region === undefined ? null : AttachmentRegion.parse(attachment.region);
     const storagePath = attachmentPath(attachment.projectId, attachment.id, attachment.extension);
     const files = this.client.storage.from(PROJECT_FILES_BUCKET);
     const uploaded = await files.upload(storagePath, attachment.body, {
@@ -231,6 +262,7 @@ export class SupabaseRepository implements Repository {
       floor_id: attachment.floorId ?? null,
       kind: attachment.kind,
       storage_path: storagePath,
+      region: region === null ? null : json(region),
     });
     if (error) {
       await files.remove([storagePath]);
@@ -254,6 +286,37 @@ export class SupabaseRepository implements Repository {
       .createSignedUrl(data.storage_path, expiresInSeconds);
     if (signed.error) throw new RepositoryError(signed.error.message);
     return { url: signed.data.signedUrl, expiresAt: requestedAt + expiresInSeconds * 1000 };
+  }
+
+  /** The floor's attachments of one kind that the caller can read, oldest first. */
+  async listAttachments(floorId: Id, kind: AttachmentKind): Promise<Attachment[]> {
+    const { data, error } = await this.client
+      .from('attachments')
+      .select('*')
+      .eq('floor_id', floorId)
+      .eq('kind', kind)
+      .order('created_at')
+      .order('id');
+    if (error) fail(error);
+    return (data ?? []).map(attachmentFromRow);
+  }
+
+  /**
+   * Deletes an attachment's row, then its file. Owners and editors only; for anyone else, or an
+   * unknown id, nothing is deleted and it throws `NotFoundError`. The row goes first, so a failed
+   * file removal leaves an unreachable file rather than a row without one.
+   */
+  async deleteAttachment(attachmentId: Id): Promise<void> {
+    const { data, error } = await this.client
+      .from('attachments')
+      .delete()
+      .eq('id', attachmentId)
+      .select('storage_path');
+    if (error) fail(error);
+    const row = data?.[0];
+    if (!row) throw new NotFoundError(`Attachment ${attachmentId} not found`);
+    const removed = await this.client.storage.from(PROJECT_FILES_BUCKET).remove([row.storage_path]);
+    if (removed.error) throw new RepositoryError(removed.error.message);
   }
 
   /** Adds an existing user (by the email they signed in with) to the project. Owners only. */
