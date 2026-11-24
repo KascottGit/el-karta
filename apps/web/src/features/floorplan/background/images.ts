@@ -2,9 +2,8 @@ import type { Id } from '@el-karta/core';
 import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
-import { attachmentUrl } from './attachments';
+import { attachmentUrls as urls } from '@/lib/attachments';
 import type { ImageSize } from './plan-file';
-import { createSignedUrlCache } from './signed-urls';
 
 export type BackgroundImage =
   | { status: 'loading' }
@@ -16,8 +15,6 @@ export type BackgroundImage =
  * pixels of floors that are not shown; reloading one uses the cached signed URL.
  */
 export const imageStore = createStore<Readonly<Record<Id, BackgroundImage>>>()(() => ({}));
-
-const urls = createSignedUrlCache(attachmentUrl);
 
 const setImage = (attachmentId: Id, image: BackgroundImage) => {
   imageStore.setState((s) => ({ ...s, [attachmentId]: image }));

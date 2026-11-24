@@ -9,7 +9,7 @@ import {
 import { describe, expect, it, vi } from 'vitest';
 import { classifyPlanFile, imageBounds } from './plan-file';
 import { measuredScale, normalizeDegrees, placeBackground, rotatedAboutCenter } from './placement';
-import { createSignedUrlCache } from './signed-urls';
+import { createSignedUrlCache } from '@/lib/signed-urls';
 
 describe('plan files', () => {
   it('accepts images and PDFs, including PDFs without a type', () => {

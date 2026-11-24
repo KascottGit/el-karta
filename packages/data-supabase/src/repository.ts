@@ -304,9 +304,10 @@ export class SupabaseRepository implements Repository {
   /**
    * Deletes an attachment's row, then its file. Owners and editors only; for anyone else, or an
    * unknown id, nothing is deleted and it throws `NotFoundError`. The row goes first, so a failed
-   * file removal leaves an unreachable file rather than a row without one.
+   * file removal leaves an unreachable file rather than a row without one. Once the row is gone
+   * the attachment is deleted, so a failed file removal is reported in `fileRemoved`, not thrown.
    */
-  async deleteAttachment(attachmentId: Id): Promise<void> {
+  async deleteAttachment(attachmentId: Id): Promise<{ fileRemoved: boolean }> {
     const { data, error } = await this.client
       .from('attachments')
       .delete()
@@ -316,7 +317,7 @@ export class SupabaseRepository implements Repository {
     const row = data?.[0];
     if (!row) throw new NotFoundError(`Attachment ${attachmentId} not found`);
     const removed = await this.client.storage.from(PROJECT_FILES_BUCKET).remove([row.storage_path]);
-    if (removed.error) throw new RepositoryError(removed.error.message);
+    return { fileRemoved: !removed.error };
   }
 
   /** Adds an existing user (by the email they signed in with) to the project. Owners only. */

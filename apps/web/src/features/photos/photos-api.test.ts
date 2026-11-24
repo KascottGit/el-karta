@@ -11,10 +11,11 @@ const server = vi.hoisted(() => ({
   uploaded: [] as NewAttachment[],
   deleted: [] as string[],
   failDelete: false,
+  failFile: false,
   failUpload: false,
 }));
 
-vi.mock('@/features/floorplan/background/attachments', () => ({
+vi.mock('@/lib/attachments', () => ({
   uploadAttachment: (a: NewAttachment) => {
     if (server.failUpload) return Promise.reject(new Error('offline'));
     server.uploaded.push(a);
@@ -23,10 +24,10 @@ vi.mock('@/features/floorplan/background/attachments', () => ({
   deleteAttachment: (id: string) => {
     if (server.failDelete) return Promise.reject(new Error('not allowed'));
     server.deleted.push(id);
-    return Promise.resolve();
+    return Promise.resolve({ fileRemoved: !server.failFile });
   },
   listAttachments: () => Promise.resolve([]),
-  attachmentUrl: () => Promise.reject(new Error('unused')),
+  attachmentUrls: { get: () => Promise.reject(new Error('unused')), invalidate: () => undefined },
 }));
 
 const compressed = new Blob(['small jpeg']);
@@ -42,7 +43,13 @@ const photoId = '00000000-0000-4000-8000-0000000000a1';
 const deviceId = '00000000-0000-4000-8000-0000000000d1';
 
 beforeEach(() => {
-  Object.assign(server, { uploaded: [], deleted: [], failDelete: false, failUpload: false });
+  Object.assign(server, {
+    uploaded: [],
+    deleted: [],
+    failDelete: false,
+    failFile: false,
+    failUpload: false,
+  });
   compress.fail = false;
   const project = twoRooms();
   floorId = project.floorId;
@@ -97,6 +104,15 @@ describe('deletePhoto', () => {
     expect(server.deleted).toEqual([photoId]);
     expect(device().attachmentIds).toBeUndefined();
     expect(modelStore.getState().past).toHaveLength(1);
+    expect(queries.getQueryData(photosKey(floorId))).toEqual([]);
+  });
+
+  it('counts the photo as deleted when only its file could not be removed', async () => {
+    const queries = new QueryClient();
+    queries.setQueryData(photosKey(floorId), [stored()]);
+    server.failFile = true;
+    await deletePhoto(queries, stored());
+    expect(device().attachmentIds).toBeUndefined();
     expect(queries.getQueryData(photosKey(floorId))).toEqual([]);
   });
 

@@ -242,6 +242,21 @@ describe('SupabaseRepository (local Supabase)', () => {
     expect(listed.find((a) => a.id === ofRoom.id)?.region).toEqual({ roomId });
     expect(await outsiderRepo.listAttachments(floorId, 'photo')).toEqual([]);
 
+    // A row written past the repository with a broken region is listed without one.
+    const broken = crypto.randomUUID();
+    const inserted = await editor.client.from('attachments').insert({
+      id: broken,
+      project_id: created.project.id,
+      floor_id: floorId,
+      kind: 'photo',
+      storage_path: `${created.project.id}/${broken}.jpg`,
+      region: { roomId: 'not-an-id' },
+    });
+    expect(inserted.error).toBeNull();
+    const withBroken = await editorRepo.listAttachments(floorId, 'photo');
+    expect(withBroken.find((a) => a.id === broken)?.region).toBeNull();
+    await editorRepo.deleteAttachment(broken);
+
     await expect(viewerRepo.deleteAttachment(ofWall.id)).rejects.toThrow(NotFoundError);
     await expect(outsiderRepo.deleteAttachment(ofWall.id)).rejects.toThrow(NotFoundError);
     expect(await editorRepo.listAttachments(floorId, 'photo')).toHaveLength(2);

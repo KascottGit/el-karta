@@ -3,12 +3,11 @@ import type { Attachment } from '@el-karta/data-supabase';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { modelStore } from '@/model/store';
 import {
-  attachmentUrl,
+  attachmentUrls as urls,
   deleteAttachment,
   listAttachments,
   uploadAttachment,
-} from '@/features/floorplan/background/attachments';
-import { createSignedUrlCache } from '@/features/floorplan/background/signed-urls';
+} from '@/lib/attachments';
 import { compressPhoto, PHOTO_EXTENSION, PHOTO_TYPE } from './compress';
 import { detachPhoto } from './detach';
 import { setUpload } from './photos-store';
@@ -19,8 +18,6 @@ const urlKey = (photoId: Id) => ['photo-url', photoId] as const;
 /** The floor's photos, oldest first. */
 export const usePhotos = (floorId: Id) =>
   useQuery({ queryKey: photosKey(floorId), queryFn: () => listAttachments(floorId, 'photo') });
-
-const urls = createSignedUrlCache(attachmentUrl);
 
 /** A signed URL for showing a photo; `retry` drops it after the image failed to load. */
 export function usePhotoUrl(photoId: Id) {
@@ -78,7 +75,8 @@ export async function uploadPhoto(
 
 /**
  * Deletes the photo, then removes it from the devices that cite it as evidence in one undoable
- * edit. Throws, changing nothing, when the photo cannot be deleted.
+ * edit. Throws, changing nothing, when the photo cannot be deleted. A file left behind after its
+ * row was deleted is unreachable, so the photo counts as deleted.
  */
 export async function deletePhoto(queries: QueryClient, photo: Attachment) {
   await deleteAttachment(photo.id);
