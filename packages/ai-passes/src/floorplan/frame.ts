@@ -84,11 +84,6 @@ export const outputToNorm = (output: FloorplanOutput, frame: Tile): FloorplanOut
     (t) => (t / frame.width) * NORM,
   );
 
-export const clampNorm = (p: NormPoint): NormPoint => ({
-  x: Math.min(NORM, Math.max(0, p.x)),
-  y: Math.min(NORM, Math.max(0, p.y)),
-});
-
 /** The smallest rectangle around all tiles: the frame a merged output is normalised to. */
 export function tilesBounds(tiles: readonly Tile[]): Tile {
   if (tiles.length === 0) throw new Error('tilesBounds needs at least one tile');

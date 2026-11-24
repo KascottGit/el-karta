@@ -1,6 +1,7 @@
 import { add, cross, distance, normalize, scale, sub, type Pt } from '@el-karta/core';
 import type { Tile, TileOutput } from '../pass.ts';
-import { clampNorm, mapFloorplan, outputToNorm, outputToPixels, tilesBounds } from './frame.ts';
+import { clampNorm } from '../image.ts';
+import { mapFloorplan, outputToNorm, outputToPixels, tilesBounds } from './frame.ts';
 import { median } from './scale.ts';
 import type { DetectedRoom, DetectedWall, FloorplanOutput } from './schema.ts';
 import { mergeCollinear } from './walls.ts';

@@ -12,6 +12,7 @@ export const PhotoDetectableSchema = z.object({
   description: z.string(),
   placement: z.enum(['wall', 'ceiling']),
   defaultHeight: z.number().positive().optional(),
+  /** Prop names and the values the model may report; a detected device stores the value as given. */
   visibleProps: z.record(z.string(), z.array(z.string())).optional(),
   countable: z.boolean().optional(),
   ports: z.array(z.object({ kind: z.string().min(1), domain: z.string().min(1) })),
@@ -48,6 +49,7 @@ export const PhotoInput = z.object({
   walls: z.array(PhotoWall).min(1).max(26),
   /** The wall the person said the photo shows; null when they chose the room only. */
   targetWallId: Id.nullable(),
+  /** With `hinge` and `swing`, so a correction (which replaces the opening) keeps them. */
   openings: z.array(
     Opening.pick({
       id: true,
@@ -57,6 +59,8 @@ export const PhotoInput = z.object({
       width: true,
       height: true,
       sill: true,
+      hinge: true,
+      swing: true,
     }),
   ),
   /** Devices already in the room, so the model can say a feature is one of them. */
@@ -73,7 +77,8 @@ export type ImageCorner = z.infer<typeof ImageCorner>;
 /**
  * An image point of something whose place on the wall is known. Corners are as seen in the photo:
  * for a wall, top is where it meets the ceiling and bottom where it meets the floor, left and right
- * its two ends; for an opening, the corners of its frame.
+ * its two ends; for an opening, the corners of its frame. Which wall end is on the left follows from
+ * the wall's `side`: the viewer stands in the room facing that face (`wallFrame` in `plane.ts`).
  */
 export const PhotoReference = z.object({
   what: z.enum(['wall_corner', 'opening_corner']),

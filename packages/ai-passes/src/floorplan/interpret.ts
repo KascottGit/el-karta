@@ -9,7 +9,8 @@ import type {
 } from '@el-karta/core';
 import type { SuggestionDraft } from '@el-karta/core';
 import type { Tile } from '../pass.ts';
-import { clampNorm, mapFloorplan, outputToPixels } from './frame.ts';
+import { clampNorm } from '../image.ts';
+import { mapFloorplan, outputToPixels } from './frame.ts';
 import { planGeometry } from './geometry.ts';
 import {
   areaCandidates,
