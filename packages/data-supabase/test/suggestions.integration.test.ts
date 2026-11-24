@@ -18,6 +18,7 @@ const runsPerHour = Number(/^AI_RUNS_PER_HOUR=(\d+)$/m.exec(readFileSync(envFile
 
 const pass = 'test-echo';
 const model = 'fake-model';
+const choice = { provider: 'fake', model };
 const source = `ai:${pass}:${model}`;
 
 const newProject = (): Model => generateProject('small', Math.floor(Math.random() * 2 ** 31));
@@ -91,7 +92,7 @@ describe('ai-pass function and SuggestionRepository (local Supabase, AI_PROVIDER
       pass,
       projectId,
       floorId,
-      model,
+      model: choice,
       input: { text: 'Kök' },
     });
     expect(result).toMatchObject({ status: 'ok', output: { labels: ['Kök'] }, issues: [] });
@@ -120,7 +121,7 @@ describe('ai-pass function and SuggestionRepository (local Supabase, AI_PROVIDER
 
   it('refuses viewers, outsiders, unknown passes, bad input and oversized requests', async () => {
     const { projectId, floorId, ownerRepo, viewerRepo, outsiderRepo } = await sharedFloor();
-    const request = { pass, projectId, floorId, model, input: { text: 'x' } };
+    const request = { pass, projectId, floorId, model: choice, input: { text: 'x' } };
     await expect(viewerRepo.runPass(request)).rejects.toEqual(refusal('forbidden'));
     await expect(outsiderRepo.runPass(request)).rejects.toEqual(refusal('forbidden'));
     await expect(ownerRepo.runPass({ ...request, floorId: crypto.randomUUID() })).rejects.toEqual(
@@ -145,7 +146,14 @@ describe('ai-pass function and SuggestionRepository (local Supabase, AI_PROVIDER
     const { data } = await owner.client.auth.getSession();
     const { url, anonKey } = localStack();
     const encoder = new TextEncoder();
-    const head = JSON.stringify({ action: 'run', pass, projectId, floorId, model, input: {} });
+    const head = JSON.stringify({
+      action: 'run',
+      pass,
+      projectId,
+      floorId,
+      model: choice,
+      input: {},
+    });
     const chunk = encoder.encode(' '.repeat(1024 * 1024));
     let sent = 0;
     const body = new ReadableStream<Uint8Array>({
@@ -210,7 +218,7 @@ describe('ai-pass function and SuggestionRepository (local Supabase, AI_PROVIDER
 
   it(`refuses the run after ${runsPerHour} in an hour`, async () => {
     const { projectId, floorId, ownerRepo } = await sharedFloor();
-    const request = { pass, projectId, floorId, model, input: { text: 'x' } };
+    const request = { pass, projectId, floorId, model: choice, input: { text: 'x' } };
     for (let i = 0; i < runsPerHour; i++) {
       expect((await ownerRepo.runPass(request)).status).toBe('ok');
     }
@@ -224,7 +232,13 @@ describe('ai-pass function and SuggestionRepository (local Supabase, AI_PROVIDER
 
   it('commits suggestions that members list and writers decide on', async () => {
     const { projectId, floorId, ownerRepo, viewerRepo, outsiderRepo } = await sharedFloor();
-    const run = await ownerRepo.runPass({ pass, projectId, floorId, model, input: { text: 'x' } });
+    const run = await ownerRepo.runPass({
+      pass,
+      projectId,
+      floorId,
+      model: choice,
+      input: { text: 'x' },
+    });
     const [wall, door] = wallAndDoor();
     const committed = await ownerRepo.commitSuggestions({
       pass,

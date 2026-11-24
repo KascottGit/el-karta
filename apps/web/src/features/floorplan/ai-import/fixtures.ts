@@ -1,4 +1,4 @@
-import type { PlanImage } from '@el-karta/ai-passes';
+import { defaultModels, type PlanImage } from '@el-karta/ai-passes';
 import {
   createEmptyProject,
   type FloorRecord,
@@ -51,6 +51,9 @@ export const fakeImage = (pdfPageWidthMm?: number): PlanImage => ({
 
 type RunReply = (request: Omit<AiRunRequest, 'action'>) => Promise<unknown>;
 
+/** The provider and model a run answers with when the primary is up: the pass's primary. */
+export const answeredBy = (pass: string) => defaultModels[pass]!.primary;
+
 /**
  * The `ai-pass` function in memory: `run` answers with `reply` (the plan reply by default) and
  * `commit` stores pending rows that `source` lists, as the real function and table do.
@@ -63,7 +66,13 @@ export function fakeBackend(reply: RunReply = () => Promise.resolve(planReply())
     run: async (request) => {
       runs.push(request);
       const output = await reply(request);
-      return { runId: crypto.randomUUID(), status: 'ok', output, issues: [] };
+      return {
+        runId: crypto.randomUUID(),
+        ...answeredBy(request.pass),
+        status: 'ok',
+        output,
+        issues: [],
+      };
     },
     commit: (request) => {
       commits.push(request);

@@ -1,0 +1,215 @@
+import { costUsd, modelPrice, type ModelPrice } from '@el-karta/ai-providers';
+import { readFile, writeFile } from 'node:fs/promises';
+import { csvRecords } from './csv.ts';
+import type { FloorplanScores } from './floorplan/score.ts';
+
+/** One `floorplan.csv` row by column name, as read; empty cells are `''`. */
+export type ResultRow = Readonly<Record<string, string>>;
+
+/** Rows from before the `provider` column were all Gemini runs. */
+export const LEGACY_PROVIDER = 'gemini';
+
+const number = (cell: string | undefined): number | undefined =>
+  cell === undefined || cell === '' ? undefined : Number(cell);
+
+export const rowProvider = (row: ResultRow) => row['provider'] || LEGACY_PROVIDER;
+
+/** The row's `costUsd`, or else its cost from the token totals and the price table. */
+export function rowCost(row: ResultRow): number | undefined {
+  const recorded = number(row['costUsd']);
+  if (recorded !== undefined) return recorded;
+  const inputTokens = number(row['inputTokens']);
+  const outputTokens = number(row['outputTokens']);
+  return costUsd(
+    rowProvider(row),
+    row['model'] ?? '',
+    {
+      ...(inputTokens !== undefined && { inputTokens }),
+      ...(outputTokens !== undefined && { outputTokens }),
+    },
+    number(row['calls']) ?? 1,
+  );
+}
+
+export interface RowGroup {
+  provider: string;
+  model: string;
+  mode: string;
+  rows: ResultRow[];
+}
+
+/** Rows by provider, model and mode, sorted by those three. */
+export function groupRows(rows: readonly ResultRow[]): RowGroup[] {
+  const groups = new Map<string, RowGroup>();
+  for (const row of rows) {
+    const provider = rowProvider(row);
+    const model = row['model'] ?? '';
+    const mode = row['mode'] ?? '';
+    const key = JSON.stringify([provider, model, mode]);
+    const group = groups.get(key) ?? { provider, model, mode, rows: [] };
+    group.rows.push(row);
+    groups.set(key, group);
+  }
+  const order = (g: RowGroup) => [g.provider, g.model, g.mode].join('\u0000');
+  return [...groups.values()].sort((a, b) => (order(a) < order(b) ? -1 : 1));
+}
+
+export const mean = (values: readonly number[]): number | undefined =>
+  values.length === 0 ? undefined : values.reduce((sum, v) => sum + v, 0) / values.length;
+
+/** The `p`-th percentile (0–100), linearly interpolated between the closest ranks. */
+export function percentile(values: readonly number[], p: number): number | undefined {
+  if (values.length === 0) return undefined;
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = (p / 100) * (sorted.length - 1);
+  const low = Math.floor(rank);
+  const high = Math.ceil(rank);
+  return sorted[low]! + (sorted[high]! - sorted[low]!) * (rank - low);
+}
+
+/** Share of rows whose `status` is not `ok`. */
+export const failureRate = (rows: readonly ResultRow[]): number | undefined =>
+  rows.length === 0 ? undefined : rows.filter((r) => r['status'] !== 'ok').length / rows.length;
+
+type Aggregate = 'mean' | 'meanAbs' | 'shareTrue';
+
+/** How each score column is summarised; signed errors as a mean absolute so they cannot cancel. */
+const SCORE_AGGREGATES: Record<keyof FloorplanScores, Aggregate> = {
+  roomsExpected: 'mean',
+  roomsFound: 'mean',
+  nameMatch: 'mean',
+  typeAccuracy: 'mean',
+  doorsExpected: 'mean',
+  doorsFound: 'mean',
+  scaleError: 'meanAbs',
+  estimateWithin10: 'shareTrue',
+  rotationErrorDeg: 'mean',
+  roomAreaError: 'mean',
+  wallLengthError: 'meanAbs',
+};
+
+/** Rows that have a value in `column` count; empty cells are left out. */
+function aggregate(rows: readonly ResultRow[], column: string, how: Aggregate): number | undefined {
+  const cells = rows.map((r) => r[column] ?? '').filter((cell) => cell !== '');
+  if (how === 'shareTrue') return mean(cells.map((cell) => (cell === 'true' ? 1 : 0)));
+  const values = cells.map(Number);
+  return mean(how === 'meanAbs' ? values.map(Math.abs) : values);
+}
+
+export interface GroupSummary {
+  provider: string;
+  model: string;
+  mode: string;
+  runs: number;
+  plans: number;
+  scores: Record<keyof FloorplanScores, number | undefined>;
+  meanCostUsd: number | undefined;
+  medianDurationMs: number | undefined;
+  p90DurationMs: number | undefined;
+  failureRate: number | undefined;
+}
+
+export function summarizeGroup({ provider, model, mode, rows }: RowGroup): GroupSummary {
+  const durations = rows.map((r) => number(r['durationMs'])).filter((d) => d !== undefined);
+  const costs = rows.map(rowCost).filter((c) => c !== undefined);
+  const scores = Object.fromEntries(
+    Object.entries(SCORE_AGGREGATES).map(([column, how]) => [column, aggregate(rows, column, how)]),
+  ) as GroupSummary['scores'];
+  return {
+    provider,
+    model,
+    mode,
+    runs: rows.length,
+    plans: new Set(rows.map((r) => r['plan'])).size,
+    scores,
+    meanCostUsd: mean(costs),
+    medianDurationMs: percentile(durations, 50),
+    p90DurationMs: percentile(durations, 90),
+    failureRate: failureRate(rows),
+  };
+}
+
+const fixed = (digits: number) => (value: number | undefined) =>
+  value === undefined ? '–' : value.toFixed(digits);
+const seconds = (ms: number | undefined) => (ms === undefined ? '–' : (ms / 1000).toFixed(1));
+const percent = (share: number | undefined) =>
+  share === undefined ? '–' : `${(share * 100).toFixed(0)} %`;
+const dollars = (usd: number | undefined) => (usd === undefined ? '–' : `$${usd.toFixed(4)}`);
+
+const SCORE_LABELS: Record<Aggregate, (column: string) => string> = {
+  mean: (column) => `${column} (mean)`,
+  meanAbs: (column) => `${column} (mean absolute)`,
+  shareTrue: (column) => `${column} (share true)`,
+};
+
+/**
+ * A table with the first column left-aligned and the rest right-aligned, padded the way Prettier
+ * pads it, so the generated file passes `pnpm lint`.
+ */
+function markdownTable(header: readonly string[], rows: readonly (readonly string[])[]): string[] {
+  const widths = header.map((cell, i) =>
+    Math.max(3, cell.length, ...rows.map((r) => (r[i] ?? '').length)),
+  );
+  const pad = (cell: string, i: number) =>
+    i === 0 ? cell.padEnd(widths[i]!) : cell.padStart(widths[i]!);
+  const line = (cells: readonly string[]) => `| ${cells.map(pad).join(' | ')} |`;
+  const rule = widths.map((w, i) => (i === 0 ? '-'.repeat(w) : `${'-'.repeat(w - 1)}:`));
+  return [line(header), `| ${rule.join(' | ')} |`, ...rows.map(line)];
+}
+
+/** The summary as Markdown: one column per provider, model and mode, one row per figure. */
+export function summaryMarkdown(summaries: readonly GroupSummary[], source: string): string {
+  const figures: [string, (s: GroupSummary) => string][] = [
+    ['Runs (rows)', (s) => String(s.runs)],
+    ['Plans', (s) => String(s.plans)],
+    ...Object.entries(SCORE_AGGREGATES).map(
+      ([column, how]): [string, (s: GroupSummary) => string] => [
+        SCORE_LABELS[how](column),
+        (s) => fixed(3)(s.scores[column as keyof FloorplanScores]),
+      ],
+    ),
+    ['Mean cost per plan (USD)', (s) => dollars(s.meanCostUsd)],
+    ['Median duration (s)', (s) => seconds(s.medianDurationMs)],
+    ['p90 duration (s)', (s) => seconds(s.p90DurationMs)],
+    ['Failure rate', (s) => percent(s.failureRate)],
+  ];
+  const table = markdownTable(
+    ['', ...summaries.map((s) => `${s.provider} · ${s.model} · ${s.mode}`)],
+    figures.map(([label, value]) => [label, ...summaries.map(value)]),
+  );
+  const prices = summaries
+    .map((s) => modelPrice(s.provider, s.model))
+    .filter((p, i, all): p is ModelPrice => p !== undefined && all.indexOf(p) === i)
+    .map((p) => {
+      const tiers = p.tiers
+        .map(
+          (t) =>
+            `$${t.input} in / $${t.output} out` +
+            (t.maxInputTokens === undefined ? '' : ` up to ${t.maxInputTokens} input tokens`),
+        )
+        .join(', then ');
+      return `- ${p.provider} ${p.model}: ${tiers} per 1M tokens (checked ${p.checked}, ${p.source})`;
+    });
+  return [
+    '# Floor-plan eval summary',
+    '',
+    `Generated by \`pnpm eval summary\` from \`${source}\`; do not edit by hand. See \`evals/floorplan/README.md\` for the columns.`,
+    '',
+    ...table,
+    '',
+    'Means are over the rows that have a value. A run is one plan in one eval run; failed runs count in the cost, duration and failure rate. Cost is the row’s `costUsd`, or else computed from its token totals with the prices below; a model without a price shows –. Rows without a `provider` are Gemini runs from before the column existed.',
+    '',
+    '## Prices',
+    '',
+    ...(prices.length > 0 ? prices : ['None of these models has a price in the table.']),
+    '',
+  ].join('\n');
+}
+
+/** Reads the results CSV and writes its summary. */
+export async function writeSummary(csvPath: string, outPath: string, source: string) {
+  const rows = csvRecords(await readFile(csvPath, 'utf8'));
+  const summaries = groupRows(rows).map(summarizeGroup);
+  await writeFile(outPath, summaryMarkdown(summaries, source));
+  return summaries;
+}

@@ -1,5 +1,5 @@
-import { defaultModels, runPass, type PassRegistry } from '@el-karta/ai-passes';
-import { createProviderFromEnv } from '@el-karta/ai-providers';
+import { planModels, runPass, type PassRegistry, type RunResult } from '@el-karta/ai-passes';
+import { createProvidersFromEnv, type AiProvider } from '@el-karta/ai-providers';
 import type { Id, SuggestionKinds } from '@el-karta/core';
 import {
   AI_PASS_MAX_BODY_BYTES,
@@ -25,6 +25,11 @@ export interface AiPassDeps {
   kinds: SuggestionKinds;
   /** A client that acts as the caller: anon key plus the caller's Authorization header. */
   clientFor(authorization: string): ElKartaClient;
+  /**
+   * The providers for one run, by id; created per run so the fake provider replays its replies
+   * from the start. Defaults to `createProvidersFromEnv(env)`.
+   */
+  providers?: () => ReadonlyMap<string, AiProvider>;
 }
 
 const cors = {
@@ -43,6 +48,12 @@ const httpStatus: Record<AiPassErrorCode, number> = {
   conflict: 409,
   internal: 500,
 };
+
+/**
+ * Wall-clock budget of one run across all its attempts, below the Edge Function limit (150 s on
+ * the free plan). With a fallback, the primary may use half and the fallback the rest.
+ */
+export const RUN_BUDGET_MS = 140_000;
 
 class Refusal extends Error {
   constructor(
@@ -138,8 +149,9 @@ async function run(
   const pass = deps.passes.get(body.pass)!;
   const input = pass.inputSchema.safeParse(body.input);
   if (!input.success) throw new Refusal('bad_request', z.prettifyError(input.error));
-  const model = body.model ?? defaultModels[pass.id];
-  if (model === undefined) throw new Refusal('bad_request', `No default model for "${pass.id}"`);
+  const providers = deps.providers ? deps.providers() : providersFromEnv(deps.env);
+  const plan = planModels(pass.id, providers, body.model);
+  if (!plan.ok) throw new Refusal('bad_request', plan.reason);
 
   // Concurrent requests can each pass this check, so the limit may be exceeded by a few runs.
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -149,16 +161,48 @@ async function run(
     throw new Refusal('rate_limited', `At most ${runsPerHour} AI runs per hour`);
   }
 
-  const replies = fakeReplies(deps.env);
-  const provider = createProviderFromEnv(deps.env, replies ? { fakeReplies: replies } : {});
-  const result = await runPass(pass, input.data, { provider, model });
+  // The primary gets at most its share of the budget, so a fallback still has time to answer.
+  const start = Date.now();
+  let last: { runId: Id; provider: string; result: RunResult<unknown> } | undefined;
+  for (const [index, { provider, model }] of plan.attempts.entries()) {
+    const share = (index + 1) / plan.attempts.length;
+    const deadline = start + RUN_BUDGET_MS * share;
+    const result = await runPass(pass, input.data, { provider, model, deadline });
+    last = {
+      runId: await logRun(client, body, provider.id, result),
+      provider: provider.id,
+      result,
+    };
+    // Only an outage moves on; a bad request, a refusal or invalid output would fail there too.
+    if (result.providerFailure !== 'unavailable' && result.providerFailure !== 'rate_limited')
+      break;
+  }
+  const { runId, provider, result } = last!;
+  return {
+    runId,
+    provider,
+    model: result.model,
+    status: result.status,
+    output: result.output,
+    issues: result.issues,
+    ...(result.error === undefined ? {} : { error: result.error }),
+  };
+}
+
+/** One `ai_runs` row per attempt, so failed attempts count towards the failure rate and the limit. */
+async function logRun(
+  client: ElKartaClient,
+  body: AiRunRequest,
+  provider: string,
+  result: RunResult<unknown>,
+): Promise<Id> {
   const logged = await client
     .from('ai_runs')
     .insert({
       project_id: body.projectId,
       floor_id: body.floorId,
-      pass: pass.id,
-      provider: provider.id,
+      pass: body.pass,
+      provider,
       model: result.model,
       model_version: result.modelVersion ?? null,
       input_tokens: result.usage.inputTokens ?? null,
@@ -172,13 +216,12 @@ async function run(
     .select('id')
     .single();
   if (logged.error) throw new Error(logged.error.message);
-  return {
-    runId: logged.data.id,
-    status: result.status,
-    output: result.output,
-    issues: result.issues,
-    ...(result.error === undefined ? {} : { error: result.error }),
-  };
+  return logged.data.id;
+}
+
+function providersFromEnv(env: AiPassDeps['env']): ReadonlyMap<string, AiProvider> {
+  const replies = fakeReplies(env);
+  return createProvidersFromEnv(env, replies ? { fakeReplies: replies } : {});
 }
 
 function fakeReplies(env: AiPassDeps['env']): unknown[] | undefined {

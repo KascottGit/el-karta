@@ -1,5 +1,5 @@
 import { floorplanPass, planTiles, type Tile } from '@el-karta/ai-passes';
-import { createFakeProvider, ProviderError } from '@el-karta/ai-providers';
+import { createFakeProvider, ProviderError, type AiProvider } from '@el-karta/ai-providers';
 import { describe, expect, it } from 'vitest';
 import {
   runFloorplanPipeline,
@@ -51,6 +51,31 @@ describe('runFloorplanPipeline', () => {
     const kinds = result.interpretation!.drafts.map((d) => d.kind);
     expect(kinds.filter((k) => k === 'room')).toHaveLength(2);
     expect(kinds.filter((k) => k === 'opening')).toHaveLength(2);
+  });
+
+  it('adds up the cost of each pass run from the price table, and leaves it out without a price', async () => {
+    const run = (model: string) => {
+      const fake = createFakeProvider([
+        locate({ xmin: 250, ymin: 250, xmax: 750, ymax: 750 }),
+        flat(),
+      ]);
+      const gemini: AiProvider = {
+        id: 'gemini',
+        generateStructured: async (request) => ({
+          ...(await fake.generateStructured(request)),
+          usage: { inputTokens: 1000, outputTokens: 2000 },
+        }),
+      };
+      return runFloorplanPipeline(fakeImage(2000, 2000, 210), {
+        provider: gemini,
+        model,
+        mode: 'printed',
+      });
+    };
+    const priced = await run('gemini-3-flash-preview');
+    expect(priced.calls).toBe(2);
+    expect(priced.costUsd).toBeCloseTo((2 * (1000 * 0.5 + 2000 * 3)) / 1e6, 12);
+    expect((await run('gemini-unknown')).costUsd).toBeUndefined();
   });
 
   it('tiles a large crop and calls the model once per tile, then merges', async () => {

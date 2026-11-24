@@ -20,10 +20,15 @@ export const AiRunRequest = z.object({
   projectId: Id,
   floorId: Id,
   input: z.unknown(),
-  /** Overrides the pass's default model (`defaultModels` in `@el-karta/ai-passes`). */
+  /**
+   * Runs on this provider and model instead of the pass's defaults (`defaultModels` in
+   * `@el-karta/ai-passes`), without a fallback. Refused unless the function has that provider.
+   */
   model: z
-    .string()
-    .regex(/^[A-Za-z0-9._-]{1,100}$/)
+    .object({
+      provider: z.string().regex(/^[a-z0-9-]{1,40}$/),
+      model: z.string().regex(/^[A-Za-z0-9._-]{1,100}$/),
+    })
     .optional(),
 });
 export type AiRunRequest = z.infer<typeof AiRunRequest>;
@@ -52,7 +57,11 @@ export type AiPassRequest = z.infer<typeof AiPassRequest>;
 export type AiRunStatus = 'ok' | 'invalid' | 'error' | 'rate_limited';
 
 export interface AiRunResponse {
+  /** The last attempt's run: the fallback's when the primary provider failed. */
   runId: Id;
+  /** Provider and model of that attempt, for the provenance of what it suggested. */
+  provider: string;
+  model: string;
   status: AiRunStatus;
   /** The parsed pass output, or null when the model gave nothing usable. */
   output: unknown;

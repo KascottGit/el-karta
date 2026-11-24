@@ -1,4 +1,4 @@
-import type { AiProvider, ImageInput, Usage } from '@el-karta/ai-providers';
+import type { AiProvider, ImageInput, ProviderErrorKind, Usage } from '@el-karta/ai-providers';
 import type { Id, Issue, SuggestionDraft } from '@el-karta/core';
 import type { z } from 'zod';
 
@@ -58,9 +58,13 @@ export interface RunResult<Out> {
   modelVersion?: string;
   durationMs: number;
   error?: string;
+  /** Set when a provider failure ended the run (`status` `error` or `rate_limited`). */
+  providerFailure?: ProviderErrorKind;
 }
 
 export interface RunOptions {
   provider: AiProvider;
   model: string;
+  /** Epoch milliseconds after which no provider call starts (`GenerateRequest.deadline`). */
+  deadline?: number;
 }

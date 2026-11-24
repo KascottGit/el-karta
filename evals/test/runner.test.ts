@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { LightFacit, Manifest } from '../floorplan/facit.ts';
 import { loadPlanImage } from '../floorplan/image.ts';
-import { FLOORPLAN_COLUMNS, runFloorplanEval } from '../floorplan/run.ts';
+import { FLOORPLAN_COLUMNS, floorplanEvalChoice, runFloorplanEval } from '../floorplan/run.ts';
 import type { FloorplanScores } from '../floorplan/score.ts';
 import { flat, locate } from './fixtures.ts';
 
@@ -95,6 +95,24 @@ const pngSize = (data: string) => {
   return [png.readUInt32BE(16), png.readUInt32BE(20)];
 };
 
+describe('floorplanEvalChoice', () => {
+  it('defaults to the pass primary, and to the pass model on a named provider', () => {
+    expect(floorplanEvalChoice(undefined, undefined)).toEqual({
+      provider: 'anthropic',
+      model: 'claude-haiku-5-5',
+    });
+    expect(floorplanEvalChoice('gemini', undefined)).toEqual({
+      provider: 'gemini',
+      model: 'gemini-3-flash-preview',
+    });
+    expect(floorplanEvalChoice('gemini', 'gemini-x')).toEqual({
+      provider: 'gemini',
+      model: 'gemini-x',
+    });
+    expect(() => floorplanEvalChoice('mistral', undefined)).toThrow(/--model/);
+  });
+});
+
 describe('loadPlanImage', () => {
   it('renders a PDF page with its width in mm, and takes an image file at its own size', async () => {
     const pdfPath = join(dir, 'page.pdf');
@@ -129,6 +147,7 @@ describe('runFloorplanEval', () => {
 
     expect(row).toMatchObject({
       plan: 'tiny',
+      provider: 'fake',
       model: 'fake-model',
       modelVersion: 'fake:fake-model',
       mode: 'printed',
@@ -142,6 +161,8 @@ describe('runFloorplanEval', () => {
       calls: 2,
       estimateWithin10: null,
     });
+    // The fake provider has no price.
+    expect(row!.costUsd).toBeUndefined();
     expect(row!.nameMatch).toBeCloseTo(2 / 3);
     expect(row!.rotationErrorDeg as number).toBeCloseTo(0, 9);
     // "1:100" on the 210 mm (595.28 pt) wide PDF page: the whole image is 21 m wide.
@@ -150,7 +171,9 @@ describe('runFloorplanEval', () => {
     const csv = (await readFile(join(resultsDir, 'floorplan.csv'), 'utf8')).trim().split('\n');
     expect(csv[0]).toBe(FLOORPLAN_COLUMNS.join(','));
     expect(csv).toHaveLength(2);
-    expect(csv[1]).toContain('2026-11-21T10:00:00.000Z,tiny,fake-model,fake:fake-model,printed,ok');
+    expect(csv[1]).toContain(
+      '2026-11-21T10:00:00.000Z,tiny,fake,fake-model,fake:fake-model,printed,ok',
+    );
 
     const raw = await readdir(join(resultsDir, 'raw'));
     expect(raw).toEqual(['2026-11-21T10-00-00-000Z-tiny-fake-model-printed.json']);

@@ -166,7 +166,18 @@ describe('runPass', () => {
       provider: createFakeProvider([new ProviderError('rate_limited', '429 quota')]),
       model: 'm',
     });
-    expect(limited).toMatchObject({ status: 'rate_limited', output: null, error: '429 quota' });
+    expect(limited).toMatchObject({
+      status: 'rate_limited',
+      output: null,
+      error: '429 quota',
+      providerFailure: 'rate_limited',
+    });
+
+    const down = await runPass(pass, input, {
+      provider: createFakeProvider([new ProviderError('unavailable', '503')]),
+      model: 'm',
+    });
+    expect(down).toMatchObject({ status: 'error', providerFailure: 'unavailable' });
 
     const failed = await runPass(pass, input, {
       provider: createFakeProvider([tooLong, new ProviderError('error', 'boom')]),
@@ -177,7 +188,27 @@ describe('runPass', () => {
       output: null,
       validationRetries: 1,
       error: 'boom',
+      providerFailure: 'error',
     });
+  });
+
+  it('passes the deadline to every call, and marks no provider failure on its own errors', async () => {
+    const provider = createFakeProvider([tooLong, good]);
+    await runPass(pass, input, { provider, model: 'm', deadline: 1234 });
+    expect(provider.calls.map((call) => call.deadline)).toEqual([1234, 1234]);
+
+    const broken = await runPass(
+      {
+        ...pass,
+        prompt: () => {
+          throw new Error('bug');
+        },
+      },
+      input,
+      { provider, model: 'm' },
+    );
+    expect(broken.status).toBe('error');
+    expect(broken.providerFailure).toBeUndefined();
   });
 
   it('refuses invalid input without calling the provider', async () => {

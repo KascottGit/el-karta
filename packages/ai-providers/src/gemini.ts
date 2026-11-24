@@ -7,39 +7,12 @@ import {
   type Part,
 } from '@google/genai';
 import { ProviderError, type AiProvider, type GenerateRequest, type Usage } from './provider.ts';
+import { withRetries, type RetryOptions } from './retry.ts';
 
-// Typed locally so the package stays free of Node, browser and Deno types; every runtime has it.
-declare function setTimeout(callback: () => void, ms: number): unknown;
-declare function clearTimeout(handle: unknown): void;
-declare const AbortController: new () => { signal: unknown; abort(): void };
-
-export interface GeminiOptions {
+export interface GeminiOptions extends RetryOptions {
   apiKey: string;
   fetch?: HttpOptions['fetch'];
-  /** Waits between retries; tests pass one that resolves at once. */
-  sleep?: (ms: number) => Promise<void>;
-  /**
-   * Per attempt, enforced on our side. Not sent to Google as a deadline: with one, an overloaded
-   * model queues the request until the deadline and answers 504 instead of a quick 503.
-   */
-  timeoutMs?: number;
 }
-
-const maxAttempts = 3;
-const baseDelayMs = 1000;
-const retryableStatuses = new Set([429, 503, 504]);
-const defaultTimeoutMs = 120_000;
-
-const isTimeout = (error: unknown) =>
-  error instanceof Error &&
-  (error.name === 'AbortError' ||
-    error.name === 'TimeoutError' ||
-    /timed? ?out|abort/i.test(error.message));
-
-const defaultSleep = (ms: number) =>
-  new Promise<void>((resolve) => {
-    setTimeout(resolve, ms);
-  });
 
 export function createGeminiProvider(options: GeminiOptions): AiProvider {
   // The `-latest` model aliases and `responseJsonSchema` are only served on v1beta.
@@ -48,47 +21,27 @@ export function createGeminiProvider(options: GeminiOptions): AiProvider {
     apiVersion: 'v1beta',
     ...(options.fetch ? { httpOptions: { fetch: options.fetch } } : {}),
   });
-  const sleep = options.sleep ?? defaultSleep;
 
-  async function call(request: GenerateRequest) {
-    for (let attempt = 1; ; attempt++) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => {
-        controller.abort();
-      }, options.timeoutMs ?? defaultTimeoutMs);
-      try {
-        const response = await ai.models.generateContent({
+  const call = (request: GenerateRequest) =>
+    withRetries(
+      (signal) =>
+        ai.models.generateContent({
           model: request.model,
           contents: toContents(request),
           config: {
             systemInstruction: request.system,
             responseMimeType: 'application/json',
             responseJsonSchema: request.jsonSchema,
-            abortSignal: controller.signal as NonNullable<GenerateContentConfig['abortSignal']>,
+            abortSignal: signal as NonNullable<GenerateContentConfig['abortSignal']>,
           },
-        });
-        clearTimeout(timer);
-        return response;
-      } catch (error) {
-        clearTimeout(timer);
-        const status = error instanceof ApiError ? error.status : undefined;
-        const timedOut = status === undefined && isTimeout(error);
-        const retryable = timedOut || (status !== undefined && retryableStatuses.has(status));
-        if (retryable && attempt < maxAttempts) {
-          await sleep(baseDelayMs * 2 ** (attempt - 1));
-          continue;
-        }
-        const message = timedOut
-          ? `Gemini did not answer within ${(options.timeoutMs ?? defaultTimeoutMs) / 1000} s`
-          : error instanceof Error
-            ? error.message
-            : String(error);
-        throw new ProviderError(status === 429 ? 'rate_limited' : 'error', message, {
-          cause: error,
-        });
-      }
-    }
-  }
+        }),
+      {
+        ...options,
+        label: 'Gemini',
+        deadline: request.deadline,
+        statusOf: (error) => (error instanceof ApiError ? error.status : undefined),
+      },
+    );
 
   return {
     id: 'gemini',

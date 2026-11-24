@@ -5,10 +5,12 @@
 ## Running
 
 ```sh
-GEMINI_API_KEY=… pnpm eval floorplan --model gemini-3-flash-preview [--estimate-scale] [--plans gotgatan-78,lundagatan-47] [--images ../floorplans]
+pnpm eval floorplan [--provider anthropic|gemini] [--model <id>] [--estimate-scale] [--plans gotgatan-78,lundagatan-47] [--images ../floorplans]
 ```
 
-The key comes from `GEMINI_API_KEY` in the shell. When that is not set, the runner reads `supabase/functions/.env` (the ignored file the local Edge Function uses), if it exists, and takes only `GEMINI_API_KEY` from it; its other settings, such as `AI_PROVIDER`, are ignored.
+`--provider` defaults to the floor-plan pass's primary provider (`defaultModels` in `@el-karta/ai-passes`: Anthropic), and `--model` to that pass's model on the chosen provider (`claude-haiku-5-5`, or `gemini-3-flash-preview` with `--provider gemini`). Both passes of a run (locate and floor plan) use that one provider and model, with no fallback.
+
+Each key (`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`) comes from the shell. When the shell has none, the runner reads it from `supabase/functions/.env` (the ignored file the local Edge Function uses), if that exists. Only the key names are taken from either; other settings, such as `AI_PROVIDER`, are ignored.
 
 The runner (`run.ts`, `pipeline.ts`) does what the app's import does, in Node:
 
@@ -36,8 +38,27 @@ Each run appends one row per plan to `evals/results/floorplan.csv` (committed) a
 | `roomAreaError`            | Mean absolute relative area error of matched rooms where both have an area, in square image widths.          |
 | `wallLengthError`          | Full facit only: total wall length over the facit's, in image widths, minus 1.                               |
 | `status`, `scaleStatus`, … | Worst call status, how the scale was found, tokens, calls (incl. retries), duration and the first error.     |
+| `provider`, `costUsd`      | The provider id, and the run's cost in USD (see Cost; empty for a model without a price).                    |
 
 Geometry is compared in image widths (lengths divided by the metres per image width they were measured at, areas by its square), so `roomAreaError` and `wallLengthError` measure the walls and rooms only and a wrong scale shows up in `scaleError` alone. A light facit's printed areas are in m², so `roomAreaError` needs its `scale`; it is empty on plans without one.
+
+When the columns change, the next run rewrites `floorplan.csv` once with the new header and leaves the added columns empty in old rows (`appendCsv` in `evals/csv.ts`). A file with a column the runner no longer writes is refused.
+
+## Summary
+
+```sh
+pnpm eval summary
+```
+
+Writes `evals/results/floorplan-summary.md` (committed) from `floorplan.csv`: one column per provider, model and mode, with the number of runs (rows) and distinct plans, the mean of each score column over the rows that have it (`scaleError` and `wallLengthError` as mean absolute values so signs cannot cancel, `estimateWithin10` as the share that is `true`), the mean cost per plan, the median and p90 duration (linearly interpolated), and the failure rate (`status` other than `ok`). Failed runs count in cost, duration and failure rate. Run it after every eval run and commit both files.
+
+Rows with an empty `provider` were written before the column existed and are all Gemini runs.
+
+## Cost
+
+The runner computes `costUsd` from each pass run's token counts and the dated price table `modelPrices` in `@el-karta/ai-providers` (`packages/ai-providers/src/prices.ts`: USD per 1M input and output tokens per provider and model, with the date checked and the source). A model without a price gets no cost, never a guess; add it to the table. Tokens the provider did not report count as zero (failed calls are not billed). Anthropic's cache tokens are counted as input at the full price, so the cost is an upper bound if caching is ever used.
+
+A price can depend on the prompt length of a single call (Claude Haiku 5.5 costs more above 100,000 input tokens). The tier is picked by the mean input tokens per call: per pass run in the runner (its attempts, when validation retried), and from the row's totals (`inputTokens / calls`) when the summary fills in a row whose `costUsd` is empty, such as rows from before the column existed. Totals cannot tell whether one call crossed the threshold; floor-plan calls are far below it.
 
 ## Facit format
 
