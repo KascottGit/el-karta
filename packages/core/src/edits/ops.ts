@@ -66,6 +66,18 @@ export const updateDevice =
     Object.assign(device, changes);
   };
 
+/**
+ * Replaces a stored device whole, on the floor it is on. Unlike `updateDevice`, an optional field
+ * left out of `device` is cleared (a device moved out of every room loses its `roomId`).
+ */
+export const putDevice =
+  (device: Device): Edit =>
+  (draft, base) => {
+    const floorId = indexModel(base).deviceFloor.get(device.id);
+    if (floorId === undefined) throw new EditError(`Unknown device ${device.id}`);
+    floorOf(draft, floorId).data.devices[device.id] = device;
+  };
+
 /** Removes the device, everything in its slots, and every connection to their ports, on any floor. */
 export const removeDevice =
   (deviceId: Id): Edit =>

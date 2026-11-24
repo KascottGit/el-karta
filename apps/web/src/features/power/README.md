@@ -8,4 +8,4 @@ The editor side of `@el-karta/plugin-power` (outlets, switches, wall and ceiling
 
 Type names are the shared `devices.types.power.<type>` keys; UI text is under `power.*`.
 
-A device keeps its `count` when it stops being an outlet, since `updateDevice` cannot clear an optional field; the panel no longer shows it.
+A device loses its `count` when it stops being an outlet, and the panel can set the count back to unknown.

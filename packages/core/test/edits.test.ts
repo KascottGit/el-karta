@@ -6,6 +6,7 @@ import {
   applyEdit,
   combine,
   EditError,
+  putDevice,
   removeConnection,
   removeDevice,
   removeSpaceItem,
@@ -72,6 +73,16 @@ describe('edit operations', () => {
       },
     ]);
     expect(model.floors[f1]!.data.devices[device.id]).toBeUndefined();
+  });
+
+  it('replaces a device whole, clearing optional fields left out', () => {
+    const { b, model, f1 } = setup();
+    const bare = newOutlet(b);
+    const device = { ...bare, roomId: b.id(), count: 2 };
+    const added = applyEdit(model, addDevice(f1, device)).model;
+    const put = applyEdit(added, putDevice({ ...bare, label: 'Flyttat' })).model;
+    expect(put.floors[f1]!.data.devices[device.id]).toEqual({ ...bare, label: 'Flyttat' });
+    expect(() => applyEdit(model, putDevice(newOutlet(b)))).toThrow(EditError);
   });
 
   it('rejects duplicate ids and unknown targets without changing the model', () => {

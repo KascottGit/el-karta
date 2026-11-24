@@ -1,4 +1,4 @@
-import type { FloorData, Id, Pt } from '../schemas/index.ts';
+import type { FloorData, Id, Pt, Wall } from '../schemas/index.ts';
 import { wallFacePoint, wallLength } from './placement.ts';
 import { pointInPolygon, polygonProblem, signedArea } from './polygon.ts';
 
@@ -21,6 +21,20 @@ export interface RoomBesideWall {
 
 /** How far beyond a wall face the probe points sit, so rooms drawn on centrelines or faces both count. */
 const PROBE_GAP = 0.1;
+
+/**
+ * The room in front of a wall face at `offset`: the room a device on that face belongs to (M11).
+ * Undefined when the face looks out of every room.
+ */
+export function roomFacingWall(
+  floor: Pick<FloorData, 'rooms'>,
+  wall: Wall,
+  offset: number,
+  side: 'left' | 'right',
+): Id | undefined {
+  const probe = { ...wall, thickness: wall.thickness + 2 * PROBE_GAP };
+  return roomAt(floor, wallFacePoint(probe, offset, side));
+}
 /** Probe spacing along the wall, so a long corridor wall finds every room along it. */
 const PROBE_STEP = 0.5;
 
@@ -38,13 +52,12 @@ export function roomsBesideWall(
   const length = wallLength(wall);
   const margin = Math.min(0.05, length / 4);
   const steps = Math.max(1, Math.ceil((length - 2 * margin) / PROBE_STEP));
-  const probe = { ...wall, thickness: wall.thickness + 2 * PROBE_GAP };
   const found: RoomBesideWall[] = [];
   const seen = new Set<string>();
   for (let i = 0; i <= steps; i++) {
     const offset = margin + ((length - 2 * margin) * i) / steps;
     for (const side of ['left', 'right'] as const) {
-      const roomId = roomAt(floor, wallFacePoint(probe, offset, side));
+      const roomId = roomFacingWall(floor, wall, offset, side);
       const key = `${roomId}:${side}`;
       if (roomId === undefined || seen.has(key)) continue;
       seen.add(key);

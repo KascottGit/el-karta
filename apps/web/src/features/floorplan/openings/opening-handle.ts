@@ -1,9 +1,8 @@
-import { EPSILON, putSpaceItem, type Id, type Opening } from '@el-karta/core';
+import { EPSILON, offsetAlong, putSpaceItem, type Id, type Opening } from '@el-karta/core';
 import { modelStore } from '@/model/store';
 import type { CanvasContext, CanvasPointer, Handle } from '../canvas/extension';
 import { snappingStore } from '../snapping/snapping';
 import { openingsStore } from './openings-store';
-import { offsetAlong } from './placement';
 import {
   moveOpeningEdge,
   openingFrame,

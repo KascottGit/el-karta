@@ -19,6 +19,7 @@ import {
   powerType,
   selectedPower,
   typesPlacedOn,
+  withCount,
   withHeight,
   withOffset,
   withPowerType,
@@ -187,8 +188,9 @@ export function PowerPropsPanel({ ctx }: { ctx: CanvasContext }) {
             placeholder={t('power.unknown')}
             digits={0}
             accept={(n) => Number.isInteger(n) && n >= 1}
+            optional
             onCommit={(count) => {
-              update((d) => ({ ...d, count }));
+              update((d) => withCount(d, count));
             }}
           />
           {yesNo('earthed')}

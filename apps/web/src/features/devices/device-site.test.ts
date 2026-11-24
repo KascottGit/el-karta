@@ -136,8 +136,8 @@ describe('movedDevice', () => {
     expect(moved?.roomId).toBe('kitchen');
     const across = movedDevice(floor, onWall(1, 'right'), pt(1, -0.15), 0.1);
     expect(across?.placement).toMatchObject({ wallId: 'top', side: 'left' });
-    // Out of every room, it keeps its old one.
-    expect(across?.roomId).toBe('kitchen');
+    // Facing out of every room, it has no room.
+    expect(across && 'roomId' in across).toBe(false);
   });
 
   it('keeps to its own wall when the pointer is away from every wall', () => {

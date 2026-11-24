@@ -37,9 +37,9 @@ export const typesPlacedOn = (kind: PlacementKind): PowerType[] =>
 export const hasCount = (type: PowerType) => type === 'outlet';
 
 /**
- * The device as another type placed the same way. Props the new type does not have are dropped,
- * ports it needs are added (existing ones are kept, as connections may use them), and a wall
- * device still at the old type's default height takes the new one's.
+ * The device as another type placed the same way. Props (and `count`) the new type does not have
+ * are dropped, ports it needs are added (existing ones are kept, as connections may use them), and
+ * a wall device still at the old type's default height takes the new one's.
  */
 export function withPowerType(device: PowerDevice, type: PowerType): PowerDevice {
   if (device.type === type) return device;
@@ -55,8 +55,22 @@ export function withPowerType(device: PowerDevice, type: PowerType): PowerDevice
   const height = next.def.defaultHeight;
   const reset =
     placement.kind === 'wall' && placement.height === old.defaultHeight && height !== undefined;
-  const moved = reset ? withHeight(device, height) : device;
-  return { ...moved, type, props, ports };
+  const moved: PowerDevice = {
+    ...(reset ? withHeight(device, height) : device),
+    type,
+    props,
+    ports,
+  };
+  if (!hasCount(type)) delete moved.count;
+  return moved;
+}
+
+/** The device with `count` set, or removed when `count` is null (unknown). */
+export function withCount(device: PowerDevice, count: number | null): PowerDevice {
+  const next = { ...device };
+  if (count === null) delete next.count;
+  else next.count = count;
+  return next;
 }
 
 /** The device with one prop set, or removed when `value` is undefined (unknown). */

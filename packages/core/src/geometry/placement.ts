@@ -19,6 +19,13 @@ export function pointOnWall(wall: Wall, offset: number): Pt {
   return add(wall.a, scale(normalize(sub(wall.b, wall.a)), offset));
 }
 
+/** Metres from the wall's end `a` to the projection of `p` onto its centre line, unclamped. */
+export function offsetAlong(wall: Wall, p: Pt): number {
+  const dir = normalize(sub(wall.b, wall.a));
+  const rel = sub(p, wall.a);
+  return rel.x * dir.x + rel.y * dir.y;
+}
+
 export function wallFacePoint(wall: Wall, offset: number, side: 'left' | 'right'): Pt {
   const normal = leftNormal(sub(wall.b, wall.a));
   const toFace = (wall.thickness / 2) * (side === 'left' ? 1 : -1);

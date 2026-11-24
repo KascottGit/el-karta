@@ -1,4 +1,4 @@
-import { FURNISHING_DOMAIN, newFurniture, type FurnitureType } from '@el-karta/plugin-furnishing';
+import { FURNISHING_DOMAIN, isFurnitureType, newFurniture } from '@el-karta/plugin-furnishing';
 import { Sofa } from 'lucide-react';
 import { registry } from '@/plugins';
 import { deviceTool } from '@/features/devices/device-tool';
@@ -19,15 +19,12 @@ export const furnitureTool = deviceTool({
     const def = registry.deviceType(FURNISHING_DOMAIN, furnishingStore.getState().type);
     return def && { domain: FURNISHING_DOMAIN, def };
   },
-  create: (type, id, site) =>
-    site.placement.kind === 'floor'
-      ? newFurniture({
-          id,
-          type: type.def.type as FurnitureType,
-          at: site.placement.at,
-          roomId: site.roomId,
-        })
-      : newDevice(type, id, site),
+  create: (type, id, site) => {
+    const furniture = type.def.type;
+    return site.placement.kind === 'floor' && isFurnitureType(furniture)
+      ? newFurniture({ id, type: furniture, at: site.placement.at, roomId: site.roomId })
+      : newDevice(type, id, site);
+  },
   setPreview: (preview) => {
     furnishingStore.setState({ preview });
   },

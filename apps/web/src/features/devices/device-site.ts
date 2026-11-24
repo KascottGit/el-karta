@@ -1,18 +1,16 @@
 import {
   closestOnSegment,
   distance,
-  dot,
   nearestWall,
-  normalize,
+  offsetAlong,
   pointInPolygon,
   roomAt,
-  sub,
+  roomFacingWall,
   wallFacePoint,
   wallLength,
   type Device,
   type DeviceTypeDef,
   type FloorData,
-  type Id,
   type Pt,
   type Room,
   type Wall,
@@ -24,24 +22,15 @@ type SiteFloor = Pick<FloorData, 'walls' | 'rooms'>;
 
 /** Height on the wall for a wall type that has no default height. */
 const FALLBACK_WALL_HEIGHT = 1;
-/** How far beyond a wall face the room a wall device faces is looked up. */
-const ROOM_PROBE = 0.1;
-
-/** The room in front of a wall face at `offset`, if any. */
-function roomFacing(floor: SiteFloor, wall: Wall, offset: number, side: 'left' | 'right') {
-  const probe = { ...wall, thickness: wall.thickness + 2 * ROOM_PROBE };
-  return roomAt(floor, wallFacePoint(probe, offset, side));
-}
 
 const onWall = (
   floor: SiteFloor,
   hit: Pick<WallHit, 'wallId' | 'offset' | 'side'>,
   height: number,
-  fallbackRoom?: Id,
 ): DeviceSite | null => {
   const wall = floor.walls[hit.wallId];
   if (!wall) return null;
-  const roomId = roomFacing(floor, wall, hit.offset, hit.side) ?? fallbackRoom;
+  const roomId = roomFacingWall(floor, wall, hit.offset, hit.side);
   return {
     placement: { kind: 'wall', wallId: hit.wallId, offset: hit.offset, side: hit.side, height },
     roomId,
@@ -96,8 +85,7 @@ export function newDeviceSite(
 
 /** `at` projected onto the wall's centre line, clamped to its ends. */
 function alongWall(wall: Wall, at: Pt): number {
-  const offset = dot(sub(at, wall.a), normalize(sub(wall.b, wall.a)));
-  return Math.min(wallLength(wall), Math.max(0, offset));
+  return Math.min(wallLength(wall), Math.max(0, offsetAlong(wall, at)));
 }
 
 /** Steps of halving the gap when finding the edge of a room along a drag. */
@@ -140,8 +128,8 @@ export function insideRoom(room: Pick<Room, 'polygon'>, from: Pt, at: Pt): Pt | 
  * - On a ceiling it stays in its room, stopping at the room's outline.
  * - On the floor it goes to `at`.
  *
- * It takes the room it then faces or stands in; out of every room it keeps its old one, since
- * `updateDevice` cannot clear an optional field.
+ * It takes the room it then faces or stands in, and has none when that is no room (store it with
+ * `putDevice`, which clears the field).
  */
 export function movedDevice(
   floor: SiteFloor,
@@ -157,7 +145,7 @@ export function movedDevice(
       const hit =
         nearestWall(floor, at, reach) ??
         (own && { wallId: own.id, offset: alongWall(own, at), side: placement.side });
-      site = hit ? onWall(floor, hit, placement.height, device.roomId) : null;
+      site = hit ? onWall(floor, hit, placement.height) : null;
       break;
     }
     case 'ceiling': {
@@ -167,14 +155,17 @@ export function movedDevice(
       break;
     }
     case 'floor':
-      site = { placement: { ...placement, at }, roomId: roomAt(floor, at) ?? device.roomId };
+      site = { placement: { ...placement, at }, roomId: roomAt(floor, at) };
       break;
     case 'container':
       return null;
   }
   if (!site) return null;
   const { roomId, placement: next } = site;
-  return { ...device, ...(roomId === undefined ? {} : { roomId }), placement: next };
+  const moved: Device = { ...device, placement: next };
+  if (roomId === undefined) delete moved.roomId;
+  else moved.roomId = roomId;
+  return moved;
 }
 
 /** Where a device's placement puts its marker or centre on the plan, for grabbing it. */

@@ -15,7 +15,15 @@ import { deviceAppearance } from '@/features/devices/appearance';
 import { deviceDragStore } from '@/features/devices/device-drag';
 import { deviceMove } from '@/features/devices/device-move';
 import { deviceTransforms } from '@/features/view3d/geometry/devices';
-import { asPower, withOffset, withPowerType, withProp, type PowerDevice } from './power-edits';
+import { storeDevice } from '@/features/devices/device-edits';
+import {
+  asPower,
+  withCount,
+  withOffset,
+  withPowerType,
+  withProp,
+  type PowerDevice,
+} from './power-edits';
 import { powerStore } from './power-store';
 import { powerTool } from './power-tool';
 
@@ -237,6 +245,15 @@ describe('power edits', () => {
       },
     };
     expect(withPowerType(raised, 'wall_light').placement).toMatchObject({ height: 0.5 });
+  });
+
+  it('set the socket count, forget it when unknown, and drop it for types without one', () => {
+    const double = withCount(outlet, 2);
+    expect(double.count).toBe(2);
+    expect('count' in withCount(double, null)).toBe(false);
+    expect('count' in withPowerType(double, 'switch')).toBe(false);
+    modelStore.getState().apply(storeDevice(withPowerType(double, 'switch')));
+    expect('count' in only()).toBe(false);
   });
 
   it('set a prop, or forget it when unknown', () => {
