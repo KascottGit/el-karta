@@ -100,8 +100,68 @@ export function createAnthropicProvider(options: AnthropicOptions): AiProvider {
  * (bounds, lengths) moved into descriptions. `runPass` still checks the full schema with Zod.
  */
 export function toAnthropicSchema(jsonSchema: Record<string, unknown>): Record<string, unknown> {
-  return transformJSONSchema(jsonSchema);
+  return shareRepeatedObjects(transformJSONSchema(jsonSchema));
 }
+
+type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
+type JsonObject = { [key: string]: Json };
+
+const isObjectSchema = (node: Json): node is JsonObject =>
+  typeof node === 'object' && node !== null && !Array.isArray(node) && node['type'] === 'object';
+
+/**
+ * Moves object schemas that occur more than once into `$defs` and refers to them. Structured output
+ * compiles every inline copy into the grammar, and the floor-plan schema's dozen inline points
+ * alone exceed its size limit ("The compiled grammar is too large").
+ */
+export function shareRepeatedObjects(schema: Record<string, unknown>): Record<string, unknown> {
+  const root = schema as JsonObject;
+  const counts = new Map<string, number>();
+  const count = (node: Json, isRoot: boolean) => {
+    if (Array.isArray(node))
+      node.forEach((child) => {
+        count(child, false);
+      });
+    else if (typeof node === 'object' && node !== null) {
+      if (!isRoot && isObjectSchema(node)) {
+        const key = JSON.stringify(node);
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      Object.values(node).forEach((child) => {
+        count(child, false);
+      });
+    }
+  };
+  count(root, true);
+
+  const defs: JsonObject = {};
+  const names = new Map<string, string>();
+  const rewrite = (node: Json, isRoot: boolean): Json => {
+    if (Array.isArray(node)) return node.map((child) => rewrite(child, false));
+    if (typeof node !== 'object' || node === null) return node;
+    const key = JSON.stringify(node);
+    if (!isRoot && isObjectSchema(node) && (counts.get(key) ?? 0) > 1) {
+      let name = names.get(key);
+      if (name === undefined) {
+        name = `shared${names.size + 1}`;
+        names.set(key, name);
+        defs[name] = rewriteChildren(node);
+      }
+      return { $ref: `#/$defs/${name}` };
+    }
+    return rewriteChildren(node);
+  };
+  const rewriteChildren = (node: JsonObject): JsonObject =>
+    Object.fromEntries(Object.entries(node).map(([k, v]) => [k, rewrite(v, false)]));
+
+  const result = rewrite(root, true) as JsonObject;
+  if (names.size === 0) return result;
+  const existing = result['$defs'];
+  return { ...result, $defs: { ...(isPlainObject(existing) ? existing : {}), ...defs } };
+}
+
+const isPlainObject = (node: Json | undefined): node is JsonObject =>
+  typeof node === 'object' && node !== null && !Array.isArray(node);
 
 function toMessages(request: GenerateRequest): Anthropic.MessageParam[] {
   const images = request.images.map((image): Anthropic.ImageBlockParam => {

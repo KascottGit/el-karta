@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createAnthropicProvider, ProviderError, type GenerateRequest } from '../src/index.ts';
+import {
+  createAnthropicProvider,
+  ProviderError,
+  shareRepeatedObjects,
+  type GenerateRequest,
+} from '../src/index.ts';
 
 const request: GenerateRequest = {
   model: 'claude-test',
@@ -257,5 +262,57 @@ describe('createAnthropicProvider timeouts', () => {
     expect((error as ProviderError).kind).toBe('unavailable');
     expect((error as ProviderError).message).toMatch(/within 0.02 s/);
     expect(attempts).toBe(3);
+  });
+});
+
+describe('shareRepeatedObjects', () => {
+  const point = {
+    type: 'object',
+    properties: { x: { type: 'number' }, y: { type: 'number' } },
+    additionalProperties: false,
+    required: ['x', 'y'],
+  };
+  const segment = {
+    type: 'object',
+    properties: { a: point, b: point },
+    additionalProperties: false,
+    required: ['a', 'b'],
+  };
+
+  it('moves repeated objects into $defs, nested ones too', () => {
+    const shared = shareRepeatedObjects({
+      type: 'object',
+      properties: {
+        walls: { type: 'array', items: segment },
+        doors: { type: 'array', items: segment },
+        label: { type: 'object', properties: { at: point }, additionalProperties: false },
+      },
+    });
+    expect(shared).toEqual({
+      type: 'object',
+      properties: {
+        walls: { type: 'array', items: { $ref: '#/$defs/shared1' } },
+        doors: { type: 'array', items: { $ref: '#/$defs/shared1' } },
+        label: {
+          type: 'object',
+          properties: { at: { $ref: '#/$defs/shared2' } },
+          additionalProperties: false,
+        },
+      },
+      $defs: {
+        shared1: {
+          type: 'object',
+          properties: { a: { $ref: '#/$defs/shared2' }, b: { $ref: '#/$defs/shared2' } },
+          additionalProperties: false,
+          required: ['a', 'b'],
+        },
+        shared2: point,
+      },
+    });
+  });
+
+  it('leaves a schema without repeats unchanged', () => {
+    const schema = { type: 'object', properties: { at: point } };
+    expect(shareRepeatedObjects(schema)).toEqual(schema);
   });
 });
