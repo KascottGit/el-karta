@@ -1,34 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { EDITOR_STORE, MODEL_STORE, readOpenFloor, readSelection, type Pt } from './app-modules';
+import { EDITOR_STORE, MODEL_STORE, readOpenFloor, readSelection } from './app-modules';
+import { wallFace, type Device, type Wall } from './devices-fixtures';
 import { openSynthetic } from './editor';
 
-interface Device {
-  id: string;
-  label: string;
-  type: string;
-  placement:
-    | { kind: 'wall'; wallId: string; offset: number; side: 'left' | 'right' }
-    | { kind: 'ceiling' | 'floor'; at: Pt }
-    | { kind: 'container' };
-}
-interface Wall {
-  id: string;
-  a: Pt;
-  b: Pt;
-  thickness: number;
-}
 interface FloorSnapshot {
   walls: Record<string, Wall>;
   devices: Record<string, Device>;
-}
-
-/** The point on the wall face where a wall device's marker is drawn (left is towards -y for +x). */
-function wallFace(wall: Wall, offset: number, side: 'left' | 'right'): Pt {
-  const length = Math.hypot(wall.b.x - wall.a.x, wall.b.y - wall.a.y);
-  const dx = (wall.b.x - wall.a.x) / length;
-  const dy = (wall.b.y - wall.a.y) / length;
-  const toFace = ((side === 'left' ? 1 : -1) * wall.thickness) / 2;
-  return { x: wall.a.x + dx * offset + dy * toFace, y: wall.a.y + dy * offset - dx * toFace };
 }
 
 /** Removes a wall the way a remote change would, leaving the devices on it in place. */

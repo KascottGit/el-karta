@@ -536,7 +536,30 @@
   "power": {
     "name": "El",
     "tool": "Elenhet",
-    "new": "Ny elenhet"
+    "new": "Ny elenhet",
+    "hint": "Välj typ och klicka vid en vägg för uttag, strömbrytare och vägglampor, eller i ett rum för taklampor. Dra en markerad enhet för att flytta den.",
+    "touchHint": "Välj typ och tryck vid en vägg för uttag, strömbrytare och vägglampor, eller i ett rum för taklampor. Dra en markerad enhet för att flytta den.",
+    "notOnWall": "Tryck närmare en vägg för att sätta enheten där.",
+    "notInRoom": "Tryck inne i ett rum för att sätta taklampan där.",
+    "device": "Elenhet",
+    "selectedCount_one": "{{count}} elenhet markerad",
+    "selectedCount_other": "{{count}} elenheter markerade",
+    "type": "Typ",
+    "label": "Namn",
+    "count": "Antal uttag",
+    "earthed": "Jordat",
+    "outdoor": "Utomhus",
+    "variant": "Utförande",
+    "variants": {
+      "single": "Enkel",
+      "double": "Dubbel",
+      "dimmer": "Dimmer"
+    },
+    "unknown": "Okänt",
+    "yes": "Ja",
+    "no": "Nej",
+    "height": "Höjd över golv",
+    "offset": "Avstånd längs väggen"
   },
   "photos": {
     "name": "Foton",
