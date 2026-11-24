@@ -1,11 +1,10 @@
-import { addDevice, type Device, type Id, type Pt } from '@el-karta/core';
+import { addDevice, roomAt, type Device, type Id, type Pt } from '@el-karta/core';
 import { newFurniture } from '@el-karta/plugin-furnishing';
 import { Sofa } from 'lucide-react';
 import { modelStore } from '@/model/store';
 import { editorStore } from '@/features/floorplan/editor-store';
 import type { CanvasContext, CanvasPointer, Tool } from '@/features/floorplan/canvas/extension';
 import { furnishingStore } from './furnishing-store';
-import { roomAt } from './furniture-edits';
 
 const PREVIEW_ID = 'furniture-preview';
 

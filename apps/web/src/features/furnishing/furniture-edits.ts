@@ -1,12 +1,9 @@
 import {
-  pointInPolygon,
-  polygonProblem,
-  signedArea,
+  roomAt,
   updateDevice,
   type Device,
   type Edit,
   type FloorData,
-  type Id,
   type Pt,
   type Vec3,
 } from '@el-karta/core';
@@ -31,17 +28,6 @@ export const selectedFurniture = (
     const item = s.collection === 'devices' ? asFurniture(floor.devices[s.id]) : null;
     return item ? [item] : [];
   });
-
-/** The room a point stands in; the smallest one where rooms overlap. Rooms with a broken outline are skipped. */
-export function roomAt(floor: FloorData, at: Pt): Id | undefined {
-  let best: { id: Id; area: number } | undefined;
-  for (const room of Object.values(floor.rooms)) {
-    if (polygonProblem(room.polygon) !== null || !pointInPolygon(at, room.polygon)) continue;
-    const area = Math.abs(signedArea(room.polygon));
-    if (!best || area < best.area) best = { id: room.id, area };
-  }
-  return best?.id;
-}
 
 /** Degrees in [0, 360). */
 export const normalizeDegrees = (degrees: number) => {

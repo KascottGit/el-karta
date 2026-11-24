@@ -1,7 +1,15 @@
 import { z } from 'zod';
-import { combine, EditError, putSpaceItem, setScale, type Edit } from '../edits/index.ts';
+import {
+  addDevice,
+  combine,
+  EditError,
+  putSpaceItem,
+  setScale,
+  type Edit,
+} from '../edits/index.ts';
+import { Device } from '../schemas/device.ts';
 import { FloorData } from '../schemas/documents.ts';
-import type { Id, Provenance } from '../schemas/primitives.ts';
+import { Id, type Provenance } from '../schemas/primitives.ts';
 import { Opening, Room, Wall, Zone } from '../schemas/space.ts';
 import type { Suggestion } from './suggestion.ts';
 
@@ -47,6 +55,7 @@ const spaceKind = (
   });
 
 const floorHeight = z.object({ height: FloorData.shape.height });
+const roomCeilingHeight = z.object({ roomId: Id, ceilingHeight: z.number().positive() });
 
 export const builtInSuggestionKinds: readonly SuggestionKindDef[] = [
   spaceKind('wall', 'walls', Wall.omit({ provenance: true })),
@@ -62,6 +71,31 @@ export const builtInSuggestionKinds: readonly SuggestionKindDef[] = [
     accept: (floorId, payload) => (draft, base) => {
       if (base.floors[floorId]?.data.scale?.source === 'user') return;
       setScale(floorId, payload)(draft, base);
+    },
+  }),
+  defineSuggestionKind({
+    kind: 'device',
+    payload: Device.omit({ provenance: true }),
+    itemId: (payload) => payload.id,
+    // A device that already exists on the floor is replaced (a correction); otherwise added.
+    accept: (floorId, payload, provenance) => (draft, base) => {
+      const device = { ...payload, provenance };
+      const floor = draft.floors[floorId];
+      if (floor && base.floors[floorId]?.data.devices[device.id]) {
+        floor.data.devices[device.id] = device;
+        return;
+      }
+      addDevice(floorId, device)(draft, base);
+    },
+  }),
+  defineSuggestionKind({
+    kind: 'room-ceiling-height',
+    payload: roomCeilingHeight,
+    itemId: (payload) => payload.roomId,
+    accept: (floorId, payload) => (draft) => {
+      const room = draft.floors[floorId]?.data.rooms[payload.roomId];
+      if (!room) throw new EditError(`Unknown room ${payload.roomId}`);
+      room.ceilingHeight = payload.ceilingHeight;
     },
   }),
   defineSuggestionKind({

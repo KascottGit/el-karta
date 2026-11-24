@@ -1,4 +1,11 @@
-import { createRegistry, validateModel, type Device, type Pt, type Room } from '@el-karta/core';
+import {
+  createRegistry,
+  roomAt,
+  validateModel,
+  type Device,
+  type Pt,
+  type Room,
+} from '@el-karta/core';
 import { FURNITURE_SIZES, furnishingPlugin } from '@el-karta/plugin-furnishing';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { modelStore } from '@/model/store';
@@ -13,7 +20,6 @@ import {
   asFurniture,
   knobPlacement,
   normalizeDegrees,
-  roomAt,
   rotationTowards,
   withType,
   type Furniture,

@@ -1,14 +1,7 @@
 import type { Pt } from '@el-karta/core';
+import { NORM, type NormBox, type NormPoint } from '../image.ts';
 import type { Tile } from '../pass.ts';
-import type {
-  DetectedScaleBar,
-  FloorplanOutput,
-  NormBox,
-  NormPoint,
-  PageEvidence,
-} from './schema.ts';
-
-export const NORM = 1000;
+import type { DetectedScaleBar, FloorplanOutput, PageEvidence } from './schema.ts';
 
 /** A normalised point on the image of `frame` → pixels of the full image. */
 export const toPixels = (frame: Tile, p: NormPoint): Pt => ({

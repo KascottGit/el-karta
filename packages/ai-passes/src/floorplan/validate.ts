@@ -1,6 +1,7 @@
 import type { Issue } from '@el-karta/core';
-import { NORM } from './frame.ts';
-import type { FloorplanOutput, LocateOutput, NormBox, NormPoint, PageEvidence } from './schema.ts';
+import { NORM } from '../image.ts';
+import type { NormBox, NormPoint } from '../image.ts';
+import type { FloorplanOutput, LocateOutput, PageEvidence } from './schema.ts';
 
 /** Coordinates a little outside 0–1000 are rounding and get clamped; further out is a misreading. */
 const SLACK = 10;

@@ -1,5 +1,6 @@
 import type { LocateInput, PlanImage, Tile } from '@el-karta/ai-passes';
 import { AI_PASS_MAX_BODY_BYTES } from '@el-karta/data-supabase';
+import { blobToBase64, encodeRegion, firstFitting } from '@/lib/image-encoding';
 import { ImportError } from './errors';
 
 type ImageInput = LocateInput['image'];
@@ -31,70 +32,12 @@ export async function encodeWithin(
   render: (encoding: Encoding) => Promise<string>,
   limit = MAX_IMAGE_CHARS,
 ): Promise<ImageInput> {
-  for (const encoding of ENCODINGS) {
-    const data = await render(encoding);
-    if (data.length <= limit) return { mimeType: encoding.mimeType, data };
-  }
-  throw new ImportError('too_large');
+  const found = await firstFitting(ENCODINGS, render, limit);
+  if (!found) throw new ImportError('too_large');
+  return { mimeType: found.encoding.mimeType, data: found.data };
 }
 
 const JPEG_QUALITY = 0.85;
-
-function toBlob(canvas: HTMLCanvasElement, type: string): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error(`The image could not be encoded as ${type}`));
-      },
-      type,
-      JPEG_QUALITY,
-    );
-  });
-}
-
-function base64(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = reader.result as string;
-      resolve(url.slice(url.indexOf(',') + 1));
-    };
-    reader.onerror = () => {
-      reject(reader.error ?? new Error('The image could not be read'));
-    };
-    reader.readAsDataURL(blob);
-  });
-}
-
-async function renderRegion(source: CanvasImageSource, region: Tile, encoding: Encoding) {
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(region.width * encoding.scale));
-  canvas.height = Math.max(1, Math.round(region.height * encoding.scale));
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('No 2D canvas');
-  // Transparent parts would turn black in a JPEG.
-  context.fillStyle = '#ffffff';
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.drawImage(
-    source,
-    region.x,
-    region.y,
-    region.width,
-    region.height,
-    0,
-    0,
-    canvas.width,
-    canvas.height,
-  );
-  try {
-    return await base64(await toBlob(canvas, encoding.mimeType));
-  } finally {
-    // Frees the bitmap now rather than whenever the canvas is collected.
-    canvas.width = 0;
-    canvas.height = 0;
-  }
-}
 
 /** The loaded background image as the passes read it: regions are cut out with a canvas. */
 export const canvasPlanImage = (
@@ -104,5 +47,10 @@ export const canvasPlanImage = (
 ): PlanImage => ({
   ...size,
   pdfPageWidthMm,
-  encode: (region) => encodeWithin((encoding) => renderRegion(source, region, encoding)),
+  encode: (region: Tile) =>
+    encodeWithin(async (encoding) =>
+      blobToBase64(
+        await encodeRegion(source, region, encoding.scale, encoding.mimeType, JPEG_QUALITY),
+      ),
+    ),
 });

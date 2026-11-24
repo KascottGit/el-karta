@@ -1,12 +1,16 @@
 import type { Pt } from '@el-karta/core';
-import { mapFloorplan, type FloorplanSuggestOptions, type Tile } from '../../src/index.ts';
+import {
+  mapFloorplan,
+  type FloorplanSuggestOptions,
+  type NormBox,
+  type Tile,
+} from '../../src/index.ts';
 import type {
   DetectedOpening,
   DetectedRoom,
   DetectedWall,
   FloorplanOutput,
   LocateOutput,
-  NormBox,
   PageEvidence,
 } from '../../src/floorplan/schema.ts';
 

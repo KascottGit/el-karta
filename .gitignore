@@ -18,6 +18,9 @@ playwright-report/
 # Test floor plans (third-party images; the repo is public)
 floorplans/
 
+# Photos of our own homes for the photo evals (private; the repo is public)
+photos/
+
 # Raw model outputs from `pnpm eval` (may quote third-party plans)
 evals/results/raw/
 .functions-serve.pid

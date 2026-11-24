@@ -312,6 +312,9 @@
     "device": {
       "room-missing": "Rummet som enheten hör till finns inte.",
       "zone-missing": "Zonen som enheten hör till finns inte."
+    },
+    "photo": {
+      "position-rough": "Placeringen är uppskattad från fotot. Flytta enheten till rätt plats."
     }
   },
   "background": {
@@ -481,7 +484,8 @@
         "breaker": "Säkring",
         "outlet": "Vägguttag",
         "switch": "Strömbrytare",
-        "ceiling_light": "Taklampa"
+        "ceiling_light": "Taklampa",
+        "wall_light": "Vägglampa"
       },
       "furnishing": {
         "desk": "Skrivbord",
@@ -528,5 +532,16 @@
     "depth": "Djup",
     "height": "Höjd",
     "rotation": "Vridning"
+  },
+  "power": {
+    "name": "El",
+    "tool": "Elenhet",
+    "new": "Ny elenhet"
+  },
+  "photos": {
+    "name": "Foton",
+    "take": "Ta foto",
+    "pick": "Välj bild",
+    "pickTarget": "Tryck på ett rum eller en vägg som fotot visar."
   }
 }
