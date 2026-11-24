@@ -132,6 +132,6 @@ describe('suggestion views', () => {
     expect(describeFirst(demo.suggestions, 'wall')).toBe('Vägg 4 m');
     expect(describeFirst(demo.suggestions, 'opening')).toBe('Dörr 0,9 m');
     expect(describeFirst(demo.suggestions, 'room')).toBe('Sovrum');
-    expect(suggestionView('device').describe(null, i18n.t)).toBe('Förslag av typen device');
+    expect(suggestionView('connection').describe(null, i18n.t)).toBe('Förslag av typen connection');
   });
 });

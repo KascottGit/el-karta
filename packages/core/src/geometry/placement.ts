@@ -15,7 +15,7 @@ export type PlacementResult =
 
 export const wallLength = (wall: Wall): number => distance(wall.a, wall.b);
 
-export function pointOnWall(wall: Wall, offset: number): Pt {
+export function pointOnWall(wall: Pick<Wall, 'a' | 'b'>, offset: number): Pt {
   return add(wall.a, scale(normalize(sub(wall.b, wall.a)), offset));
 }
 
@@ -26,7 +26,11 @@ export function offsetAlong(wall: Wall, p: Pt): number {
   return rel.x * dir.x + rel.y * dir.y;
 }
 
-export function wallFacePoint(wall: Wall, offset: number, side: 'left' | 'right'): Pt {
+export function wallFacePoint(
+  wall: Pick<Wall, 'a' | 'b' | 'thickness'>,
+  offset: number,
+  side: 'left' | 'right',
+): Pt {
   const normal = leftNormal(sub(wall.b, wall.a));
   const toFace = (wall.thickness / 2) * (side === 'left' ? 1 : -1);
   return add(pointOnWall(wall, offset), scale(normal, toFace));

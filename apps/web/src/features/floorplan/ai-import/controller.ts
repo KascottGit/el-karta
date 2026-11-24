@@ -9,9 +9,9 @@ import { loadPdfPageSize } from '../background/pdf-page';
 import { storageJson } from '../background/project-json';
 import { onScaleMeasured, type ScaleMeasured } from '../background/scale-events';
 import { SCALE_TOOL } from '../background/tools';
-import { supabaseBackend } from './backend';
 import { canvasPlanImage } from './encode';
-import { importErrorCode, ImportError, isAbort } from './errors';
+import { isAbort, supabaseAiPass } from '@/lib/ai-pass';
+import { importErrorCode, ImportError } from './errors';
 import {
   commitDrafts,
   interpretReading,
@@ -26,7 +26,7 @@ import type { PlanReading } from './reading';
 type Services = Pick<ImportDeps, 'backend' | 'files'> & { planImage: typeof canvasPlanImage };
 
 let services: Services = {
-  backend: supabaseBackend,
+  backend: supabaseAiPass,
   files: storageJson,
   planImage: canvasPlanImage,
 };

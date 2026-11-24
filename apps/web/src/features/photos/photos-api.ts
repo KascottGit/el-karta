@@ -8,6 +8,7 @@ import {
   listAttachments,
   uploadAttachment,
 } from '@/lib/attachments';
+import { analyse } from './analyse';
 import { compressPhoto, PHOTO_EXTENSION, PHOTO_TYPE } from './compress';
 import { detachPhoto } from './detach';
 import { setUpload } from './photos-store';
@@ -36,7 +37,11 @@ export function usePhotoUrl(photoId: Id) {
   };
 }
 
-/** Compresses a picked photo and stores it with what it shows, then refreshes the floor's list. */
+/**
+ * Compresses a picked photo and stores it with what it shows, refreshes the floor's list, and
+ * starts analysing it (M11 decision 4). Resolves once it is stored; the analysis reports through
+ * the photos store.
+ */
 export async function uploadPhoto(
   queries: QueryClient,
   file: Blob,
@@ -54,9 +59,10 @@ export async function uploadPhoto(
     return;
   }
   setUpload({ step: 'uploading' });
+  const id = crypto.randomUUID();
   try {
     await uploadAttachment({
-      id: crypto.randomUUID(),
+      id,
       projectId: floor.projectId,
       floorId,
       kind: 'photo',
@@ -71,6 +77,13 @@ export async function uploadPhoto(
   }
   await queries.invalidateQueries({ queryKey: photosKey(floorId) });
   setUpload({ step: 'idle' });
+  void analyse(
+    queries,
+    floorId,
+    { id, region },
+    queries.getQueryData<Attachment[]>(photosKey(floorId)) ?? [],
+    body,
+  );
 }
 
 /**
@@ -89,4 +102,11 @@ export async function deletePhoto(queries: QueryClient, photo: Attachment) {
       list?.filter((p) => p.id !== photo.id),
     );
   queries.removeQueries({ queryKey: urlKey(photo.id) });
+}
+
+/** Analyses a stored photo again, for instance after the room was changed or a run failed. */
+export function reanalysePhoto(queries: QueryClient, photo: Attachment): Promise<void> {
+  if (photo.floorId === null) return Promise.resolve();
+  const photos = queries.getQueryData<Attachment[]>(photosKey(photo.floorId)) ?? [];
+  return analyse(queries, photo.floorId, photo, photos);
 }

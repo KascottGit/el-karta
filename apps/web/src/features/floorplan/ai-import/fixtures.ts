@@ -9,9 +9,9 @@ import {
 import type { AiCommitRequest, AiRunRequest } from '@el-karta/data-supabase';
 import { QueryClient } from '@tanstack/react-query';
 import type { SuggestionSource } from '@/features/suggestions/source';
+import type { AiPassBackend } from '@/lib/ai-pass';
 import replyText from '../../../../e2e/fixtures/ai-plan-reply.json?raw';
 import { createMemoryJson } from '../background/project-json';
-import type { AiImportBackend } from './backend';
 import type { ImportDeps } from './flow';
 
 /**
@@ -62,7 +62,7 @@ export function fakeBackend(reply: RunReply = () => Promise.resolve(planReply())
   const runs: Omit<AiRunRequest, 'action'>[] = [];
   const commits: Omit<AiCommitRequest, 'action'>[] = [];
   const rows = new Map<Id, Suggestion>();
-  const backend: AiImportBackend = {
+  const backend: AiPassBackend = {
     run: async (request) => {
       runs.push(request);
       const output = await reply(request);

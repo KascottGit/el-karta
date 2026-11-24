@@ -9,13 +9,14 @@ import { Button } from '@/ui/button';
 import { Label } from '@/ui/label';
 import type { CanvasContext } from '@/features/floorplan/canvas/extension';
 import { issueColors } from '@/features/floorplan/canvas/theme';
-import { useEditorStore } from '@/features/floorplan/editor-store';
+import { editorStore, useEditorStore } from '@/features/floorplan/editor-store';
+import { SUGGESTIONS_TOOL } from '@/features/suggestions/tool';
 import { formatDecimal } from '@/features/floorplan/fields/numbers';
 import { selectClass } from '@/features/floorplan/fields/select';
 import { photoGroups } from './groups';
 import { PhotoThumbnail, PhotoViewer } from './photo-viewer';
-import { uploadPhoto, usePhotos } from './photos-api';
-import { chooseRoom, usePhotosStore, type PhotoUpload } from './photos-store';
+import { reanalysePhoto, uploadPhoto, usePhotos } from './photos-api';
+import { chooseRoom, usePhotosStore, type PhotoAnalysis, type PhotoUpload } from './photos-store';
 import { photoRegion, photoTarget, targetRoom, type PhotoTarget } from './target';
 
 const UPLOAD_ACCEPT = 'image/*';
@@ -38,6 +39,61 @@ function UploadStatus({ upload }: { upload: PhotoUpload }) {
     >
       {text}
     </p>
+  );
+}
+
+/** Where the latest analysis is, what it found, or why it stopped (M11 T4). */
+function AnalysisStatus({
+  analysis,
+  photo,
+}: {
+  analysis: PhotoAnalysis;
+  photo: Attachment | undefined;
+}) {
+  const { t } = useTranslation();
+  const queries = useQueryClient();
+  const text =
+    analysis.step === 'idle'
+      ? ''
+      : analysis.step === 'done'
+        ? analysis.count > 0
+          ? t('photos.analysis.done', { count: analysis.count })
+          : t('photos.analysis.nothing')
+        : analysis.step === 'failed'
+          ? t(`photos.analysis.errors.${analysis.error}`)
+          : t(`photos.analysis.${analysis.step}`);
+  return (
+    <div className="flex flex-col gap-2 empty:hidden">
+      <p
+        role="status"
+        className="text-sm empty:hidden"
+        style={analysis.step === 'failed' ? { color: issueColors.error } : undefined}
+      >
+        {text}
+      </p>
+      {analysis.step === 'done' && analysis.count > 0 && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="self-start"
+          onClick={() => {
+            editorStore.getState().setTool(SUGGESTIONS_TOOL);
+          }}
+        >
+          {t('photos.analysis.review')}
+        </Button>
+      )}
+      {analysis.step === 'failed' && photo && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="self-start"
+          onClick={() => void reanalysePhoto(queries, photo)}
+        >
+          {t('photos.analysis.retry')}
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -142,6 +198,7 @@ export function PhotosPanel({ ctx }: { ctx: CanvasContext }) {
   const selection = useEditorStore((s) => s.selection);
   const upload = usePhotosStore((s) => s.upload);
   const viewing = usePhotosStore((s) => s.viewing);
+  const analysis = usePhotosStore((s) => s.analysis);
   const target = useMemo(
     () => (data ? photoTarget(data, selection) : ({ kind: 'none' } as const)),
     [data, selection],
@@ -190,6 +247,12 @@ export function PhotosPanel({ ctx }: { ctx: CanvasContext }) {
         </>
       )}
       <UploadStatus upload={upload} />
+      <AnalysisStatus
+        analysis={analysis}
+        photo={
+          analysis.step === 'idle' ? undefined : photos.data?.find((p) => p.id === analysis.photoId)
+        }
+      />
       {photos.isError && (
         <p className="text-sm" style={{ color: issueColors.error }}>
           {t('common.loadFailed')}
