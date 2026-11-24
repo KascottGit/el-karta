@@ -59,7 +59,7 @@ export function kitchenFloor() {
     window,
     door,
   };
-  return { floor: structuredClone(floor) as FloorRecord, ids };
+  return { floor: structuredClone<FloorRecord>(floor), ids };
 }
 
 /** A power outlet on `wallId` at `offset`, on the face into the kitchen unless `side` says otherwise. */

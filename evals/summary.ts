@@ -2,8 +2,9 @@ import { costUsd, modelPrice, type ModelPrice } from '@el-karta/ai-providers';
 import { readFile, writeFile } from 'node:fs/promises';
 import { csvRecords } from './csv.ts';
 import type { FloorplanScores } from './floorplan/score.ts';
+import { countAccuracy, parseCounts, type PhotoScores } from './photo/score.ts';
 
-/** One `floorplan.csv` row by column name, as read; empty cells are `''`. */
+/** One results CSV row by column name, as read; empty cells are `''`. */
 export type ResultRow = Readonly<Record<string, string>>;
 
 /** Rows from before the `provider` column were all Gemini runs. */
@@ -73,8 +74,22 @@ export const failureRate = (rows: readonly ResultRow[]): number | undefined =>
 
 type Aggregate = 'mean' | 'meanAbs' | 'shareTrue';
 
-/** How each score column is summarised; signed errors as a mean absolute so they cannot cancel. */
-const SCORE_AGGREGATES: Record<keyof FloorplanScores, Aggregate> = {
+/** What differs between the passes' summaries. */
+export interface SummarySpec {
+  title: string;
+  /** The README that defines the columns. */
+  readme: string;
+  /** The column naming what one row evaluated, and how it reads in the table. */
+  item: { column: string; plural: string; singular: string };
+  /** How each score column is summarised; signed errors as a mean absolute so they cannot cancel. */
+  scores: Readonly<Record<string, Aggregate>>;
+  /** Further figures per group, by label; the table shows the union of the groups' labels. */
+  extra?: (rows: readonly ResultRow[]) => Record<string, number | undefined>;
+  /** Appended to the paragraph under the table. */
+  note?: string;
+}
+
+const FLOORPLAN_AGGREGATES: Record<keyof FloorplanScores, Aggregate> = {
   roomsExpected: 'mean',
   roomsFound: 'mean',
   nameMatch: 'mean',
@@ -86,6 +101,57 @@ const SCORE_AGGREGATES: Record<keyof FloorplanScores, Aggregate> = {
   rotationErrorDeg: 'mean',
   roomAreaError: 'mean',
   wallLengthError: 'meanAbs',
+};
+
+export const floorplanSummary: SummarySpec = {
+  title: 'Floor-plan eval summary',
+  readme: 'evals/floorplan/README.md',
+  item: { column: 'plan', plural: 'Plans', singular: 'plan' },
+  scores: FLOORPLAN_AGGREGATES,
+  note: ' Rows without a `provider` are Gemini runs from before the column existed.',
+};
+
+type PhotoScoreColumn = Exclude<keyof PhotoScores, 'countsByType'>;
+
+const PHOTO_AGGREGATES: Record<PhotoScoreColumn, Aggregate> = {
+  expected: 'mean',
+  found: 'mean',
+  matched: 'mean',
+  precision: 'mean',
+  recall: 'mean',
+  typeAccuracy: 'mean',
+  wallAccuracy: 'mean',
+  countAccuracy: 'mean',
+  unitCountAccuracy: 'mean',
+  propsAccuracy: 'mean',
+  meanOffsetError: 'mean',
+  meanHeightError: 'mean',
+  roughShare: 'mean',
+  corrections: 'mean',
+};
+
+/**
+ * `countAccuracy` per device type, pooled over the rows: 1 − Σ|found − expected| / Σ max(found,
+ * expected) of that type's counts in `countsByType`.
+ */
+export function countAccuracyByType(rows: readonly ResultRow[]): Record<string, number> {
+  const pooled = new Map<string, { found: number; expected: number }[]>();
+  for (const row of rows)
+    for (const [type, counts] of parseCounts(row['countsByType'] ?? ''))
+      pooled.set(type, [...(pooled.get(type) ?? []), counts]);
+  return Object.fromEntries(
+    [...pooled]
+      .sort(([a], [b]) => (a < b ? -1 : 1))
+      .map(([type, counts]) => [`countAccuracy ${type} (pooled)`, countAccuracy(counts)]),
+  );
+}
+
+export const photoSummary: SummarySpec = {
+  title: 'Photo eval summary',
+  readme: 'evals/photo/README.md',
+  item: { column: 'photo', plural: 'Photos', singular: 'photo' },
+  scores: PHOTO_AGGREGATES,
+  extra: countAccuracyByType,
 };
 
 /** Rows that have a value in `column` count; empty cells are left out. */
@@ -101,27 +167,33 @@ export interface GroupSummary {
   model: string;
   mode: string;
   runs: number;
-  plans: number;
-  scores: Record<keyof FloorplanScores, number | undefined>;
+  /** Distinct plans or photos. */
+  items: number;
+  scores: Record<string, number | undefined>;
+  extra: Record<string, number | undefined>;
   meanCostUsd: number | undefined;
   medianDurationMs: number | undefined;
   p90DurationMs: number | undefined;
   failureRate: number | undefined;
 }
 
-export function summarizeGroup({ provider, model, mode, rows }: RowGroup): GroupSummary {
+export function summarizeGroup(
+  { provider, model, mode, rows }: RowGroup,
+  spec: SummarySpec,
+): GroupSummary {
   const durations = rows.map((r) => number(r['durationMs'])).filter((d) => d !== undefined);
   const costs = rows.map(rowCost).filter((c) => c !== undefined);
   const scores = Object.fromEntries(
-    Object.entries(SCORE_AGGREGATES).map(([column, how]) => [column, aggregate(rows, column, how)]),
-  ) as GroupSummary['scores'];
+    Object.entries(spec.scores).map(([column, how]) => [column, aggregate(rows, column, how)]),
+  );
   return {
     provider,
     model,
     mode,
     runs: rows.length,
-    plans: new Set(rows.map((r) => r['plan'])).size,
+    items: new Set(rows.map((r) => r[spec.item.column])).size,
     scores,
+    extra: spec.extra?.(rows) ?? {},
     meanCostUsd: mean(costs),
     medianDurationMs: percentile(durations, 50),
     p90DurationMs: percentile(durations, 90),
@@ -158,17 +230,24 @@ function markdownTable(header: readonly string[], rows: readonly (readonly strin
 }
 
 /** The summary as Markdown: one column per provider, model and mode, one row per figure. */
-export function summaryMarkdown(summaries: readonly GroupSummary[], source: string): string {
+export function summaryMarkdown(
+  summaries: readonly GroupSummary[],
+  source: string,
+  spec: SummarySpec,
+): string {
+  const extra = [...new Set(summaries.flatMap((s) => Object.keys(s.extra)))].sort();
   const figures: [string, (s: GroupSummary) => string][] = [
     ['Runs (rows)', (s) => String(s.runs)],
-    ['Plans', (s) => String(s.plans)],
-    ...Object.entries(SCORE_AGGREGATES).map(
-      ([column, how]): [string, (s: GroupSummary) => string] => [
-        SCORE_LABELS[how](column),
-        (s) => fixed(3)(s.scores[column as keyof FloorplanScores]),
-      ],
-    ),
-    ['Mean cost per plan (USD)', (s) => dollars(s.meanCostUsd)],
+    [spec.item.plural, (s) => String(s.items)],
+    ...Object.entries(spec.scores).map(([column, how]): [string, (s: GroupSummary) => string] => [
+      SCORE_LABELS[how](column),
+      (s) => fixed(3)(s.scores[column]),
+    ]),
+    ...extra.map((label): [string, (s: GroupSummary) => string] => [
+      label,
+      (s) => fixed(3)(s.extra[label]),
+    ]),
+    [`Mean cost per ${spec.item.singular} (USD)`, (s) => dollars(s.meanCostUsd)],
     ['Median duration (s)', (s) => seconds(s.medianDurationMs)],
     ['p90 duration (s)', (s) => seconds(s.p90DurationMs)],
     ['Failure rate', (s) => percent(s.failureRate)],
@@ -191,13 +270,13 @@ export function summaryMarkdown(summaries: readonly GroupSummary[], source: stri
       return `- ${p.provider} ${p.model}: ${tiers} per 1M tokens (checked ${p.checked}, ${p.source})`;
     });
   return [
-    '# Floor-plan eval summary',
+    `# ${spec.title}`,
     '',
-    `Generated by \`pnpm eval summary\` from \`${source}\`; do not edit by hand. See \`evals/floorplan/README.md\` for the columns.`,
+    `Generated by \`pnpm eval summary\` from \`${source}\`; do not edit by hand. See \`${spec.readme}\` for the columns.`,
     '',
     ...table,
     '',
-    'Means are over the rows that have a value. A run is one plan in one eval run; failed runs count in the cost, duration and failure rate. Cost is the row’s `costUsd`, or else computed from its token totals with the prices below; a model without a price shows –. Rows without a `provider` are Gemini runs from before the column existed.',
+    `Means are over the rows that have a value. A run is one ${spec.item.singular} in one eval run; failed runs count in the cost, duration and failure rate. Cost is the row’s \`costUsd\`, or else computed from its token totals with the prices below; a model without a price shows –.${spec.note ?? ''}`,
     '',
     '## Prices',
     '',
@@ -207,9 +286,14 @@ export function summaryMarkdown(summaries: readonly GroupSummary[], source: stri
 }
 
 /** Reads the results CSV and writes its summary. */
-export async function writeSummary(csvPath: string, outPath: string, source: string) {
+export async function writeSummary(
+  csvPath: string,
+  outPath: string,
+  source: string,
+  spec: SummarySpec,
+) {
   const rows = csvRecords(await readFile(csvPath, 'utf8'));
-  const summaries = groupRows(rows).map(summarizeGroup);
-  await writeFile(outPath, summaryMarkdown(summaries, source));
+  const summaries = groupRows(rows).map((group) => summarizeGroup(group, spec));
+  await writeFile(outPath, summaryMarkdown(summaries, source, spec));
   return summaries;
 }

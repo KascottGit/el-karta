@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { parsePhotoFloor } from '@el-karta/evals';
 import { expect, test } from '@playwright/test';
 import { DIMENSION, fixture, readBackground, unscaledImageToPage } from './background';
 import { openNewProjectEditor } from './editor';
 
-test('on a phone, the dev build exports a scaled floor as a full facit', async ({ browser }) => {
+test('on a phone, the dev build exports the floor for the photo evals and a scaled floor as a full facit', async ({
+  browser,
+}) => {
   const run = randomUUID().slice(0, 8);
   const page = await (
     await browser.newContext({
@@ -17,6 +20,15 @@ test('on a phone, the dev build exports a scaled floor as a full facit', async (
     email: `facit-${run}@test.local`,
     project: `E2E-facit ${run}`,
   });
+
+  // Any floor can be exported for the photo evals, with or without a background.
+  const floorButton = page.getByRole('button', { name: 'Exportera våning' });
+  await expect(floorButton).toBeEnabled();
+  const [floorDownload] = await Promise.all([page.waitForEvent('download'), floorButton.tap()]);
+  expect(floorDownload.suggestedFilename()).toBe('plan-1.json');
+  const floor = parsePhotoFloor(JSON.parse(await readFile(await floorDownload.path(), 'utf8')));
+  expect(floor.name).toBe('Plan 1');
+  expect(page.url()).toContain(`/projects/${floor.projectId}/floors/${floor.id}`);
 
   const exportButton = page.getByRole('button', { name: 'Exportera facit' });
   await expect(exportButton).toBeDisabled();

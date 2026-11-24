@@ -1,4 +1,5 @@
 export * from './context.ts';
+export * from './encoding.ts';
 export * from './homography.ts';
 export * from './interpret.ts';
 export * from './passes.ts';

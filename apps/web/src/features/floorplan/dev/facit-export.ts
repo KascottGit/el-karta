@@ -3,24 +3,7 @@ import { FileDown } from 'lucide-react';
 import { modelStore } from '@/model/store';
 import { readyImageSize } from '../background/images';
 import type { Action } from '../canvas/extension';
-
-/** A file-name-safe id from the floor's name, e.g. "Plan 1 – Gotgatan" → "plan-1-gotgatan". */
-export const facitId = (name: string) =>
-  name
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '') || 'floor';
-
-function download(fileName: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = fileName;
-  link.click();
-  URL.revokeObjectURL(url);
-}
+import { downloadJson, fileId } from './download';
 
 async function exportFacit(floorId: Id) {
   const floor = modelStore.getState().model?.floors[floorId];
@@ -32,9 +15,9 @@ async function exportFacit(floorId: Id) {
   }
   // Loaded on use, so the eval code stays out of the editor's own chunk.
   const { floorToFacit } = await import('@el-karta/evals');
-  const id = facitId(floor.name);
+  const id = fileId(floor.name);
   const facit = floorToFacit({ id, floor: floor.data, image });
-  if (facit) download(`${id}.json`, `${JSON.stringify(facit, null, 2)}\n`);
+  if (facit) downloadJson(`${id}.json`, facit);
 }
 
 /**
