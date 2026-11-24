@@ -50,7 +50,7 @@ When the columns change, the next run rewrites `floorplan.csv` once with the new
 pnpm eval summary
 ```
 
-Writes `evals/results/floorplan-summary.md` (committed) from `floorplan.csv`: one column per provider, model and mode, with the number of runs (rows) and distinct plans, the mean of each score column over the rows that have it (`scaleError` and `wallLengthError` as mean absolute values so signs cannot cancel, `estimateWithin10` as the share that is `true`), the mean cost per plan, the median and p90 duration (linearly interpolated), and the failure rate (`status` other than `ok`). Failed runs count in cost, duration and failure rate. Run it after every eval run and commit both files.
+Writes `evals/results/floorplan-summary.md` (committed) from `floorplan.csv`, and the photo summary from `photo.csv` (`evals/photo/README.md`): one column per provider, model and mode, with the number of runs (rows) and distinct plans, the mean of each score column over the rows that have it (`scaleError` and `wallLengthError` as mean absolute values so signs cannot cancel, `estimateWithin10` as the share that is `true`), the mean cost per plan, the median and p90 duration (linearly interpolated), and the failure rate (`status` other than `ok`). Failed runs count in cost, duration and failure rate. Run it after every eval run and commit both files.
 
 Rows with an empty `provider` were written before the column existed and are all Gemini runs.
 

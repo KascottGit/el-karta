@@ -1,9 +1,13 @@
-import type { PhotoInput } from '@el-karta/ai-passes';
+import {
+  EARLIER_PHOTO_SIDE,
+  PHOTO_QUALITY,
+  PHOTO_TYPE,
+  type PhotoContext,
+  type PhotoInput,
+} from '@el-karta/ai-passes';
 import { AI_PASS_MAX_BODY_BYTES } from '@el-karta/data-supabase';
 import { AiPassFailure } from '@/lib/ai-pass';
 import { blobToBase64, encodeRegion, firstFitting, scaleToFit } from '@/lib/image-encoding';
-import { PHOTO_QUALITY, PHOTO_TYPE } from './compress';
-import type { PhotoContext } from './context';
 
 type ImageInput = PhotoInput['image'];
 
@@ -18,7 +22,7 @@ export interface PhotoImage {
 /** Tried in order for the photo being read: as stored (2048 px), then smaller. */
 export const MAIN_SIDES: readonly (number | null)[] = [null, 1600, 1280, 1024];
 /** Earlier photos are context only (M11 decision 7). */
-export const EARLIER_SIDES: readonly number[] = [1024, 768, 512];
+export const EARLIER_SIDES: readonly number[] = [EARLIER_PHOTO_SIDE, 768, 512];
 
 /** Room for the request around its input (action, pass, ids) and JSON escaping, in bytes. */
 const REQUEST_ALLOWANCE = 4 * 1024;

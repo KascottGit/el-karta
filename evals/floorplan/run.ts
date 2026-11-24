@@ -1,9 +1,8 @@
-import { defaultModels, type ModelChoice } from '@el-karta/ai-passes';
+import type { ModelChoice } from '@el-karta/ai-passes';
 import type { AiProvider } from '@el-karta/ai-providers';
 import { DEFAULT_METRES_PER_PIXEL } from '@el-karta/core';
-import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
+import { checkFiles, passChoice, readJson, writeRaw } from '../common.ts';
 import { appendCsv, type CsvValue } from '../csv.ts';
 import { Facit, Manifest, metresPerImageWidth, type ManifestPlan } from './facit.ts';
 import { loadPlanImage } from './image.ts';
@@ -58,21 +57,10 @@ export interface FloorplanEvalOptions {
 }
 
 /** The provider and model to evaluate: as given, else the floor-plan pass's default on it. */
-export function floorplanEvalChoice(
+export const floorplanEvalChoice = (
   provider: string | undefined,
   model: string | undefined,
-): ModelChoice {
-  const { primary, fallback } = defaultModels['floorplan']!;
-  const id = provider ?? primary.provider;
-  const chosen = model ?? [primary, fallback].find((choice) => choice?.provider === id)?.model;
-  if (chosen === undefined) throw new Error(`No default floor-plan model on ${id}; pass --model`);
-  return { provider: id, model: chosen };
-}
-
-const sha256 = (data: Buffer) => createHash('sha256').update(data).digest('hex');
-
-const readJson = async (path: string): Promise<unknown> =>
-  JSON.parse(await readFile(path, 'utf8')) as unknown;
+): ModelChoice => passChoice('floorplan', provider, model);
 
 /** The plan files, after checking every one against its manifest checksum. */
 async function checkedPlans(
@@ -83,22 +71,10 @@ async function checkedPlans(
   const unknown = ids?.filter((id) => !manifest.plans.some((p) => p.id === id)) ?? [];
   if (unknown.length > 0) throw new Error(`Unknown plans: ${unknown.join(', ')}`);
   const plans = ids ? manifest.plans.filter((p) => ids.includes(p.id)) : manifest.plans;
-  const problems: string[] = [];
-  const checked = await Promise.all(
-    plans.map(async (plan) => {
-      const path = join(imagesDir, plan.file);
-      const data = await readFile(path).catch(() => null);
-      if (data === null) problems.push(`${plan.id}: ${path} is missing`);
-      else if (sha256(data) !== plan.sha256)
-        problems.push(`${plan.id}: ${path} does not match its sha256 in the manifest`);
-      return { plan, path };
-    }),
-  );
-  if (problems.length > 0) throw new Error(`Refusing to run:\n${problems.join('\n')}`);
+  const checked = plans.map((plan) => ({ plan, path: join(imagesDir, plan.file) }));
+  await checkFiles(checked.map(({ plan, path }) => ({ name: plan.id, path, sha256: plan.sha256 })));
   return checked;
 }
-
-const fileSafe = (text: string) => text.replace(/[^a-zA-Z0-9.-]+/g, '_');
 
 /**
  * Runs the floor-plan import flow on each plan, scores it against its facit, appends a row per plan
@@ -168,27 +144,13 @@ export async function runFloorplanEval(options: FloorplanEvalOptions): Promise<F
     rows.push(row);
     await appendCsv(join(resultsDir, 'floorplan.csv'), FLOORPLAN_COLUMNS, [row]);
 
-    const rawDir = join(resultsDir, 'raw');
-    await mkdir(rawDir, { recursive: true });
-    const stamp = date.toISOString().replace(/[:.]/g, '-');
-    const rawPath = join(
-      rawDir,
-      `${stamp}-${plan.id}-${fileSafe(options.model)}-${options.mode}.json`,
-    );
-    await writeFile(
-      rawPath,
-      JSON.stringify(
-        {
-          plan: plan.id,
-          image: { width: image.width, height: image.height, pdfPageWidthMm: image.pdfPageWidthMm },
-          ...result,
-          scores,
-          row,
-        },
-        null,
-        2,
-      ),
-    );
+    await writeRaw(resultsDir, date, [plan.id, options.model, options.mode], {
+      plan: plan.id,
+      image: { width: image.width, height: image.height, pdfPageWidthMm: image.pdfPageWidthMm },
+      ...result,
+      scores,
+      row,
+    });
     log(
       `${plan.id}: ${result.status}, rooms ${String(row.roomsFound ?? '-')}/${facit.rooms.length}, scale ${scale?.status ?? '-'}, ${durationMs} ms`,
     );

@@ -1,4 +1,11 @@
-import { photoPass, PhotoOutput, type PhotoDetectableInput } from '@el-karta/ai-passes';
+import {
+  earlierPhotos,
+  pendingOnFloor,
+  photoContext,
+  photoPass,
+  PhotoOutput,
+  type PhotoDetectableInput,
+} from '@el-karta/ai-passes';
 import type { FloorRecord, Id, SuggestionDraft } from '@el-karta/core';
 import type { Attachment } from '@el-karta/data-supabase';
 import type { QueryClient } from '@tanstack/react-query';
@@ -14,7 +21,6 @@ import {
   type AiPassBackend,
   type AiPassFailureCode,
 } from '@/lib/ai-pass';
-import { earlierPhotos, pendingOnFloor, photoContext } from './context';
 import { photoRunInput, type PhotoImage } from './request';
 
 export interface AnalysisDeps {

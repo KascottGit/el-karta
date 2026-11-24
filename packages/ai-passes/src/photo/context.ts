@@ -1,12 +1,4 @@
 import {
-  deviceTypeKey,
-  wallFrame,
-  type PhotoDetectableInput,
-  type PhotoInput,
-  type PhotoSuggestOptions,
-  type PhotoWall,
-} from '@el-karta/ai-passes';
-import {
   centroid,
   closestOnSegment,
   roomsBesideWall,
@@ -16,7 +8,14 @@ import {
   type Id,
   type Suggestion,
 } from '@el-karta/core';
-import type { Attachment } from '@el-karta/data-supabase';
+import type { PhotoSuggestOptions } from './interpret.ts';
+import { wallFrame } from './plane.ts';
+import {
+  deviceTypeKey,
+  type PhotoDetectableInput,
+  type PhotoInput,
+  type PhotoWall,
+} from './schema.ts';
 
 /** How far past the room's stretch of a wall a device or opening still counts as in the room. */
 const STRETCH_SLACK = 0.05;
@@ -137,17 +136,24 @@ export function photoContext(
   };
 }
 
+/** What `earlierPhotos` needs of a photo: an id, what it shows, and when it was taken (ISO 8601). */
+export interface PhotoShot {
+  id: string;
+  region?: AttachmentRegion | null | undefined;
+  createdAt: string;
+}
+
 /**
  * The earlier photos sent with `photo` for context: other photos of its room, those of the same
  * wall first, then the most recent, at most `MAX_EARLIER`.
  */
-export function earlierPhotos(
-  photos: readonly Attachment[],
-  photo: Pick<Attachment, 'id' | 'region'>,
-): Attachment[] {
+export function earlierPhotos<P extends PhotoShot>(
+  photos: readonly P[],
+  photo: Pick<PhotoShot, 'id' | 'region'>,
+): P[] {
   const region = photo.region;
   if (!region) return [];
-  const sameWall = (p: Attachment) =>
+  const sameWall = (p: P) =>
     region.wallId !== undefined && p.region?.wallId === region.wallId ? 0 : 1;
   return photos
     .filter((p) => p.id !== photo.id && p.region?.roomId === region.roomId)

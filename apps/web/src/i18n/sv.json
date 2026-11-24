@@ -86,7 +86,8 @@
     "zoomToFit": "Visa hela planen",
     "issues": "Att kontrollera",
     "dev": {
-      "exportFacit": "Exportera facit"
+      "exportFacit": "Exportera facit",
+      "exportFloor": "Exportera våning"
     }
   },
   "snapping": {

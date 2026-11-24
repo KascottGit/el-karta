@@ -1,9 +1,5 @@
+import { PHOTO_MAX_SIDE, PHOTO_QUALITY, PHOTO_TYPE } from '@el-karta/ai-passes';
 import { encodeRegion, scaleToFit } from '@/lib/image-encoding';
-
-/** Long side of a stored photo, in pixels (M11 decision 3). */
-export const PHOTO_MAX_SIDE = 2048;
-export const PHOTO_QUALITY = 0.8;
-export const PHOTO_TYPE = 'image/jpeg';
 export const PHOTO_EXTENSION = 'jpg';
 
 export interface PhotoCodec {

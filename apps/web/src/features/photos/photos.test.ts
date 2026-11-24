@@ -1,9 +1,10 @@
+import { PHOTO_QUALITY } from '@el-karta/ai-passes';
 import { applyEdit } from '@el-karta/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { modelStore } from '@/model/store';
 import { editorStore } from '@/features/floorplan/editor-store';
 import { pointer, pt, testCtx } from '@/features/floorplan/walls/test-fixtures';
-import { compressPhoto, PHOTO_QUALITY, type PhotoCodec } from './compress';
+import { compressPhoto, type PhotoCodec } from './compress';
 import { detachPhoto } from './detach';
 import { photoGroups } from './groups';
 import { photosTool } from './photo-tool';

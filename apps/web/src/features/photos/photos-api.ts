@@ -1,3 +1,4 @@
+import { PHOTO_TYPE } from '@el-karta/ai-passes';
 import type { AttachmentRegion, Id } from '@el-karta/core';
 import type { Attachment } from '@el-karta/data-supabase';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
@@ -9,7 +10,7 @@ import {
   uploadAttachment,
 } from '@/lib/attachments';
 import { analyse } from './analyse';
-import { compressPhoto, PHOTO_EXTENSION, PHOTO_TYPE } from './compress';
+import { compressPhoto, PHOTO_EXTENSION } from './compress';
 import { detachPhoto } from './detach';
 import { setUpload } from './photos-store';
 
