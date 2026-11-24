@@ -314,7 +314,18 @@
       "zone-missing": "Zonen som enheten hör till finns inte."
     },
     "photo": {
-      "position-rough": "Placeringen är uppskattad från fotot. Flytta enheten till rätt plats."
+      "position-rough": "Placeringen är uppskattad från fotot. Flytta enheten till rätt plats.",
+      "unknown-wall": "AI:n angav en vägg som inte finns i rummet.",
+      "unknown-opening": "AI:n angav en dörr eller ett fönster som inte finns i rummet.",
+      "unknown-device": "AI:n angav en befintlig enhet som inte finns i rummet.",
+      "unknown-device-type": "AI:n angav en enhetstyp som inte kan hittas på foton.",
+      "wall-type-on-ceiling": "AI:n placerade en väggenhet i taket.",
+      "point-outside": "AI:n angav en punkt utanför fotot.",
+      "box-outside": "AI:n angav en enhet utanför fotot.",
+      "box-inverted": "AI:n angav ett ogiltigt område för en enhet.",
+      "count-not-countable": "AI:n angav ett antal för en enhet som inte räknas.",
+      "count-invalid": "AI:n angav ett ogiltigt antal.",
+      "unknown-prop": "AI:n angav en egenskap som inte går att se på foton."
     }
   },
   "background": {
