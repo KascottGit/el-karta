@@ -2,6 +2,7 @@ import {
   defaultModels,
   FloorplanOutput,
   LocateOutput,
+  PhotoOutput,
   type ReadProgress,
 } from '@el-karta/ai-passes';
 import {
@@ -13,6 +14,7 @@ import {
 } from '@el-karta/core';
 import { describe, expect, it, vi } from 'vitest';
 import envText from '../../../../e2e/fixtures/ai-import.env?raw';
+import photoReplyText from '../../../../e2e/fixtures/ai-photo-reply.json?raw';
 import { ImportError } from './errors';
 import {
   answeredBy,
@@ -53,11 +55,17 @@ async function importEstimated() {
 }
 
 describe('the e2e fake reply', () => {
-  it('parses as both passes, and the env file the function is served with holds it', () => {
+  it('parses as both passes, and the env file the function is served with holds it with the photo reply', () => {
     expect(LocateOutput.safeParse(planReply()).success).toBe(true);
     expect(FloorplanOutput.safeParse(planReply()).success).toBe(true);
     const line = envText.split('\n').find((l) => l.startsWith('AI_FAKE_REPLIES='))!;
-    expect(JSON.parse(line.slice('AI_FAKE_REPLIES='.length))).toEqual([planReply()]);
+    const [reply] = JSON.parse(line.slice('AI_FAKE_REPLIES='.length)) as unknown[];
+    expect(reply).toEqual({
+      ...(planReply() as object),
+      ...(JSON.parse(photoReplyText) as object),
+    });
+    for (const schema of [LocateOutput, FloorplanOutput, PhotoOutput])
+      expect(schema.safeParse(reply).success).toBe(true);
   });
 });
 

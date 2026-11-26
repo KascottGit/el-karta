@@ -29,7 +29,8 @@ Conventions for anyone (human or agent) changing this repo. `PLAN.md` holds the 
 | `pnpm test:db`                                         | pgTAP tests in `supabase/tests` (RLS) against the local stack                                                                                                                                                                   |
 | `pnpm test:integration`                                | `SupabaseRepository` and the `ai-pass` function against the local stack, as real signed-up users; serve the function first with `tooling/scripts/serve-functions.sh packages/data-supabase/test/ai-pass.env` (fake AI provider) |
 | `pnpm eval floorplan [--provider <id>] [--model <id>]` | Floor-plan evals against `evals/floorplan/facit` (calls the real model; needs the provider's key, `ANTHROPIC_API_KEY` or `GEMINI_API_KEY`, read from `supabase/functions/.env` if unset). Not run in CI                         |
-| `pnpm eval summary`                                    | Writes `evals/results/floorplan-summary.md` (scores, cost per plan, latency and failure rate per provider, model and mode) from `evals/results/floorplan.csv`; no model calls                                                   |
+| `pnpm eval photo [--provider <id>] [--model <id>]`     | Photo-pass evals against `evals/photo/facit` on the exported floors in `evals/photo/floors` (photos in the ignored `photos/`; `--earlier` adds earlier photos of the room); same keys as above. Not run in CI                   |
+| `pnpm eval summary`                                    | Writes `evals/results/floorplan-summary.md` and `photo-summary.md` (scores, cost per plan or photo, latency and failure rate per provider, model and mode) from the `floorplan.csv` and `photo.csv` beside them; no model calls |
 | `pnpm test:e2e`                                        | Playwright smoke tests; the app runs against the local stack and reads magic links from Mailpit; serve the function with `tooling/scripts/serve-functions.sh apps/web/e2e/fixtures/ai-import.env` first                         |
 | `pnpm db:types`                                        | Regenerate `packages/data-supabase/src/database.types.ts` after changing a migration                                                                                                                                            |
 
@@ -42,7 +43,7 @@ Run `pnpm typecheck && pnpm lint && pnpm test` before every commit, plus the thr
 - `packages/data-*`: repository implementations. May import `@el-karta/core` only. `data-supabase` holds `SupabaseRepository` and the generated `Database` types.
 - `packages/ai-providers`: one `AiProvider` interface (Anthropic, Gemini, fake). Imports no workspace package.
 - `packages/ai-passes`: AI pass definitions and the runner (ADR 0007). May import `@el-karta/core` and `@el-karta/ai-providers`.
-- `evals/`: AI eval sets and scoring; plan images stay in the git-ignored `floorplans/`.
+- `evals/`: AI eval sets and scoring; plan images and photos stay in the git-ignored `floorplans/` and `photos/`. May import `@el-karta/core`, the plugins, `@el-karta/ai-passes` and `@el-karta/ai-providers` only.
 - `apps/web`: the Vite + React app. May import any package.
 - `packages/core` never imports from plugins, data adapters, AI passes or providers, agent tools or apps.
 

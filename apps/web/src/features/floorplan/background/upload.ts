@@ -2,7 +2,7 @@ import { combine, setBackground, setScale, type Id } from '@el-karta/core';
 import { modelStore } from '@/model/store';
 import { editorStore } from '../editor-store';
 import type { CanvasContext } from '../canvas/extension';
-import { uploadAttachment } from './attachments';
+import { uploadAttachment } from '@/lib/attachments';
 import { backgroundUi, setUploadStep } from './background-store';
 import { showLocalImage } from './images';
 import { openPdf, type PdfFile } from './pdf';

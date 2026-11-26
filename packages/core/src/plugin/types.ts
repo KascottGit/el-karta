@@ -42,6 +42,25 @@ export interface LabelTemplate {
   deviceTypes: readonly string[];
 }
 
+/**
+ * What photo detection (M11) may report for one device type. Text is English, for the prompt; the
+ * type's placements and default height come from its `DeviceTypeDef`.
+ */
+export interface PhotoHint {
+  type: string;
+  /** What the device looks like, for the prompt. */
+  description: string;
+  /** Props the model may read off a photo, each with its allowed values. */
+  visibleProps?: Readonly<Record<string, readonly string[]>>;
+  /** Whether one device can hold several units side by side (a double outlet), as `Device.count`. */
+  countable?: boolean;
+}
+
+/** Vocabulary a plugin gives the AI passes, so a new domain is detected without changing a pass. */
+export interface AiHints {
+  photo?: readonly PhotoHint[];
+}
+
 export interface DomainPlugin {
   id: string;
   nameKey: string;
@@ -52,4 +71,5 @@ export interface DomainPlugin {
   validate?: (model: Model) => Issue[];
   labelTemplates?: readonly LabelTemplate[];
   containerTypes?: readonly ContainerTypeDef[];
+  aiHints?: AiHints;
 }

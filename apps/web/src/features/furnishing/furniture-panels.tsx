@@ -2,7 +2,6 @@ import { combine, type Vec3 } from '@el-karta/core';
 import {
   FURNISHING_DOMAIN,
   FURNITURE_TYPES,
-  isFurnitureType,
   type FurnitureType,
 } from '@el-karta/plugin-furnishing';
 import { useId, useMemo } from 'react';
@@ -14,7 +13,7 @@ import type { CanvasContext } from '@/features/floorplan/canvas/extension';
 import { CommitInput } from '@/features/floorplan/fields/commit-input';
 import { DecimalField } from '@/features/floorplan/fields/decimal-field';
 import { positive, sharedValue } from '@/features/floorplan/fields/numbers';
-import { selectClass } from '@/features/floorplan/fields/select';
+import { DeviceTypeSelect } from '@/features/devices/device-type-select';
 import { deviceTypeName } from '@/features/devices/type-name';
 import { furnishingStore, useFurnishingStore } from './furnishing-store';
 import {
@@ -27,7 +26,6 @@ import {
 } from './furniture-edits';
 
 const DIGITS = 2;
-const MIXED = '';
 
 const typeName = (type: FurnitureType) => deviceTypeName({ domain: FURNISHING_DOMAIN, type });
 
@@ -39,26 +37,14 @@ function TypeSelect({
   onChange: (type: FurnitureType) => void;
 }) {
   const { t } = useTranslation();
-  const id = useId();
   return (
-    <div className="grid gap-1">
-      <Label htmlFor={id}>{t('furnishing.type')}</Label>
-      <select
-        id={id}
-        className={selectClass}
-        value={value ?? MIXED}
-        onChange={(e) => {
-          if (isFurnitureType(e.target.value)) onChange(e.target.value);
-        }}
-      >
-        {value === undefined && <option value={MIXED}>{t('fields.mixed')}</option>}
-        {FURNITURE_TYPES.map((type) => (
-          <option key={type} value={type}>
-            {typeName(type)}
-          </option>
-        ))}
-      </select>
-    </div>
+    <DeviceTypeSelect
+      label={t('furnishing.type')}
+      domain={FURNISHING_DOMAIN}
+      types={FURNITURE_TYPES}
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 

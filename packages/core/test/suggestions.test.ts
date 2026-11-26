@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   acceptSuggestions,
   applyEdit,
+  Device,
   createSuggestionKinds,
   SuggestionError,
   type Suggestion,
@@ -105,5 +106,89 @@ describe('acceptSuggestions', () => {
     const { wall, scale, kinds } = setup();
     expect(kinds.get('wall')!.itemId(wall.payload)).toBe((wall.payload as { id: string }).id);
     expect(kinds.get('scale')!.itemId(scale.payload)).toBeNull();
+  });
+
+  it('adds a suggested device, and replaces one that already exists', () => {
+    const b = new ModelBuilder();
+    const wall = b.wall(0, { x: 0, y: 0 }, { x: 4, y: 0 });
+    const existing = b.device(0, 'outlet', {
+      kind: 'wall',
+      wallId: wall.id,
+      offset: 1,
+      height: 0.2,
+      side: 'left',
+    });
+    const model = b.build();
+    const floorId = b.floors[0]!.id;
+    const kinds = createSuggestionKinds();
+    const suggestion = (payload: unknown): Suggestion => ({
+      id: b.id(),
+      projectId: model.project.id,
+      floorId,
+      runId: null,
+      pass: 'photo',
+      kind: 'device',
+      source: 'ai:photo:test',
+      payload,
+      issues: [],
+      requires: [],
+      status: 'pending',
+    });
+    const moved = Device.omit({ provenance: true }).parse({
+      ...existing,
+      placement: { ...existing.placement, offset: 2 },
+    });
+    const added = { ...moved, id: b.id(), ports: [] };
+    const all = [suggestion(moved), suggestion(added)];
+    const { model: next } = applyEdit(
+      model,
+      acceptSuggestions(
+        kinds,
+        all,
+        all.map((s) => s.id),
+      ).edit,
+    );
+    const devices = next.floors[floorId]!.data.devices;
+    expect(Object.keys(devices)).toHaveLength(2);
+    expect(devices[existing.id]!.placement).toMatchObject({ offset: 2 });
+    expect(devices[existing.id]!.provenance).toEqual({
+      status: 'confirmed',
+      source: 'ai:photo:test',
+    });
+    expect(devices[added.id]!.provenance.status).toBe('confirmed');
+    expect(kinds.get('device')!.itemId(added)).toBe(added.id);
+  });
+
+  it('sets a room ceiling height, and refuses an unknown room', () => {
+    const b = new ModelBuilder();
+    const room = b.room(0, [
+      { x: 0, y: 0 },
+      { x: 3, y: 0 },
+      { x: 3, y: 3 },
+    ]);
+    const model = b.build();
+    const floorId = b.floors[0]!.id;
+    const kinds = createSuggestionKinds();
+    const suggestion = (roomId: string): Suggestion => ({
+      id: b.id(),
+      projectId: model.project.id,
+      floorId,
+      runId: null,
+      pass: 'photo',
+      kind: 'room-ceiling-height',
+      source: 'ai:photo:test',
+      payload: { roomId, ceilingHeight: 2.6 },
+      issues: [],
+      requires: [],
+      status: 'pending',
+    });
+    const ok = suggestion(room.id);
+    const { model: next } = applyEdit(model, acceptSuggestions(kinds, [ok], [ok.id]).edit);
+    expect(next.floors[floorId]!.data.rooms[room.id]!.ceilingHeight).toBe(2.6);
+    expect(kinds.get('room-ceiling-height')!.itemId(ok.payload)).toBe(room.id);
+    const missing = suggestion(b.id());
+    expect(() =>
+      applyEdit(model, acceptSuggestions(kinds, [missing], [missing.id]).edit),
+    ).toThrow();
   });
 });

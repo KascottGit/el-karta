@@ -1,24 +1,12 @@
 import type { Issue } from '@el-karta/core';
-import { NORM } from './frame.ts';
-import type { FloorplanOutput, LocateOutput, NormBox, NormPoint, PageEvidence } from './schema.ts';
-
-/** Coordinates a little outside 0–1000 are rounding and get clamped; further out is a misreading. */
-const SLACK = 10;
-
-const outside = (p: NormPoint) =>
-  p.x < -SLACK || p.y < -SLACK || p.x > NORM + SLACK || p.y > NORM + SLACK;
-
-const issue = (
-  code: string,
-  severity: Issue['severity'],
-  params?: Record<string, string | number>,
-): Issue => ({ code, severity, ids: [], ...(params ? { params } : {}) });
+import { boxProblem, issue, outsideImage as outside } from '../image.ts';
+import type { NormBox, NormPoint } from '../image.ts';
+import type { FloorplanOutput, LocateOutput, PageEvidence } from './schema.ts';
 
 function boxIssues(box: NormBox, field: string): Issue[] {
-  if (outside({ x: box.xmin, y: box.ymin }) || outside({ x: box.xmax, y: box.ymax }))
-    return [issue('ai.coordinate-out-of-range', 'error', { field })];
-  if (box.xmax <= box.xmin || box.ymax <= box.ymin)
-    return [issue('ai.box-invalid', 'error', { field })];
+  const problem = boxProblem(box);
+  if (problem === 'outside') return [issue('ai.coordinate-out-of-range', 'error', { field })];
+  if (problem === 'inverted') return [issue('ai.box-invalid', 'error', { field })];
   return [];
 }
 

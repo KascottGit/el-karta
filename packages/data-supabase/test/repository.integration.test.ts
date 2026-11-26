@@ -202,6 +202,76 @@ describe('SupabaseRepository (local Supabase)', () => {
     expect((await files.list(created.project.id)).data ?? []).toEqual([]);
   });
 
+  it('stores photos with their region, lists them by floor and kind, and lets only writers delete them', async () => {
+    const { ownerRepo, editorRepo, outsiderRepo, editor, created } = await sharedProject();
+    const viewer = await signedInUser('viewer');
+    const viewerRepo = new SupabaseRepository(viewer.client);
+    await ownerRepo.shareProject(created.project.id, viewer.email, 'viewer');
+    const [floorId, otherFloorId] = Object.keys(created.floors) as [string, string];
+    const roomId = Object.keys(created.floors[floorId]!.data.rooms)[0]!;
+    const wallId = Object.keys(created.floors[floorId]!.data.walls)[0]!;
+    const file = (kind: NewAttachment['kind'], onFloor = floorId): NewAttachment => ({
+      id: crypto.randomUUID(),
+      projectId: created.project.id,
+      floorId: onFloor,
+      kind,
+      extension: 'jpg',
+      contentType: 'image/jpeg',
+      body: new Uint8Array([0xff, 0xd8, 0xff, 1, 2, 3]),
+    });
+
+    const ofWall = { ...file('photo'), region: { roomId, wallId } };
+    const ofRoom = { ...file('photo'), region: { roomId } };
+    await editorRepo.uploadAttachment(ofWall);
+    await editorRepo.uploadAttachment(ofRoom);
+    await editorRepo.uploadAttachment(file('floorplan'));
+    await editorRepo.uploadAttachment(file('photo', otherFloorId));
+    const badRegion = { ...file('photo'), region: { roomId: 'not-an-id' } };
+    await expect(editorRepo.uploadAttachment(badRegion)).rejects.toThrow();
+    await expect(editorRepo.attachmentUrl(badRegion.id)).rejects.toThrow(NotFoundError);
+
+    const listed = await viewerRepo.listAttachments(floorId, 'photo');
+    expect(listed.map((a) => a.id).sort()).toEqual([ofWall.id, ofRoom.id].sort());
+    expect(listed.find((a) => a.id === ofWall.id)).toMatchObject({
+      projectId: created.project.id,
+      floorId,
+      kind: 'photo',
+      storagePath: `${created.project.id}/${ofWall.id}.jpg`,
+      region: { roomId, wallId },
+    });
+    expect(listed.find((a) => a.id === ofRoom.id)?.region).toEqual({ roomId });
+    expect(await outsiderRepo.listAttachments(floorId, 'photo')).toEqual([]);
+
+    // A row written past the repository with a broken region is listed without one.
+    const broken = crypto.randomUUID();
+    const inserted = await editor.client.from('attachments').insert({
+      id: broken,
+      project_id: created.project.id,
+      floor_id: floorId,
+      kind: 'photo',
+      storage_path: `${created.project.id}/${broken}.jpg`,
+      region: { roomId: 'not-an-id' },
+    });
+    expect(inserted.error).toBeNull();
+    const withBroken = await editorRepo.listAttachments(floorId, 'photo');
+    expect(withBroken.find((a) => a.id === broken)?.region).toBeNull();
+    await editorRepo.deleteAttachment(broken);
+
+    await expect(viewerRepo.deleteAttachment(ofWall.id)).rejects.toThrow(NotFoundError);
+    await expect(outsiderRepo.deleteAttachment(ofWall.id)).rejects.toThrow(NotFoundError);
+    expect(await editorRepo.listAttachments(floorId, 'photo')).toHaveLength(2);
+
+    await editorRepo.deleteAttachment(ofWall.id);
+    expect((await ownerRepo.listAttachments(floorId, 'photo')).map((a) => a.id)).toEqual([
+      ofRoom.id,
+    ]);
+    await expect(ownerRepo.attachmentUrl(ofWall.id)).rejects.toThrow(NotFoundError);
+    const files = await editor.client.storage.from(PROJECT_FILES_BUCKET).list(created.project.id);
+    expect(files.data?.map((f) => f.name)).not.toContain(`${ofWall.id}.jpg`);
+    expect(files.data?.map((f) => f.name)).toContain(`${ofRoom.id}.jpg`);
+    await expect(editorRepo.deleteAttachment(ofWall.id)).rejects.toThrow(NotFoundError);
+  });
+
   it('removes the uploaded file when its attachment row cannot be added', async () => {
     const { editorRepo, editor, created } = await sharedProject();
     const attachment: NewAttachment = {

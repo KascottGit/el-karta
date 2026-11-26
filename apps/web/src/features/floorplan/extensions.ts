@@ -1,5 +1,7 @@
 import { devicesExtension } from '@/features/devices/extension';
 import { furnishingExtension } from '@/features/furnishing/extension';
+import { photosExtension } from '@/features/photos/extension';
+import { powerExtension } from '@/features/power/extension';
 import { suggestionsExtension } from '@/features/suggestions/extension';
 import { aiImportExtension } from './ai-import/extension';
 import { areasExtension } from './areas/extension';
@@ -19,7 +21,9 @@ export const extensions: readonly EditorExtension[] = [
   openingsExtension,
   devicesExtension,
   furnishingExtension,
+  powerExtension,
   backgroundExtension,
+  photosExtension,
   gridExtension,
   suggestionsExtension,
   aiImportExtension,

@@ -4,7 +4,7 @@
 
 ## Flow
 
-1. **Read** (`flow.ts`, `readPlan`): the shared `readFloorplan` from `@el-karta/ai-passes` (the eval runner uses the same one) locates the plan on the whole page, crops to it, tiles a large crop and reads each tile through the `ai-pass` function's `run`, then merges. Regions are cut from the loaded image with a canvas and sent as PNG, or as JPEG and then at fewer pixels when PNG would not fit the function's 4 MB body cap (`encode.ts`). Nothing is stored while reading; cancel aborts at once and a late answer is ignored.
+1. **Read** (`flow.ts`, `readPlan`): the shared `readFloorplan` from `@el-karta/ai-passes` (the eval runner uses the same one) locates the plan on the whole page, crops to it, tiles a large crop and reads each tile through the `ai-pass` function's `run` (`lib/ai-pass.ts`, shared with the photo analysis: the backend, `passOutput`, `passSource`, the error codes), then merges. Regions are cut from the loaded image with a canvas and sent as PNG, or as JPEG and then at fewer pixels when PNG would not fit the function's 4 MB body cap (`encode.ts`). Nothing is stored while reading; cancel aborts at once and a late answer is ignored.
 2. **Interpret** (`interpretReading`) with the floor's background placement, scale and height and, for a rendered PDF page, the page's paper width (`background/pdf-page.ts`, stored beside the attachment at upload, since the PNG does not keep it).
 3. **Scale** (M4 decision 2): a printed or kept scale goes straight on. With none, the panel asks "Vet du ett mått?": "Mät ett mått" switches to the scale tool and the import goes on when a scale is set; "Uppskatta åt mig" interprets again allowing an estimate from objects of standard size. A floor whose scale is an estimate shows "Uppskattad skala – kontrollera ett mått" (`background/scale-notice.tsx`) whatever the tool.
 4. **Commit** (`commitDrafts`): the reading is saved first, then the drafts go through the function's `commit`, then the previous reading's pending suggestions are rejected (a new import replaces the last one's pending rows), `['suggestions']` is invalidated and the review tool opens.
@@ -25,4 +25,4 @@ After a new scale, the scale panel also offers to rescale what is drawn on the f
 
 ## Tests
 
-`fixtures.ts` has an in-memory function (`fakeBackend`) and a floor with a background. The e2e test (`e2e/ai-import.spec.ts`) needs the function served with the fake provider and `e2e/fixtures/ai-import.env`, whose reply (`e2e/fixtures/ai-plan-reply.json`) reads `plan.png` as a two-room flat without a printed scale.
+`fixtures.ts` has an in-memory function (`fakeBackend`) and a floor with a background. The e2e test (`e2e/ai-import.spec.ts`) needs the function served with the fake provider and `e2e/fixtures/ai-import.env`, whose reply (`e2e/fixtures/ai-plan-reply.json`, merged on one line with the photo pass's `ai-photo-reply.json`) reads `plan.png` as a two-room flat without a printed scale.

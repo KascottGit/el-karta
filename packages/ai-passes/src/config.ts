@@ -20,6 +20,7 @@ const geminiFlash: ModelChoice = { provider: 'gemini', model: 'gemini-3-flash-pr
 export const defaultModels: Readonly<Record<string, PassModels>> = {
   'floorplan-locate': { primary: haiku, fallback: geminiFlash },
   floorplan: { primary: haiku, fallback: geminiFlash },
+  photo: { primary: haiku, fallback: geminiFlash },
 };
 
 export interface ModelAttempt {

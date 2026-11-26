@@ -47,9 +47,9 @@ const layers = [
   {
     name: 'evals',
     files: ['evals/**/*.{ts,tsx,js}'],
-    group: ['@el-karta/plugin-*', '@el-karta/data-*', '@el-karta/agent-tools'],
+    group: ['@el-karta/data-*', '@el-karta/agent-tools'],
     message:
-      'Evals may depend on @el-karta/core, @el-karta/ai-passes and @el-karta/ai-providers only.',
+      'Evals may depend on @el-karta/core, the plugins, @el-karta/ai-passes and @el-karta/ai-providers only.',
   },
 ];
 

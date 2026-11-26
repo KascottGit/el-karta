@@ -97,11 +97,14 @@ export function ghostBounds({ shape }: Ghost): Rect | null {
       return boundsOf([shape.a, shape.b], shape.thickness / 2);
     case 'area':
       return boundsOf(shape.polygon);
+    case 'marker':
+      return boundsOf([shape.at]);
   }
 }
 
 /** Distance from `p` to the ghost's outline, or 0 inside an area. */
 function reach(shape: GhostShape, p: Pt): number {
+  if (shape.type === 'marker') return distance(p, shape.at);
   if (shape.type === 'area') {
     if (pointInPolygon(p, shape.polygon)) return 0;
     let best = Infinity;
@@ -117,10 +120,21 @@ function reach(shape: GhostShape, p: Pt): number {
   );
 }
 
-/** Smaller things win, so an opening can be tapped on its wall and a wall inside its room. */
-const PRIORITY: Readonly<Record<GhostShape['role'], number>> = { opening: 0, wall: 1, area: 2 };
+/**
+ * Smaller things win, so a device can be tapped on its wall, an opening on its wall and a wall
+ * inside its room.
+ */
+const PRIORITY: Readonly<Record<GhostShape['role'], number>> = {
+  device: 0,
+  opening: 1,
+  wall: 2,
+  area: 3,
+};
 
-/** The ghost under a point, within `tolerance` metres: openings before walls before areas, then the nearest. */
+/**
+ * The ghost under a point, within `tolerance` metres: devices before openings before walls before
+ * areas, then the nearest.
+ */
 export function ghostAt(ghosts: Iterable<Ghost>, p: Pt, tolerance: number): Ghost | null {
   let best: { ghost: Ghost; rank: number; d: number } | null = null;
   for (const ghost of ghosts) {

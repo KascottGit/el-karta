@@ -1,17 +1,13 @@
 import {
   doorFacing,
   EPSILON,
-  normalize,
   OPENING_DEFAULTS,
-  sub,
   wallLength,
   type FloorData,
   type Id,
   type Opening,
   type OpeningKind,
   type OpeningSize,
-  type Pt,
-  type Wall,
   type WallHit,
 } from '@el-karta/core';
 
@@ -21,13 +17,6 @@ type OpeningsOf = Pick<FloorData, 'walls' | 'openings'>;
 type Span = Pick<Opening, 'offset' | 'width'>;
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-
-/** Metres from the wall's end `a` to the projection of `p` onto its centre line, unclamped. */
-export function offsetAlong(wall: Wall, p: Pt): number {
-  const dir = normalize(sub(wall.b, wall.a));
-  const rel = sub(p, wall.a);
-  return rel.x * dir.x + rel.y * dir.y;
-}
 
 /** The other openings in a wall, leaving out `exceptId`. */
 export const openingsOnWall = (floor: OpeningsOf, wallId: Id, exceptId?: Id): Opening[] =>

@@ -50,6 +50,7 @@ export const Device = z.object({
   domain: z.string().min(1),
   type: z.string().min(1),
   label: z.string(),
+  /** The room it serves: a wall device the room its face looks into (`roomFacingWall`), others the room they stand in. */
   roomId: Id.optional(),
   zoneId: Id.optional(),
   placement: Placement,

@@ -1,14 +1,7 @@
 import type { Pt } from '@el-karta/core';
+import { NORM, type NormBox, type NormPoint } from '../image.ts';
 import type { Tile } from '../pass.ts';
-import type {
-  DetectedScaleBar,
-  FloorplanOutput,
-  NormBox,
-  NormPoint,
-  PageEvidence,
-} from './schema.ts';
-
-export const NORM = 1000;
+import type { DetectedScaleBar, FloorplanOutput, PageEvidence } from './schema.ts';
 
 /** A normalised point on the image of `frame` → pixels of the full image. */
 export const toPixels = (frame: Tile, p: NormPoint): Pt => ({
@@ -90,11 +83,6 @@ export const outputToNorm = (output: FloorplanOutput, frame: Tile): FloorplanOut
     (p) => toNorm(frame, p),
     (t) => (t / frame.width) * NORM,
   );
-
-export const clampNorm = (p: NormPoint): NormPoint => ({
-  x: Math.min(NORM, Math.max(0, p.x)),
-  y: Math.min(NORM, Math.max(0, p.y)),
-});
 
 /** The smallest rectangle around all tiles: the frame a merged output is normalised to. */
 export function tilesBounds(tiles: readonly Tile[]): Tile {

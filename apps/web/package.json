@@ -15,6 +15,7 @@
     "@el-karta/data-supabase": "workspace:*",
     "@el-karta/evals": "workspace:*",
     "@el-karta/plugin-furnishing": "workspace:*",
+    "@el-karta/plugin-power": "workspace:*",
     "@fontsource-variable/geist": "^5.3.0",
     "@hookform/resolvers": "^7.0.7",
     "@react-three/drei": "^10.7.9",

@@ -7,9 +7,8 @@ import { useEditorStore } from '@/features/floorplan/editor-store';
 import type { CanvasContext } from '@/features/floorplan/canvas/extension';
 import { handle, nodeProps, selectable } from '@/features/floorplan/canvas/hit';
 import { canvasColors } from '@/features/floorplan/canvas/theme';
-import { deviceAppearance } from '@/features/devices/appearance';
 import { useDraggedDevice } from '@/features/devices/device-drag';
-import { Footprint } from '@/features/devices/device-shapes';
+import { DevicePreviewGhost } from '@/features/devices/dragged-device';
 import { footprintCorners, sizedFootprint } from '@/features/devices/placement';
 import { useFurnishingStore } from './furnishing-store';
 import { furnitureMove, furnitureRotate } from './furniture-handles';
@@ -23,13 +22,8 @@ const HIT_FILL = '#000000';
 
 /** Where the furniture tool would place an item, under a hovering mouse or pen. */
 export function FurniturePreview({ ctx }: { ctx: CanvasContext }) {
-  const preview = useFurnishingStore((s) =>
-    s.preview?.floorId === ctx.floorId ? s.preview.device : null,
-  );
-  const footprint = preview && sizedFootprint(preview);
-  const corners = useMemo(() => footprint && footprintCorners(footprint), [footprint]);
-  if (!preview || !corners) return null;
-  return <Footprint corners={corners} color={deviceAppearance(preview).color} selected={false} />;
+  const preview = useFurnishingStore((s) => s.preview);
+  return <DevicePreviewGhost ctx={ctx} preview={preview} />;
 }
 
 /**

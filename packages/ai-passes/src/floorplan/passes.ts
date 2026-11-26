@@ -1,5 +1,5 @@
 import type { AiPass, Tile } from '../pass.ts';
-import { NORM } from './frame.ts';
+import { NORM } from '../image.ts';
 import { interpretFloorplan, type FloorplanSuggestOptions } from './interpret.ts';
 import { mergeFloorplanTiles } from './merge.ts';
 import {

@@ -15,6 +15,13 @@ export default defineConfig({
       { test: { name: 'ai-passes', root: 'packages/ai-passes', include: ['test/**/*.test.ts'] } },
       {
         test: {
+          name: 'plugin-power',
+          root: 'packages/plugin-power',
+          include: ['test/**/*.test.ts'],
+        },
+      },
+      {
+        test: {
           name: 'plugin-furnishing',
           root: 'packages/plugin-furnishing',
           include: ['test/**/*.test.ts'],

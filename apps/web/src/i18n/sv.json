@@ -86,7 +86,8 @@
     "zoomToFit": "Visa hela planen",
     "issues": "Att kontrollera",
     "dev": {
-      "exportFacit": "Exportera facit"
+      "exportFacit": "Exportera facit",
+      "exportFloor": "Exportera våning"
     }
   },
   "snapping": {
@@ -312,6 +313,20 @@
     "device": {
       "room-missing": "Rummet som enheten hör till finns inte.",
       "zone-missing": "Zonen som enheten hör till finns inte."
+    },
+    "photo": {
+      "position-rough": "Placeringen är uppskattad från fotot. Flytta enheten till rätt plats.",
+      "unknown-wall": "AI:n angav en vägg som inte finns i rummet.",
+      "unknown-opening": "AI:n angav en dörr eller ett fönster som inte finns i rummet.",
+      "unknown-device": "AI:n angav en befintlig enhet som inte finns i rummet.",
+      "unknown-device-type": "AI:n angav en enhetstyp som inte kan hittas på foton.",
+      "wall-type-on-ceiling": "AI:n placerade en väggenhet i taket.",
+      "point-outside": "AI:n angav en punkt utanför fotot.",
+      "box-outside": "AI:n angav en enhet utanför fotot.",
+      "box-inverted": "AI:n angav ett ogiltigt område för en enhet.",
+      "count-not-countable": "AI:n angav ett antal för en enhet som inte räknas.",
+      "count-invalid": "AI:n angav ett ogiltigt antal.",
+      "unknown-prop": "AI:n angav en egenskap som inte går att se på foton."
     }
   },
   "background": {
@@ -444,7 +459,9 @@
       "zone": "Zoner",
       "scale": "Skala",
       "floor-height": "Våningshöjd",
-      "other": "Övriga"
+      "other": "Övriga",
+      "device": "Enheter",
+      "room-ceiling-height": "Takhöjder"
     },
     "describe": {
       "wall": "Vägg {{length}} m",
@@ -452,7 +469,19 @@
       "room": "{{name}} ({{type}})",
       "scale": "Skala: 1 bildpunkt = {{mm}} mm ({{source}})",
       "floor-height": "Våningshöjd {{height}} m",
-      "other": "Förslag av typen {{kind}}"
+      "other": "Förslag av typen {{kind}}",
+      "deviceCount": "{{type}}, {{count}} st",
+      "correction": "{{item}}: {{changes}}",
+      "change": "{{from}} → {{to}} m",
+      "dimension": {
+        "width": "bredd",
+        "height": "höjd",
+        "sill": "bröstningshöjd"
+      },
+      "dimensionChange": "{{what}} {{change}}",
+      "unchanged": "inga ändrade mått",
+      "ceilingHeight": "Takhöjd i {{room}}",
+      "value": "{{item}}: {{value}} m"
     },
     "errors": {
       "requirementRejected": "Förslaget bygger på ett förslag som redan har avvisats och kan inte godkännas.",
@@ -481,7 +510,8 @@
         "breaker": "Säkring",
         "outlet": "Vägguttag",
         "switch": "Strömbrytare",
-        "ceiling_light": "Taklampa"
+        "ceiling_light": "Taklampa",
+        "wall_light": "Vägglampa"
       },
       "furnishing": {
         "desk": "Skrivbord",
@@ -528,5 +558,84 @@
     "depth": "Djup",
     "height": "Höjd",
     "rotation": "Vridning"
+  },
+  "power": {
+    "name": "El",
+    "tool": "Elenhet",
+    "new": "Ny elenhet",
+    "hint": "Välj typ och klicka vid en vägg för uttag, strömbrytare och vägglampor, eller i ett rum för taklampor. Dra en markerad enhet för att flytta den.",
+    "touchHint": "Välj typ och tryck vid en vägg för uttag, strömbrytare och vägglampor, eller i ett rum för taklampor. Dra en markerad enhet för att flytta den.",
+    "notOnWall": "Tryck närmare en vägg för att sätta enheten där.",
+    "notInRoom": "Tryck inne i ett rum för att sätta taklampan där.",
+    "device": "Elenhet",
+    "selectedCount_one": "{{count}} elenhet markerad",
+    "selectedCount_other": "{{count}} elenheter markerade",
+    "type": "Typ",
+    "label": "Namn",
+    "count": "Antal uttag",
+    "earthed": "Jordat",
+    "outdoor": "Utomhus",
+    "variant": "Utförande",
+    "variants": {
+      "single": "Enkel",
+      "double": "Dubbel",
+      "dimmer": "Dimmer"
+    },
+    "unknown": "Okänt",
+    "yes": "Ja",
+    "no": "Nej",
+    "height": "Höjd över golv",
+    "offset": "Avstånd längs väggen"
+  },
+  "photos": {
+    "name": "Foton",
+    "take": "Ta foto",
+    "pick": "Välj bild",
+    "pickTarget": "Tryck på ett rum eller en vägg som fotot visar.",
+    "tool": "Foton",
+    "noRoom": "Väggen ligger inte mot något rum. Rita rummet först, så att fotot hör till ett rum.",
+    "takenIn": "Fotot är taget i",
+    "ofWall": "Vald vägg i {{room}}",
+    "ofRoom": "Hela rummet {{room}}",
+    "selectedWall": "Vald vägg",
+    "wall": "Vägg, {{length}} m",
+    "missingWall": "Borttagen vägg",
+    "general": "Rummet i allmänhet",
+    "none": "Inga foton än.",
+    "compressing": "Förbereder bilden …",
+    "uploading": "Laddar upp fotot …",
+    "failed": {
+      "image": "Filen kunde inte läsas som en bild.",
+      "upload": "Fotot kunde inte laddas upp. Försök igen."
+    },
+    "open": "Visa foto {{n}}",
+    "viewer": "Foto",
+    "imageFailed": "Bilden kunde inte visas.",
+    "close": "Stäng",
+    "delete": "Ta bort foto",
+    "confirmDelete": "Ta bort fotot för gott? Enheter som hänvisar till det tappar hänvisningen.",
+    "deleteFailed": "Fotot kunde inte tas bort. Försök igen.",
+    "analysis": {
+      "preparing": "Förbereder analysen av fotot …",
+      "reading": "AI:n läser fotot …",
+      "saving": "Sparar förslagen …",
+      "done_one": "{{count}} nytt förslag från fotot.",
+      "done_other": "{{count}} nya förslag från fotot.",
+      "nothing": "Inget nytt hittades på fotot.",
+      "review": "Visa förslagen",
+      "retry": "Försök igen",
+      "rerun": "Analysera igen",
+      "errors": {
+        "rate_limited": "Du har gjort många AI-analyser den senaste timmen. Vänta en stund och försök igen.",
+        "provider_busy": "AI-tjänsten är upptagen just nu. Försök igen om en stund.",
+        "too_large": "Fotot är för stort att skicka till AI:n.",
+        "forbidden": "Du behöver kunna redigera projektet för att analysera foton.",
+        "network": "Ingen kontakt med servern. Kontrollera anslutningen och försök igen.",
+        "internal": "Något gick fel vid analysen. Försök igen.",
+        "no_output": "AI:n gav inget användbart svar. Försök igen.",
+        "no_room": "Rummet fotot hör till finns inte längre, eller har inga väggar.",
+        "image": "Fotot kunde inte hämtas. Försök igen."
+      }
+    }
   }
 }
